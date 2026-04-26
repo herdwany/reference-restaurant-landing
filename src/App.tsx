@@ -1,4 +1,9 @@
 import { CSSProperties, useState } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AdminLayout from "./admin/AdminLayout";
+import AdminLogin from "./admin/AdminLogin";
+import AdminOverview from "./admin/AdminOverview";
+import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
 import BookingForm from "./components/BookingForm";
@@ -16,6 +21,7 @@ import SectionTitle from "./components/SectionTitle";
 import Testimonials from "./components/Testimonials";
 import Toast from "./components/Toast";
 import TrustBadges from "./components/TrustBadges";
+import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
@@ -26,7 +32,23 @@ const scrollToSection = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
-export default function App() {
+function AdminProtectedRoutes() {
+  return (
+    <AuthProvider>
+      <ProtectedAdminRoute />
+    </AuthProvider>
+  );
+}
+
+function AdminLoginRoute() {
+  return (
+    <AuthProvider>
+      <AdminLogin />
+    </AuthProvider>
+  );
+}
+
+function LandingPage() {
   const config = restaurantConfig;
   const sections = config.settings.sections;
   const cart = useCart();
@@ -213,5 +235,23 @@ export default function App() {
 
       <Toast toasts={toasts} onDismiss={dismissToast} />
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/admin/login" element={<AdminLoginRoute />} />
+        <Route path="/admin" element={<AdminProtectedRoutes />}>
+          <Route element={<AdminLayout />}>
+            <Route index element={<AdminOverview />} />
+            <Route path="*" element={<AdminOverview />} />
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }

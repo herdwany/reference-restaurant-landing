@@ -114,6 +114,32 @@ settings: {
 
 ## Appwrite
 
+### Phase 2 completed
+
+- `/admin/login` لتسجيل الدخول عبر Appwrite Auth.
+- قراءة session الحالية من Appwrite Account.
+- حماية `/admin` قبل عرض لوحة التحكم.
+- Admin layout أولي فقط مع Sidebar وTopbar وOverview.
+- لا يوجد CRUD في هذه المرحلة، ولا إدارة أطباق أو عروض أو طلبات أو حجوزات.
+
+### تجربة تسجيل الدخول
+
+1. أضف متغيرات البيئة العامة فقط في `.env.local`:
+
+```env
+VITE_APPWRITE_ENDPOINT="https://cloud.appwrite.io/v1"
+VITE_APPWRITE_PROJECT_ID="your-project-id"
+```
+
+2. من Appwrite Console افتح المشروع ثم Auth > Users.
+3. أنشئ مستخدمًا يدويًا ببريد وكلمة مرور.
+4. شغّل المشروع ثم افتح `/admin/login`.
+5. سجّل الدخول بنفس البريد وكلمة المرور.
+
+إذا لم تكن متغيرات Appwrite موجودة، ستبقى الصفحة الرئيسية تعمل من `src/data/restaurantConfig.ts`، وستعرض لوحة التحكم رسالة إعداد بدل الانهيار.
+
+لم يتم بناء public signup أو forgot password أو social login أو Appwrite Functions أو viaSocket أو أي لوحة وكالة في هذه المرحلة.
+
 تم تجهيز مرحلة Appwrite الأولى كطبقة اختيارية لا تغيّر عمل الموقع الحالي. بدون `.env.local` سيبقى الموقع يعمل من `src/data/restaurantConfig.ts`.
 
 راجع:
