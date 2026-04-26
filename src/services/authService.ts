@@ -4,7 +4,7 @@ import { account, isAppwriteConfigured } from "../lib/appwriteClient";
 export type AuthUser = Models.User<Models.Preferences>;
 
 export const APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE = "لم يتم إعداد Appwrite بعد. أضف متغيرات البيئة أولًا.";
-export const ADMIN_APPWRITE_REQUIRED_MESSAGE = "لوحة التحكم تحتاج إعداد Appwrite أولًا";
+export const ADMIN_APPWRITE_REQUIRED_MESSAGE = "لوحة التحكم تحتاج إعداد Appwrite أولًا.";
 
 type AuthServiceErrorCode =
   | "APPWRITE_NOT_CONFIGURED"

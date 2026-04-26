@@ -1,7 +1,7 @@
 import { Query, type Models } from "appwrite";
 import { COLLECTIONS } from "../../lib/appwriteIds";
 import type { BusinessType, Restaurant, RestaurantStatus } from "../../types/platform";
-import { getFirstRow } from "./readRows";
+import { getFirstRow, getRowById } from "./readRows";
 
 interface RestaurantRow extends Models.Row {
   name: string;
@@ -67,5 +67,10 @@ export async function getRestaurantBySlug(slug: string): Promise<Restaurant | nu
     Query.limit(1),
   ]);
 
+  return row ? mapRestaurant(row) : null;
+}
+
+export async function getRestaurantById(restaurantId: string): Promise<Restaurant | null> {
+  const row = await getRowById<RestaurantRow>(COLLECTIONS.restaurants, restaurantId);
   return row ? mapRestaurant(row) : null;
 }

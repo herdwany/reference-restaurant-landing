@@ -114,6 +114,16 @@ settings: {
 
 ## Appwrite
 
+### Schema setup script
+
+تمت إضافة سكريبت محلي لإنشاء Appwrite Schema تلقائياً:
+
+```bash
+npm run setup:appwrite
+```
+
+استخدم `.env.setup` لهذا السكريبت فقط، ولا تضع `APPWRITE_API_KEY` في `.env.local` أو داخل React. راجع `docs/appwrite/SETUP.md` للتفاصيل.
+
 ### Phase 2 completed
 
 - `/admin/login` لتسجيل الدخول عبر Appwrite Auth.
@@ -122,6 +132,32 @@ settings: {
 - Admin layout أولي فقط مع Sidebar وTopbar وOverview.
 - لا يوجد CRUD في هذه المرحلة، ولا إدارة أطباق أو عروض أو طلبات أو حجوزات.
 
+### Phase 2.5 completed
+
+- تحميل `profile` للمستخدم المسجل من جدول `profiles`.
+- تحديد الدور: `agency_admin` أو `owner` أو `staff`.
+- تحميل بيانات المطعم الأساسية عند وجود `restaurantId`.
+- حماية `/admin` حسب حالة profile والدور ونطاق المطعم.
+- كل مستخدم admin يجب أن يكون لديه profile يدويًا في هذه المرحلة.
+- `owner` و`staff` يحتاجان `restaurantId`.
+- `agency_admin` مدعوم مبدئيًا بدون `restaurantId`، لكن لم يتم بناء `/agency` بعد.
+- لا يوجد CRUD حتى الآن.
+
+مثال row في جدول `profiles`:
+
+```json
+{
+  "userId": "APPWRITE_USER_ID",
+  "restaurantId": "RESTAURANT_ID",
+  "teamId": "TEAM_ID_OPTIONAL",
+  "role": "owner",
+  "fullName": "اسم صاحب المطعم",
+  "email": "owner@example.com",
+  "phone": "0600000000",
+  "isActive": true
+}
+```
+
 ### تجربة تسجيل الدخول
 
 1. أضف متغيرات البيئة العامة فقط في `.env.local`:
@@ -129,12 +165,17 @@ settings: {
 ```env
 VITE_APPWRITE_ENDPOINT="https://cloud.appwrite.io/v1"
 VITE_APPWRITE_PROJECT_ID="your-project-id"
+VITE_APPWRITE_DATABASE_ID="your-database-id"
+VITE_APPWRITE_BUCKET_ID="your-bucket-id"
+VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 ```
 
 2. من Appwrite Console افتح المشروع ثم Auth > Users.
 3. أنشئ مستخدمًا يدويًا ببريد وكلمة مرور.
-4. شغّل المشروع ثم افتح `/admin/login`.
-5. سجّل الدخول بنفس البريد وكلمة المرور.
+4. انسخ User ID وأنشئ row يدويًا في جدول `profiles` بنفس `userId`.
+5. للمالك أو الموظف، اربط profile بـ `restaurantId` موجود في جدول `restaurants`.
+6. شغّل المشروع ثم افتح `/admin/login`.
+7. سجّل الدخول بنفس البريد وكلمة المرور.
 
 إذا لم تكن متغيرات Appwrite موجودة، ستبقى الصفحة الرئيسية تعمل من `src/data/restaurantConfig.ts`، وستعرض لوحة التحكم رسالة إعداد بدل الانهيار.
 

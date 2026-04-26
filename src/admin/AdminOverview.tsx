@@ -1,5 +1,6 @@
 import { CalendarCheck, Eye, ShoppingBag, Tag, Utensils } from "lucide-react";
 import { Link } from "react-router-dom";
+import { getRoleLabel } from "./adminLabels";
 import { useAuth } from "../context/AuthContext";
 
 const overviewCards = [
@@ -10,8 +11,11 @@ const overviewCards = [
 ];
 
 export default function AdminOverview() {
-  const { currentUser } = useAuth();
-  const displayName = currentUser?.name || currentUser?.email || "مستخدم اللوحة";
+  const { currentUser, profile, restaurant, restaurantId, role } = useAuth();
+  const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
+  const displayEmail = profile?.email || currentUser?.email || "غير متوفر";
+  const roleLabel = getRoleLabel(role);
+  const restaurantName = restaurant?.nameAr || restaurant?.name || (restaurantId ? "غير متاح" : "غير مرتبط");
 
   return (
     <section className="admin-overview">
@@ -19,12 +23,37 @@ export default function AdminOverview() {
         <div>
           <span>مرحبًا بك</span>
           <h2>{displayName}</h2>
-          <p>تم تفعيل هيكل لوحة التحكم والدخول عبر Appwrite Auth. إدارة المحتوى ستأتي في المرحلة القادمة.</p>
+          <p>تم تحميل هوية الحساب ونطاق المطعم من Appwrite. إدارة المحتوى ستأتي في المرحلة القادمة.</p>
         </div>
         <Link className="admin-primary-link" to="/">
           <Eye size={19} aria-hidden="true" />
           <span>معاينة الموقع</span>
         </Link>
+      </div>
+
+      <div className="admin-identity-card" aria-label="بيانات الحساب">
+        <div>
+          <span>اسم الحساب</span>
+          <strong>{displayName}</strong>
+        </div>
+        <div>
+          <span>البريد</span>
+          <strong>{displayEmail}</strong>
+        </div>
+        <div>
+          <span>الدور</span>
+          <strong>{roleLabel}</strong>
+        </div>
+        <div>
+          <span>المطعم</span>
+          <strong>{restaurantName}</strong>
+        </div>
+        {restaurantId ? (
+          <div className="admin-identity-card__debug">
+            <span>Restaurant ID</span>
+            <code>{restaurantId}</code>
+          </div>
+        ) : null}
       </div>
 
       <div className="admin-overview__grid">

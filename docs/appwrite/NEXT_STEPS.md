@@ -5,10 +5,38 @@
 - بناء `/admin` login.
 - قراءة session من Appwrite Auth.
 - لوحة عميل بسيطة.
-- إدارة الأطباق والعروض فقط.
+- Admin layout shell فقط.
+- لا يوجد CRUD في هذه المرحلة.
+
+## Phase 2.5
+
+- تحميل profile من جدول `profiles` بعد تسجيل الدخول.
+- تحديد الدور: `agency_admin` أو `owner` أو `staff`.
+- ربط `owner` و`staff` بـ `restaurantId`.
+- تحميل بيانات المطعم الأساسية عند وجود `restaurantId`.
+- منع الدخول إذا لم يوجد profile أو كان `isActive=false`.
+- `agency_admin` مدعوم مبدئيًا بدون بناء `/agency` الآن.
+- الحسابات و profiles تنشأ يدويًا حاليًا من Appwrite Console.
+
+مثال profile:
+
+```json
+{
+  "userId": "APPWRITE_USER_ID",
+  "restaurantId": "RESTAURANT_ID",
+  "teamId": "TEAM_ID_OPTIONAL",
+  "role": "owner",
+  "fullName": "اسم صاحب المطعم",
+  "email": "owner@example.com",
+  "phone": "0600000000",
+  "isActive": true
+}
+```
 
 ## Phase 3
 
+- بداية CRUD بعد تثبيت الصلاحيات.
+- إدارة الأطباق والعروض.
 - إدارة FAQ.
 - إدارة معلومات التواصل.
 - إدارة المعرض.

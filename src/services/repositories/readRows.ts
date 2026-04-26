@@ -30,3 +30,22 @@ export async function getFirstRow<Row extends Models.Row>(
   const rows = await listRows<Row>(tableId, queries);
   return rows[0] ?? null;
 }
+
+export async function getRowById<Row extends Models.Row>(
+  tableId: string,
+  rowId: string,
+): Promise<Row | null> {
+  if (!hasAppwriteDataConfig || !rowId.trim()) {
+    return null;
+  }
+
+  try {
+    return await databases.getRow<Row>({
+      databaseId: DATABASE_ID,
+      tableId,
+      rowId,
+    });
+  } catch {
+    return null;
+  }
+}

@@ -1,14 +1,16 @@
 import { Eye, Menu } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { getRoleLabel } from "../adminLabels";
 
 type AdminTopbarProps = {
   onMenuClick: () => void;
 };
 
 export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
-  const { currentUser } = useAuth();
-  const displayName = currentUser?.name || currentUser?.email || "مستخدم اللوحة";
+  const { currentUser, profile, role } = useAuth();
+  const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
+  const roleLabel = getRoleLabel(role);
 
   return (
     <header className="admin-topbar">
@@ -31,6 +33,7 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
           <span>{displayName.slice(0, 1).toUpperCase()}</span>
           <strong>{displayName}</strong>
         </div>
+        <span className="admin-role-badge">{roleLabel}</span>
       </div>
     </header>
   );
