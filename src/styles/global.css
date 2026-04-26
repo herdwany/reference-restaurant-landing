@@ -3909,6 +3909,18 @@ a {
   white-space: nowrap;
 }
 
+.admin-offer-card--orange .admin-dish-card__image > span {
+  background: #f97316;
+}
+
+.admin-offer-card--red .admin-dish-card__image > span {
+  background: #e51b2b;
+}
+
+.admin-offer-card--gold .admin-dish-card__image > span {
+  background: #d97706;
+}
+
 .admin-dish-form {
   display: grid;
   gap: 16px;
@@ -3929,6 +3941,7 @@ a {
 }
 
 .admin-form-grid input,
+.admin-form-grid select,
 .admin-form-grid textarea {
   width: 100%;
   min-height: 48px;
@@ -3939,6 +3952,10 @@ a {
   padding: 0 13px;
 }
 
+.admin-form-grid select {
+  appearance: none;
+}
+
 .admin-form-grid textarea {
   resize: vertical;
   padding-block: 12px;
@@ -3946,12 +3963,14 @@ a {
 }
 
 .admin-form-grid input:focus,
+.admin-form-grid select:focus,
 .admin-form-grid textarea:focus {
   border-color: rgba(249, 115, 22, 0.76);
   box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.09);
 }
 
-.admin-form-grid input[aria-invalid="true"] {
+.admin-form-grid input[aria-invalid="true"],
+.admin-form-grid select[aria-invalid="true"] {
   border-color: var(--admin-primary);
 }
 

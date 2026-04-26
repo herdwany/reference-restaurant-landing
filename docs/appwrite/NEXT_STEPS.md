@@ -56,9 +56,19 @@
 - No orders/reservations yet.
 - No image upload yet.
 
-## Phase 4
+## Phase 4 - Completed
 
-- Offers Manager.
+- `/admin/offers` لإدارة عروض المطعم.
+- Offers scoped by `restaurantId`.
+- Add/Edit/Activate/Deactivate/Delete offer.
+- `imageUrl` فقط حاليًا، بدون image upload.
+- لا يوجد public offers binding بعد.
+- لا يوجد Orders/Reservations بعد.
+- لا يوجد Agency Dashboard بعد.
+
+## Phase 4.5
+
+- Public site reads offers from Appwrite with fallback إلى `restaurantConfig.ts`.
 
 ## Phase 5
 

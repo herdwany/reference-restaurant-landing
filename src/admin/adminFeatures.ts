@@ -42,7 +42,7 @@ export const adminFeatures = [
     icon: "utensils",
     status: "active",
     requiredRoles: restaurantRoles,
-    description: "إدارة الأطباق التي تظهر لاحقًا في موقع المطعم.",
+    description: "إدارة الأطباق التي تظهر في موقع المطعم.",
     placement: "main",
   },
   {
@@ -50,7 +50,7 @@ export const adminFeatures = [
     label: "العروض",
     path: "/admin/offers",
     icon: "tag",
-    status: "coming_soon",
+    status: "active",
     requiredRoles: restaurantRoles,
     description: "إدارة العروض الموسمية والخصومات.",
     placement: "main",
@@ -99,7 +99,7 @@ export const adminFeatures = [
 
 // TODO: Future agency flow:
 // agency_admin opens /agency, selects a restaurant, then selectedRestaurantId becomes
-// the active admin scope for /admin/dishes and the other CMS modules.
+// the active admin scope for /admin/dishes, /admin/offers, and the other CMS modules.
 export const adminMainFeatures = adminFeatures.filter((feature) => feature.placement === "main");
 export const adminFooterFeatures = adminFeatures.filter((feature) => feature.placement === "footer");
 

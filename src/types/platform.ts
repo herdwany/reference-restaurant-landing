@@ -92,7 +92,7 @@ export interface Offer extends BaseModel {
   isActive: boolean;
   startsAt?: string;
   endsAt?: string;
-  sortOrder: number;
+  sortOrder?: number;
 }
 
 export interface GalleryItem extends BaseModel {

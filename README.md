@@ -232,9 +232,18 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - لم يتم ربط العروض أو الطلبات أو الحجوزات بعد.
 - لا يوجد image upload بعد، ويتم استخدام `imageUrl` فقط عند توفره.
 
+## Phase 4 - Offers Manager
+
+- تم إضافة `/admin/offers` لإدارة عروض المطعم داخل لوحة التحكم.
+- كل عمليات العروض scoped عبر `restaurantId` القادم من `useActiveRestaurantScope`.
+- يمكن إضافة عرض، تعديل عرض، تفعيل/إيقاف عرض، وحذف عرض مع confirm.
+- `imageUrl` فقط حاليًا، ولا يوجد image upload بعد.
+- لا يوجد public offers binding بعد؛ قسم العروض في الموقع العام ما زال يقرأ من `restaurantConfig.ts`.
+- لا يوجد Orders/Reservations أو Agency Dashboard بعد.
+
 الخطوات القادمة:
 
-- Phase 4: Offers Manager.
+- Phase 4.5: ربط الموقع العام بقراءة العروض من Appwrite مع fallback.
 - Phase 5: Contact/FAQ/Settings.
 - Phase 6: Orders/Reservations.
 - Phase 7: Image Upload.
