@@ -213,3 +213,25 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - إتمام الطلب يفتح واتساب برسالة منسقة تحتوي المنتجات والكميات والإجمالي.
 - نموذج الحجز يتحقق من الحقول قبل الحفظ أو الإرسال عبر واتساب.
 - كل روابط الهيدر تعمل بسلاسة، ورابط المعرض يفتح قسماً تفاعلياً قابل للتوسعة.
+
+## Phase 3 - Admin CMS Foundation
+
+- تم إضافة مكونات Admin CMS قابلة لإعادة الاستخدام.
+- تم إضافة `/admin/dishes` لإدارة الأطباق والمنيو فقط.
+- كل عمليات الأطباق scoped عبر `restaurantId` القادم من `AuthContext`، وليس من الفورم أو الرابط.
+- يمكن إضافة طبق، تعديل طبق، إخفاء/إظهار طبق عبر `isAvailable`.
+- الحذف النهائي موجود كإجراء ثانوي مع confirm واضح.
+- `imageUrl` فقط حاليًا، ولا يوجد image upload بعد.
+- لم يتم بناء Offers Manager أو Orders Manager أو Reservations Manager أو Settings Manager أو Agency Dashboard في هذه المرحلة.
+
+الخطوات القادمة:
+
+- Phase 3.5: ربط الموقع العام بقراءة الأطباق من Appwrite مع fallback.
+- Phase 4: Offers Manager.
+- Phase 5: Contact/FAQ/Settings.
+- Phase 6: Orders/Reservations.
+- Phase 7: Image Upload.
+- Phase 8: viaSocket Automations.
+- Phase 9: Agency Dashboard.
+
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا فرض الصلاحيات عبر Appwrite Teams/Permissions أو Appwrite Functions، ولا يجب فتح public write أو وضع API keys داخل React.

@@ -95,9 +95,9 @@ const mapDishes = (dishes: AppwriteDish[], base: RestaurantConfig): ConfigDish[]
       image: dish.imageUrl || fallback.image,
       badge: dish.badge,
       category: dish.category,
-      rating: dish.rating,
+      rating: dish.rating ?? fallback.rating,
       isPopular: dish.isPopular,
-      ingredients: dish.ingredients,
+      ingredients: dish.ingredients ?? fallback.ingredients,
     };
   });
 

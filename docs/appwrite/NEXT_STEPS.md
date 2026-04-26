@@ -1,100 +1,93 @@
 # Next Steps
 
-## Phase 2
+## Phase 2 - Completed
 
-- بناء `/admin` login.
-- قراءة session من Appwrite Auth.
-- لوحة عميل بسيطة.
-- Admin layout shell فقط.
-- لا يوجد CRUD في هذه المرحلة.
+- `/admin/login` لتسجيل الدخول عبر Appwrite Auth.
+- قراءة session الحالية من Appwrite Account.
+- Admin layout أولي مع Sidebar وTopbar وOverview.
+- حماية `/admin` قبل عرض لوحة التحكم.
 
-## Phase 2.5
+## Phase 2.5 - Completed
 
-- تحميل profile من جدول `profiles` بعد تسجيل الدخول.
+- تحميل `profile` من جدول `profiles` بعد تسجيل الدخول.
 - تحديد الدور: `agency_admin` أو `owner` أو `staff`.
-- ربط `owner` و`staff` بـ `restaurantId`.
-- تحميل بيانات المطعم الأساسية عند وجود `restaurantId`.
-- منع الدخول إذا لم يوجد profile أو كان `isActive=false`.
-- `agency_admin` مدعوم مبدئيًا بدون بناء `/agency` الآن.
-- الحسابات و profiles تنشأ يدويًا حاليًا من Appwrite Console.
+- تحميل `restaurantId` وبيانات المطعم للمالك والموظف.
+- منع دخول الحسابات غير المرتبطة أو غير المفعلة.
+- دعم مبدئي لـ`agency_admin` بدون بناء `/agency` بعد.
 
-مثال profile:
+## Phase 2.6 - Completed
 
-```json
-{
-  "userId": "APPWRITE_USER_ID",
-  "restaurantId": "RESTAURANT_ID",
-  "teamId": "TEAM_ID_OPTIONAL",
-  "role": "owner",
-  "fullName": "اسم صاحب المطعم",
-  "email": "owner@example.com",
-  "phone": "0600000000",
-  "isActive": true
-}
-```
+- `scripts/setupAppwrite.mjs` ينشئ قاعدة البيانات والجداول والأعمدة والفهارس.
+- إنشاء demo restaurant.
+- اختبار تسجيل دخول Appwrite الحقيقي.
+- Admin Overview يعرض اسم المطعم من Appwrite.
 
-## Phase 3
+## Phase 3 - Current
 
-- بداية CRUD بعد تثبيت الصلاحيات.
-- إدارة الأطباق والعروض.
-- إدارة FAQ.
-- إدارة معلومات التواصل.
-- إدارة المعرض.
-- إدارة التقييمات.
+- Admin CMS reusable components:
+  - `AdminPageHeader`
+  - `AdminCard`
+  - `AdminEmptyState`
+  - `AdminLoadingState`
+  - `AdminErrorState`
+  - `AdminStatusBadge`
+  - `AdminConfirmDialog`
+  - `AdminFormModal`
+  - `AdminActionButton`
+- `/admin/dishes` لإدارة الأطباق والمنيو فقط.
+- الأطباق scoped دائمًا عبر `restaurantId` القادم من `AuthContext` و`useActiveRestaurantScope`.
+- إضافة وتعديل طبق.
+- إخفاء وإظهار طبق عبر `isAvailable`.
+- حذف نهائي متاح كإجراء ثانوي مع confirm واضح.
+- `imageUrl` فقط حاليًا، بدون image upload.
+- لا يوجد Offers Manager بعد.
+- لا يوجد Orders Manager بعد.
+- لا يوجد Reservations Manager بعد.
+- لا يوجد Settings Manager بعد.
+- لا يوجد Agency Dashboard بعد.
+
+## Phase 3.5
+
+- Public site reads dishes from Appwrite with fallback إلى `restaurantConfig.ts`.
+- يجب أن تبقى كل queries مرتبطة بـ`restaurantId`.
+- إذا فشل Appwrite، يرجع الموقع العام إلى بيانات القالب.
 
 ## Phase 4
 
-- نقل الطلبات والحجوزات إلى Appwrite.
-- إدارة `order status`.
-- إدارة `reservation status`.
+- Offers Manager.
 
 ## Phase 5
 
-- بناء `/agency dashboard`.
-- إنشاء مطعم جديد.
-- ربط Team لكل مطعم.
-- إدارة العملاء.
+- Contact/FAQ/Settings Managers.
 
 ## Phase 6
 
-- Appwrite Functions:
-  - `createTenant`
-  - `createOrder`
-  - `createReservation`
-  - `uploadAsset`
-  - `auditLog`
+- Orders/Reservations Managers.
+- إدارة حالات الطلبات والحجوزات.
 
-## Functions Plan
+## Phase 7
 
-### createTenant
+- Image Upload عبر Appwrite Storage.
+- ضبط permissions للملفات حسب المطعم.
 
-- ينشئ `restaurant`.
-- ينشئ Team.
-- يربط owner.
-- يضبط permissions.
+## Phase 8
 
-### createOrder
+- viaSocket Automations.
+- إرسال أحداث محدودة مثل order created أو reservation created بدون secrets.
 
-- يتحقق من input.
-- لا يثق بـ `restaurantId` من المستخدم.
-- يحفظ `order` و`order_items`.
-- يكتب audit log.
-- يرسل event إلى viaSocket لاحقاً.
+## Phase 9
 
-### createReservation
+- Agency Dashboard.
+- إنشاء مطاعم جديدة.
+- اختيار مطعم كـ`selectedRestaurantId`.
+- ربط Teams والصلاحيات والاشتراكات.
 
-- يتحقق من input.
-- يحفظ reservation.
-- يرسل event إلى viaSocket لاحقاً.
+## Security Notes
 
-### sendAutomationEvent
-
-- يرسل payload محدود إلى viaSocket.
-- لا يرسل secrets.
-- لا يرسل بيانات زائدة.
-
-### backupRestaurant
-
-- يصدر بيانات مطعم معين JSON.
-
-لا يتم تنفيذ Functions في هذه المرحلة.
+- واجهة React لا تكفي وحدها لحماية multi-tenant.
+- يجب لاحقًا فرض الصلاحيات عبر Appwrite Teams/Permissions أو Appwrite Functions.
+- عمليات create/update/delete الحالية مناسبة كمرحلة staging/MVP فقط.
+- لا يجب فتح public write على جدول `dishes`.
+- لا يجب السماح بتعديل `restaurantId` من الفورم أو query string.
+- لا يجب query all dishes بدون `restaurantId`.
+- لا تضع API keys داخل React أو `.env.local`.

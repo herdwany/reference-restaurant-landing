@@ -1,6 +1,7 @@
 import { Eye, Menu } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { getAdminFeatureForPath } from "../adminFeatures";
 import { getRoleLabel } from "../adminLabels";
 
 type AdminTopbarProps = {
@@ -9,6 +10,8 @@ type AdminTopbarProps = {
 
 export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   const { currentUser, profile, role } = useAuth();
+  const location = useLocation();
+  const activeFeature = getAdminFeatureForPath(location.pathname);
   const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
   const roleLabel = getRoleLabel(role);
 
@@ -20,7 +23,7 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         </button>
         <div>
           <span>لوحة التحكم</span>
-          <h1>نظرة عامة</h1>
+          <h1>{activeFeature.label}</h1>
         </div>
       </div>
 

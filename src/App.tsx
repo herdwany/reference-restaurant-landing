@@ -4,6 +4,7 @@ import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
 import AdminOverview from "./admin/AdminOverview";
 import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
+import AdminDishes from "./admin/pages/AdminDishes";
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
 import BookingForm from "./components/BookingForm";
@@ -247,6 +248,7 @@ export default function App() {
         <Route path="/admin" element={<AdminProtectedRoutes />}>
           <Route element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
+            <Route path="dishes" element={<AdminDishes />} />
             <Route path="*" element={<AdminOverview />} />
           </Route>
         </Route>

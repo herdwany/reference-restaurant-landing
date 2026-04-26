@@ -20,7 +20,7 @@ export type ReservationMode = "whatsapp" | "database" | "both";
 
 export interface BaseModel {
   id: string;
-  createdAt: string;
+  createdAt?: string;
   updatedAt?: string;
 }
 
@@ -72,11 +72,11 @@ export interface Dish extends BaseModel {
   imageUrl?: string;
   badge?: string;
   category: string;
-  rating: number;
+  rating?: number;
   isPopular: boolean;
   isAvailable: boolean;
-  ingredients: string[];
-  sortOrder: number;
+  ingredients?: string[];
+  sortOrder?: number;
 }
 
 export interface Offer extends BaseModel {

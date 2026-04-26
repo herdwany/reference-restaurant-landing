@@ -1,14 +1,11 @@
-import { CalendarCheck, Eye, ShoppingBag, Tag, Utensils } from "lucide-react";
+import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
-import { getRoleLabel } from "./adminLabels";
 import { useAuth } from "../context/AuthContext";
+import { adminFeatureIcons } from "./adminFeatureIcons";
+import { adminMainFeatures } from "./adminFeatures";
+import { getRoleLabel } from "./adminLabels";
 
-const overviewCards = [
-  { title: "الأطباق", icon: Utensils },
-  { title: "العروض", icon: Tag },
-  { title: "الطلبات", icon: ShoppingBag },
-  { title: "الحجوزات", icon: CalendarCheck },
-];
+const overviewCards = adminMainFeatures.filter((feature) => feature.id !== "overview");
 
 export default function AdminOverview() {
   const { currentUser, profile, restaurant, restaurantId, role } = useAuth();
@@ -23,7 +20,7 @@ export default function AdminOverview() {
         <div>
           <span>مرحبًا بك</span>
           <h2>{displayName}</h2>
-          <p>تم تحميل هوية الحساب ونطاق المطعم من Appwrite. إدارة المحتوى ستأتي في المرحلة القادمة.</p>
+          <p>تم تحميل هوية الحساب ونطاق المطعم من Appwrite. يمكنك الآن إدارة الأطباق والمنيو من لوحة التحكم.</p>
         </div>
         <Link className="admin-primary-link" to="/">
           <Eye size={19} aria-hidden="true" />
@@ -57,19 +54,32 @@ export default function AdminOverview() {
       </div>
 
       <div className="admin-overview__grid">
-        {overviewCards.map((card) => {
-          const Icon = card.icon;
-
-          return (
-            <article className="admin-placeholder-card" key={card.title}>
+        {overviewCards.map((feature) => {
+          const Icon = adminFeatureIcons[feature.icon];
+          const cardContent = (
+            <>
               <div className="admin-placeholder-card__icon">
                 <Icon size={22} aria-hidden="true" />
               </div>
               <div>
-                <h3>{card.title}</h3>
-                <p>سيتم تفعيلها في المرحلة القادمة</p>
+                <h3>{feature.label}</h3>
+                <p>{feature.description}</p>
               </div>
-              <span>قريبًا</span>
+              <span>{feature.status === "active" ? "متاح" : "قريبًا"}</span>
+            </>
+          );
+
+          if (feature.status === "active") {
+            return (
+              <Link className="admin-placeholder-card admin-placeholder-card--link" to={feature.path} key={feature.id}>
+                {cardContent}
+              </Link>
+            );
+          }
+
+          return (
+            <article className="admin-placeholder-card" key={feature.id}>
+              {cardContent}
             </article>
           );
         })}
