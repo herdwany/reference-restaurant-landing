@@ -229,7 +229,7 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - تم ربط قسم الأطباق في الموقع العام بقراءة الأطباق المتاحة من Appwrite.
 - إذا كان Appwrite غير مفعّل أو فشل الاتصال أو لم توجد أطباق، يرجع الموقع إلى `restaurantConfig.ts`.
 - الأطباق المخفية `isAvailable=false` لا تظهر في الموقع العام.
-- لم يتم ربط العروض أو الطلبات أو الحجوزات بعد.
+- لم يتم ربط الطلبات أو الحجوزات بعد.
 - لا يوجد image upload بعد، ويتم استخدام `imageUrl` فقط عند توفره.
 
 ## Phase 4 - Offers Manager
@@ -238,16 +238,30 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - كل عمليات العروض scoped عبر `restaurantId` القادم من `useActiveRestaurantScope`.
 - يمكن إضافة عرض، تعديل عرض، تفعيل/إيقاف عرض، وحذف عرض مع confirm.
 - `imageUrl` فقط حاليًا، ولا يوجد image upload بعد.
-- لا يوجد public offers binding بعد؛ قسم العروض في الموقع العام ما زال يقرأ من `restaurantConfig.ts`.
 - لا يوجد Orders/Reservations أو Agency Dashboard بعد.
+
+## Phase 4.5 - Public Offers Binding
+
+- تم ربط قسم عروض اليوم في الموقع العام بقراءة العروض النشطة من Appwrite.
+- إذا كان Appwrite غير مفعّل أو فشل الاتصال أو لم توجد عروض، يرجع الموقع إلى `restaurantConfig.ts`.
+- العروض المتوقفة `isActive=false` لا تظهر في الموقع العام.
+- لا يوجد Orders/Reservations أو Image Upload أو Agency Dashboard بعد.
+
+## Phase 5 - Contact, Settings, FAQ
+
+- تم إضافة `/admin/settings` لإدارة بيانات المطعم والتواصل والهوية وإعدادات ظهور الأقسام.
+- تم إضافة `/admin/faqs` لإدارة الأسئلة الشائعة scoped حسب `restaurantId`.
+- الموقع العام يقرأ contact/settings وFAQ الظاهرة من Appwrite مع fallback إلى `restaurantConfig.ts`.
+- `restaurantId` يأتي من `AuthContext` و`useActiveRestaurantScope` فقط، ولا يظهر أو يتغير من الفورم.
+- لا يوجد Orders/Reservations بعد.
+- لا يوجد Image Upload بعد.
+- لا يوجد Agency Dashboard بعد.
 
 الخطوات القادمة:
 
-- Phase 4.5: ربط الموقع العام بقراءة العروض من Appwrite مع fallback.
-- Phase 5: Contact/FAQ/Settings.
-- Phase 6: Orders/Reservations.
+- Phase 6: Orders + Reservations.
 - Phase 7: Image Upload.
 - Phase 8: viaSocket Automations.
 - Phase 9: Agency Dashboard.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا فرض الصلاحيات عبر Appwrite Teams/Permissions أو Appwrite Functions، ولا يجب فتح public write أو وضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا فرض الصلاحيات عبر Appwrite Teams/Permissions أو Appwrite Functions، ولا يجب فتح public write على `site_settings` أو `faqs` أو وضع API keys داخل React.

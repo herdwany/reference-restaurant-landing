@@ -5,7 +5,9 @@ import AdminLogin from "./admin/AdminLogin";
 import AdminOverview from "./admin/AdminOverview";
 import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
 import AdminDishes from "./admin/pages/AdminDishes";
+import AdminFaqs from "./admin/pages/AdminFaqs";
 import AdminOffers from "./admin/pages/AdminOffers";
+import AdminSettings from "./admin/pages/AdminSettings";
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
 import BookingForm from "./components/BookingForm";
@@ -83,6 +85,12 @@ function LandingPage() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = config.settings.language || "ar";
+    document.documentElement.dir = config.settings.direction || "rtl";
+  }, [config.settings.direction, config.settings.language]);
+
   const sectionByTargetId: Record<string, keyof typeof sections> = {
     home: "hero",
     menu: "featuredDishes",
@@ -276,6 +284,8 @@ export default function App() {
             <Route index element={<AdminOverview />} />
             <Route path="dishes" element={<AdminDishes />} />
             <Route path="offers" element={<AdminOffers />} />
+            <Route path="settings" element={<AdminSettings />} />
+            <Route path="faqs" element={<AdminFaqs />} />
             <Route path="*" element={<AdminOverview />} />
           </Route>
         </Route>

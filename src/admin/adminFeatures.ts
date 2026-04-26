@@ -4,6 +4,7 @@ export type AdminFeatureStatus = "active" | "coming_soon";
 
 export type AdminFeatureIconName =
   | "calendarCheck"
+  | "circleHelp"
   | "eye"
   | "layoutDashboard"
   | "settings"
@@ -12,7 +13,7 @@ export type AdminFeatureIconName =
   | "utensils";
 
 export type AdminFeature = {
-  id: "overview" | "dishes" | "offers" | "orders" | "reservations" | "settings" | "preview";
+  id: "overview" | "dishes" | "offers" | "settings" | "faqs" | "orders" | "reservations" | "preview";
   label: string;
   path: string;
   icon: AdminFeatureIconName;
@@ -56,6 +57,26 @@ export const adminFeatures = [
     placement: "main",
   },
   {
+    id: "settings",
+    label: "الإعدادات",
+    path: "/admin/settings",
+    icon: "settings",
+    status: "active",
+    requiredRoles: restaurantRoles,
+    description: "إدارة بيانات التواصل وإعدادات ظهور الموقع.",
+    placement: "main",
+  },
+  {
+    id: "faqs",
+    label: "الأسئلة الشائعة",
+    path: "/admin/faqs",
+    icon: "circleHelp",
+    status: "active",
+    requiredRoles: restaurantRoles,
+    description: "إدارة الأسئلة والأجوبة التي تظهر في الموقع.",
+    placement: "main",
+  },
+  {
     id: "orders",
     label: "الطلبات",
     path: "/admin/orders",
@@ -73,16 +94,6 @@ export const adminFeatures = [
     status: "coming_soon",
     requiredRoles: restaurantRoles,
     description: "متابعة حجوزات الطاولات وتأكيدها.",
-    placement: "main",
-  },
-  {
-    id: "settings",
-    label: "الإعدادات",
-    path: "/admin/settings",
-    icon: "settings",
-    status: "coming_soon",
-    requiredRoles: restaurantRoles,
-    description: "إعدادات الموقع ومعلومات التواصل لاحقًا.",
     placement: "main",
   },
   {

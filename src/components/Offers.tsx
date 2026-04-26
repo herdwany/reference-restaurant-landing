@@ -1,4 +1,5 @@
 import { ShoppingBag } from "lucide-react";
+import { type SyntheticEvent } from "react";
 import type { Offer, RestaurantConfig } from "../data/restaurantConfig";
 import { formatPrice } from "../utils/formatters";
 import SectionTitle from "./SectionTitle";
@@ -9,6 +10,17 @@ interface OffersProps {
 }
 
 export default function Offers({ config, onAddToCart }: OffersProps) {
+  const fallbackImage = config.offers[0]?.image || config.brand.heroImage;
+
+  const handleImageError = (event: SyntheticEvent<HTMLImageElement>) => {
+    if (event.currentTarget.dataset.fallbackApplied === "true") {
+      return;
+    }
+
+    event.currentTarget.dataset.fallbackApplied = "true";
+    event.currentTarget.src = fallbackImage;
+  };
+
   return (
     <section className="section offers-section" id="offers">
       <div className="container">
@@ -21,14 +33,14 @@ export default function Offers({ config, onAddToCart }: OffersProps) {
                 <p>{offer.description}</p>
                 <div className="offer-card__price">
                   <strong>{formatPrice(offer.price, config.restaurant.currency)}</strong>
-                  <del>{formatPrice(offer.oldPrice, config.restaurant.currency)}</del>
+                  {offer.oldPrice ? <del>{formatPrice(offer.oldPrice, config.restaurant.currency)}</del> : null}
                 </div>
                 <button type="button" onClick={() => onAddToCart(offer)}>
                   <ShoppingBag size={18} />
                   {offer.ctaText}
                 </button>
               </div>
-              <img src={offer.image} alt={offer.title} loading="lazy" />
+              <img src={offer.imageUrl || offer.image} alt={offer.title} loading="lazy" onError={handleImageError} />
             </article>
           ))}
         </div>

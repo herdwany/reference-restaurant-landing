@@ -83,10 +83,15 @@ export interface Offer {
   title: string;
   description: string;
   price: number;
-  oldPrice: number;
+  oldPrice?: number;
   image: string;
+  imageUrl?: string;
   colorTheme: "orange" | "red" | "gold";
   ctaText: string;
+  isActive?: boolean;
+  sortOrder?: number;
+  startsAt?: string;
+  endsAt?: string;
 }
 
 export interface Testimonial {
@@ -168,6 +173,11 @@ export interface SectionVisibilitySettings {
 
 export interface RestaurantConfig {
   settings: {
+    currency: string;
+    language: string;
+    direction: "rtl" | "ltr";
+    orderMode: "whatsapp" | "database" | "both";
+    reservationMode: "whatsapp" | "database" | "both";
     sections: SectionVisibilitySettings;
   };
   restaurant: RestaurantInfo;
@@ -264,6 +274,11 @@ const foodImage = (id: string, w = 900, h = 700) =>
 // عدل هذا الملف فقط لتغيير اسم المطعم، الألوان، الصور، الأسعار، روابط التواصل، أو محتوى الصفحة بالكامل.
 export const restaurantConfig: RestaurantConfig = {
   settings: {
+    currency: "ر.س",
+    language: "ar",
+    direction: "rtl",
+    orderMode: "whatsapp",
+    reservationMode: "whatsapp",
     sections: {
       hero: true,
       trustBadges: true,

@@ -52,7 +52,7 @@
 - Fallback to `restaurantConfig.ts` when Appwrite is not configured, fails, restaurant is missing, or dishes are empty.
 - Hidden dishes with `isAvailable=false` do not appear publicly.
 - All public dishes queries stay scoped by `restaurantId`.
-- No offers binding yet.
+- Public offers binding added in Phase 4.5.
 - No orders/reservations yet.
 - No image upload yet.
 
@@ -62,21 +62,32 @@
 - Offers scoped by `restaurantId`.
 - Add/Edit/Activate/Deactivate/Delete offer.
 - `imageUrl` فقط حاليًا، بدون image upload.
-- لا يوجد public offers binding بعد.
 - لا يوجد Orders/Reservations بعد.
 - لا يوجد Agency Dashboard بعد.
 
-## Phase 4.5
+## Phase 4.5 - Completed
 
-- Public site reads offers from Appwrite with fallback إلى `restaurantConfig.ts`.
+- Public site reads active offers from Appwrite.
+- Fallback to `restaurantConfig.ts` when Appwrite is not configured, fails, restaurant is missing, or offers are empty.
+- Inactive offers with `isActive=false` do not appear publicly.
+- No orders/reservations yet.
+- No image upload yet.
+- No agency dashboard yet.
 
-## Phase 5
+## Phase 5 - Completed
 
-- Contact/FAQ/Settings Managers.
+- `/admin/settings` لإدارة بيانات التواصل وإعدادات الموقع.
+- `/admin/faqs` لإدارة الأسئلة الشائعة.
+- Contact and site settings scoped by `restaurantId`.
+- FAQ scoped by `restaurantId`.
+- Public site reads settings and FAQ from Appwrite with fallback to `restaurantConfig.ts`.
+- No orders/reservations yet.
+- No image upload yet.
+- No agency dashboard yet.
 
 ## Phase 6
 
-- Orders/Reservations Managers.
+- Orders + Reservations.
 - إدارة حالات الطلبات والحجوزات.
 
 ## Phase 7
@@ -101,7 +112,8 @@
 - واجهة React لا تكفي وحدها لحماية multi-tenant.
 - يجب لاحقًا فرض الصلاحيات عبر Appwrite Teams/Permissions أو Appwrite Functions.
 - عمليات create/update/delete الحالية مناسبة كمرحلة staging/MVP فقط.
-- لا يجب فتح public write على جدول `dishes`.
+- لا يجب فتح public write على جداول `dishes` أو `offers` أو `site_settings` أو `faqs`.
 - لا يجب السماح بتعديل `restaurantId` من الفورم أو query string.
-- لا يجب query all dishes بدون `restaurantId`.
+- لا يجب query all dishes/offers/faqs بدون `restaurantId`.
+- لا يجب السماح بتعديل `status` أو `teamId` أو `ownerUserId` من صفحة settings.
 - لا تضع API keys داخل React أو `.env.local`.

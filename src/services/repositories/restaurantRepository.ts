@@ -1,7 +1,21 @@
-import { Query, type Models } from "appwrite";
-import { COLLECTIONS } from "../../lib/appwriteIds";
+import { AppwriteException, Query, type Models } from "appwrite";
+import { databases } from "../../lib/appwriteClient";
+import { COLLECTIONS, DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
 import type { BusinessType, Restaurant, RestaurantStatus } from "../../types/platform";
 import { getFirstRow, getRowById } from "./readRows";
+
+type RestaurantRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED" | "WRITE_FAILED";
+
+export class RestaurantRepositoryError extends Error {
+  code: RestaurantRepositoryErrorCode;
+
+  constructor(message: string, code: RestaurantRepositoryErrorCode, cause?: unknown) {
+    super(message);
+    this.name = "RestaurantRepositoryError";
+    this.code = code;
+    (this as { cause?: unknown }).cause = cause;
+  }
+}
 
 interface RestaurantRow extends Models.Row {
   name: string;
@@ -29,6 +43,40 @@ interface RestaurantRow extends Models.Row {
   workingHours: string;
   domain?: string | null;
 }
+
+export type RestaurantContactInput = {
+  name: string;
+  nameAr: string;
+  tagline: string;
+  description: string;
+  phone: string;
+  whatsappNumber: string;
+  email?: string;
+  address: string;
+  mapsUrl?: string;
+  workingHours: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  successColor: string;
+};
+
+type RestaurantContactRowData = {
+  name: string;
+  nameAr: string;
+  tagline: string;
+  description: string;
+  phone: string;
+  whatsappNumber: string;
+  email: string | null;
+  address: string;
+  mapsUrl: string | null;
+  workingHours: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  successColor: string;
+};
 
 const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   id: row.$id,
@@ -60,6 +108,55 @@ const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   domain: row.domain ?? undefined,
 });
 
+const optionalText = (value: string | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const toRestaurantContactRowData = (input: RestaurantContactInput): RestaurantContactRowData => {
+  const displayName = input.nameAr.trim() || input.name.trim();
+
+  return {
+    name: input.name.trim() || displayName,
+    nameAr: input.nameAr.trim() || displayName,
+    tagline: input.tagline.trim(),
+    description: input.description.trim(),
+    phone: input.phone.trim(),
+    whatsappNumber: input.whatsappNumber.trim(),
+    email: optionalText(input.email),
+    address: input.address.trim(),
+    mapsUrl: optionalText(input.mapsUrl),
+    workingHours: input.workingHours.trim(),
+    primaryColor: input.primaryColor.trim(),
+    secondaryColor: input.secondaryColor.trim(),
+    accentColor: input.accentColor.trim(),
+    successColor: input.successColor.trim(),
+  };
+};
+
+// Security note: React guards are not final multi-tenant protection.
+// Enforce restaurant-scoped writes with Appwrite Teams/Permissions or Functions before production.
+// This mapper intentionally excludes status, teamId, ownerUserId, slug, domain, and restaurantId.
+const assertAppwriteDataReady = () => {
+  if (!hasAppwriteDataConfig) {
+    throw new RestaurantRepositoryError("لم يتم إعداد Appwrite Database بعد.", "APPWRITE_NOT_CONFIGURED");
+  }
+};
+
+const assertRestaurantId = (restaurantId: string) => {
+  if (!restaurantId.trim()) {
+    throw new RestaurantRepositoryError("تعذر تحديد المطعم الحالي.", "INVALID_INPUT");
+  }
+};
+
+const getWriteErrorMessage = (error: unknown) => {
+  if (error instanceof AppwriteException && (error.code === 401 || error.code === 403)) {
+    return "تعذر حفظ بيانات المطعم. تحقق من تسجيل الدخول أو صلاحيات Appwrite.";
+  }
+
+  return "تعذر حفظ بيانات المطعم. تحقق من الاتصال أو الصلاحيات.";
+};
+
 export async function getRestaurantBySlug(slug: string): Promise<Restaurant | null> {
   const row = await getFirstRow<RestaurantRow>(COLLECTIONS.restaurants, [
     Query.equal("slug", slug),
@@ -73,4 +170,36 @@ export async function getRestaurantBySlug(slug: string): Promise<Restaurant | nu
 export async function getRestaurantById(restaurantId: string): Promise<Restaurant | null> {
   const row = await getRowById<RestaurantRow>(COLLECTIONS.restaurants, restaurantId);
   return row ? mapRestaurant(row) : null;
+}
+
+export async function updateRestaurantContact(restaurantId: string, input: RestaurantContactInput): Promise<Restaurant> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  try {
+    const existingRestaurant = await databases.getRow<RestaurantRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.restaurants,
+      rowId: restaurantId,
+    });
+
+    if (existingRestaurant.$id !== restaurantId) {
+      throw new RestaurantRepositoryError("لا يمكن تعديل مطعم خارج نطاق الحساب الحالي.", "INVALID_INPUT");
+    }
+
+    const row = await databases.updateRow<RestaurantRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.restaurants,
+      rowId: restaurantId,
+      data: toRestaurantContactRowData(input),
+    });
+
+    return mapRestaurant(row);
+  } catch (error) {
+    if (error instanceof RestaurantRepositoryError) {
+      throw error;
+    }
+
+    throw new RestaurantRepositoryError(getWriteErrorMessage(error), "WRITE_FAILED", error);
+  }
 }
