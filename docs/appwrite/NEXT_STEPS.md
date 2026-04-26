@@ -22,7 +22,7 @@
 - اختبار تسجيل دخول Appwrite الحقيقي.
 - Admin Overview يعرض اسم المطعم من Appwrite.
 
-## Phase 3 - Current
+## Phase 3 - Completed
 
 - Admin CMS reusable components:
   - `AdminPageHeader`
@@ -46,11 +46,15 @@
 - لا يوجد Settings Manager بعد.
 - لا يوجد Agency Dashboard بعد.
 
-## Phase 3.5
+## Phase 3.5 - Completed
 
-- Public site reads dishes from Appwrite with fallback إلى `restaurantConfig.ts`.
-- يجب أن تبقى كل queries مرتبطة بـ`restaurantId`.
-- إذا فشل Appwrite، يرجع الموقع العام إلى بيانات القالب.
+- Public site reads available dishes from Appwrite.
+- Fallback to `restaurantConfig.ts` when Appwrite is not configured, fails, restaurant is missing, or dishes are empty.
+- Hidden dishes with `isAvailable=false` do not appear publicly.
+- All public dishes queries stay scoped by `restaurantId`.
+- No offers binding yet.
+- No orders/reservations yet.
+- No image upload yet.
 
 ## Phase 4
 

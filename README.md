@@ -224,9 +224,16 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - `imageUrl` فقط حاليًا، ولا يوجد image upload بعد.
 - لم يتم بناء Offers Manager أو Orders Manager أو Reservations Manager أو Settings Manager أو Agency Dashboard في هذه المرحلة.
 
+## Phase 3.5 - Public Dishes Binding
+
+- تم ربط قسم الأطباق في الموقع العام بقراءة الأطباق المتاحة من Appwrite.
+- إذا كان Appwrite غير مفعّل أو فشل الاتصال أو لم توجد أطباق، يرجع الموقع إلى `restaurantConfig.ts`.
+- الأطباق المخفية `isAvailable=false` لا تظهر في الموقع العام.
+- لم يتم ربط العروض أو الطلبات أو الحجوزات بعد.
+- لا يوجد image upload بعد، ويتم استخدام `imageUrl` فقط عند توفره.
+
 الخطوات القادمة:
 
-- Phase 3.5: ربط الموقع العام بقراءة الأطباق من Appwrite مع fallback.
 - Phase 4: Offers Manager.
 - Phase 5: Contact/FAQ/Settings.
 - Phase 6: Orders/Reservations.

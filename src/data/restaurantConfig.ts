@@ -70,6 +70,7 @@ export interface Dish {
   price: number;
   oldPrice?: number;
   image: string;
+  imageUrl?: string;
   badge?: string;
   category: string;
   rating: number;

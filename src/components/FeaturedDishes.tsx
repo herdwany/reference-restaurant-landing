@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type SyntheticEvent } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import type { Dish, RestaurantConfig } from "../data/restaurantConfig";
 import { formatPrice } from "../utils/formatters";
@@ -24,8 +24,13 @@ export default function FeaturedDishes({ config, onAddToCart }: FeaturedDishesPr
   const [quantity, setQuantity] = useState(1);
 
   const visibleDishes = useMemo(() => getLoopedItems(config.dishes, startIndex, 4), [config.dishes, startIndex]);
+  const fallbackImage = config.dishes[0]?.image || config.brand.heroImage;
 
   const move = (direction: "next" | "prev") => {
+    if (config.dishes.length === 0) {
+      return;
+    }
+
     setStartIndex((current) => {
       const step = direction === "next" ? 1 : -1;
       return (current + step + config.dishes.length) % config.dishes.length;
@@ -35,6 +40,15 @@ export default function FeaturedDishes({ config, onAddToCart }: FeaturedDishesPr
   const openDish = (dish: Dish) => {
     setSelectedDish(dish);
     setQuantity(1);
+  };
+
+  const handleImageError = (event: SyntheticEvent<HTMLImageElement>) => {
+    if (event.currentTarget.dataset.fallbackApplied === "true") {
+      return;
+    }
+
+    event.currentTarget.dataset.fallbackApplied = "true";
+    event.currentTarget.src = fallbackImage;
   };
 
   return (
@@ -55,7 +69,7 @@ export default function FeaturedDishes({ config, onAddToCart }: FeaturedDishesPr
           {visibleDishes.map((dish) => (
             <article className="dish-card" key={dish.id}>
               <button className="dish-card__image" type="button" onClick={() => openDish(dish)}>
-                <img src={dish.image} alt={dish.name} loading="lazy" />
+                <img src={dish.image} alt={dish.name} loading="lazy" onError={handleImageError} />
                 {dish.badge ? <span>{dish.badge}</span> : null}
               </button>
               <div className="dish-card__body">
@@ -92,7 +106,7 @@ export default function FeaturedDishes({ config, onAddToCart }: FeaturedDishesPr
       >
         {selectedDish ? (
           <div className="dish-modal">
-            <img src={selectedDish.image} alt={selectedDish.name} />
+            <img src={selectedDish.image} alt={selectedDish.name} onError={handleImageError} />
             <div className="dish-modal__content">
               <span className="dish-modal__category">{selectedDish.category}</span>
               <h3>{selectedDish.name}</h3>

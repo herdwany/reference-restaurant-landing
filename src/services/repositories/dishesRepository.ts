@@ -290,6 +290,7 @@ export async function getPublicDishes(restaurantId: string): Promise<Dish[]> {
     Query.equal("restaurantId", restaurantId),
     Query.equal("isAvailable", true),
     Query.orderAsc("sortOrder"),
+    Query.orderDesc("$createdAt"),
   ]);
 
   return rows.map(mapDish);

@@ -1,4 +1,4 @@
-import { CSSProperties, useState } from "react";
+import { CSSProperties, useEffect, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
@@ -25,6 +25,7 @@ import TrustBadges from "./components/TrustBadges";
 import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
+import { getSiteData } from "./services/siteDataService";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
 type ThemeStyle = CSSProperties & Record<string, string>;
@@ -50,13 +51,37 @@ function AdminLoginRoute() {
 }
 
 function LandingPage() {
-  const config = restaurantConfig;
+  const [config, setConfig] = useState(restaurantConfig);
   const sections = config.settings.sections;
   const cart = useCart();
   const { toasts, showToast, dismissToast } = useToast();
   const [cartOpen, setCartOpen] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadSiteData = async () => {
+      try {
+        const result = await getSiteData();
+
+        if (isMounted) {
+          setConfig(result.config);
+        }
+      } catch {
+        if (isMounted) {
+          setConfig(restaurantConfig);
+        }
+      }
+    };
+
+    void loadSiteData();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const sectionByTargetId: Record<string, keyof typeof sections> = {
     home: "hero",
     menu: "featuredDishes",
