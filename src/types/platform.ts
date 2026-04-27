@@ -102,7 +102,7 @@ export interface GalleryItem extends BaseModel {
   imageFileId?: string;
   imageUrl?: string;
   isVisible: boolean;
-  sortOrder: number;
+  sortOrder?: number;
 }
 
 export interface Testimonial extends BaseModel {

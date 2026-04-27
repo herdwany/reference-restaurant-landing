@@ -6,6 +6,7 @@ export type AdminFeatureIconName =
   | "calendarCheck"
   | "circleHelp"
   | "eye"
+  | "image"
   | "layoutDashboard"
   | "settings"
   | "shoppingBag"
@@ -13,7 +14,7 @@ export type AdminFeatureIconName =
   | "utensils";
 
 export type AdminFeature = {
-  id: "overview" | "dishes" | "offers" | "settings" | "faqs" | "orders" | "reservations" | "preview";
+  id: "overview" | "dishes" | "offers" | "settings" | "faqs" | "orders" | "reservations" | "gallery" | "preview";
   label: string;
   path: string;
   icon: AdminFeatureIconName;
@@ -94,6 +95,16 @@ export const adminFeatures = [
     status: "active",
     requiredRoles: restaurantRoles,
     description: "متابعة حجوزات الطاولات وتأكيدها.",
+    placement: "main",
+  },
+  {
+    id: "gallery",
+    label: "معرض الصور",
+    path: "/admin/gallery",
+    icon: "image",
+    status: "active",
+    requiredRoles: restaurantRoles,
+    description: "إدارة الصور التي تظهر في قسم أجواء المطعم.",
     placement: "main",
   },
   {

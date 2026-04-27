@@ -2,6 +2,7 @@ import {
   defaultRestaurantConfig,
   type Dish as ConfigDish,
   type FAQItem as ConfigFAQItem,
+  type GalleryImage as ConfigGalleryImage,
   type Offer as ConfigOffer,
   type RestaurantConfig,
 } from "../data/restaurantConfig";
@@ -10,12 +11,14 @@ import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
 import type {
   Dish as AppwriteDish,
   FAQItem as AppwriteFAQItem,
+  GalleryItem as AppwriteGalleryItem,
   Offer as AppwriteOffer,
   Restaurant,
   SiteSettings,
 } from "../types/platform";
 import { getPublicDishes } from "./repositories/dishesRepository";
 import { getVisibleFaqs } from "./repositories/faqRepository";
+import { getVisibleGalleryItems } from "./repositories/galleryRepository";
 import { getActiveOffers } from "./repositories/offersRepository";
 import { getRestaurantBySlug } from "./repositories/restaurantRepository";
 import { getSiteSettings } from "./repositories/settingsRepository";
@@ -111,6 +114,20 @@ const mapFaqs = (faqs: AppwriteFAQItem[]): ConfigFAQItem[] =>
     answer: faq.answer,
   }));
 
+const mapGalleryImages = (items: AppwriteGalleryItem[], base: RestaurantConfig): ConfigGalleryImage[] =>
+  items.map((item, index) => {
+    const fallback = base.galleryImages[index % base.galleryImages.length];
+    const imageUrl = isAcceptableImageUrl(item.imageUrl) ? item.imageUrl : undefined;
+
+    return {
+      id: item.id,
+      title: item.title,
+      alt: item.alt || item.title,
+      image: imageUrl || fallback.image,
+      imageUrl,
+    };
+  });
+
 const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): RestaurantConfig["restaurant"] => {
   const displayName = restaurant.nameAr || restaurant.name || base.restaurant.name;
   const logoImage = resolveImageUrl(getStoredAssetUrl(restaurant.logoFileId));
@@ -189,20 +206,23 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
       return withFallback();
     }
 
-    const [dishesResult, offersResult, settingsResult, faqsResult] = await Promise.allSettled([
+    const [dishesResult, offersResult, settingsResult, faqsResult, galleryResult] = await Promise.allSettled([
       getPublicDishes(restaurant.id),
       getActiveOffers(restaurant.id),
       getSiteSettings(restaurant.id),
       getVisibleFaqs(restaurant.id),
+      getVisibleGalleryItems(restaurant.id),
     ]);
 
     const dishes = getSettledValue<AppwriteDish[]>(dishesResult, []);
     const offers = getSettledValue<AppwriteOffer[]>(offersResult, []);
     const siteSettings = getSettledValue<SiteSettings | null>(settingsResult, null);
     const faqs = getSettledValue<AppwriteFAQItem[]>(faqsResult, []);
+    const galleryItems = getSettledValue<AppwriteGalleryItem[]>(galleryResult, []);
     const hasAppwriteDishes = dishes.length > 0;
     const hasAppwriteOffers = offers.length > 0;
     const hasAppwriteFaqs = faqs.length > 0;
+    const hasAppwriteGalleryItems = galleryItems.length > 0;
     const mergedSettings = mergeSettings(siteSettings, defaultRestaurantConfig);
     const heroImage = getRestaurantHeroImage(restaurant) || defaultRestaurantConfig.hero.image;
     const mergedRestaurant = {
@@ -231,6 +251,7 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
         dishes: hasAppwriteDishes ? mapDishes(dishes, defaultRestaurantConfig) : defaultRestaurantConfig.dishes,
         offers: hasAppwriteOffers ? mapOffers(offers, defaultRestaurantConfig) : defaultRestaurantConfig.offers,
         faqs: hasAppwriteFaqs ? mapFaqs(faqs) : defaultRestaurantConfig.faqs,
+        galleryImages: hasAppwriteGalleryItems ? mapGalleryImages(galleryItems, defaultRestaurantConfig) : defaultRestaurantConfig.galleryImages,
       },
       source: "appwrite",
       isFallback: false,

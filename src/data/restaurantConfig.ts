@@ -140,7 +140,9 @@ export interface PaymentMethod {
 export interface GalleryImage {
   id: string;
   title: string;
+  alt?: string;
   image: string;
+  imageUrl?: string;
 }
 
 export interface CartItem {

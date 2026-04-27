@@ -2,7 +2,7 @@ import { AppwriteException, ID, Permission, Role, type Models } from "appwrite";
 import { account, storage } from "../../lib/appwriteClient";
 import { BUCKET_ID, hasAppwriteStorageConfig } from "../../lib/appwriteIds";
 
-export type RestaurantAssetType = "dish" | "offer" | "logo" | "hero";
+export type RestaurantAssetType = "dish" | "offer" | "logo" | "hero" | "gallery";
 
 export type UploadRestaurantAssetOptions = {
   restaurantId: string;

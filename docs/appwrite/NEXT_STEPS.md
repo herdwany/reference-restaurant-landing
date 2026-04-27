@@ -181,14 +181,62 @@ Security constraints:
 - Production should move upload to an Appwrite Function or stricter team-scoped storage permissions.
 - Unused uploaded files should be cleaned up later after failed saves or image replacements.
 
-## Phase 7B
+## Phase 7B - Completed
 
-- Gallery/Logo/Hero uploads فقط عند طلبها صراحة.
+- `/admin/settings` يدعم رفع شعار المطعم وصورة Hero عبر Appwrite Storage.
+- الشعار يحفظ `logoFileId` ويشتق الموقع العام رابط العرض من Storage.
+- صورة Hero تحفظ `heroImageFileId` و`heroImageUrl` مع استمرار دعم الرابط اليدوي.
+- Header/Hero في الموقع العام يستخدمان صور Appwrite مع fallback إلى `restaurantConfig.ts`.
+- لا يوجد Gallery Manager، Agency Dashboard، Appwrite Functions، أو viaSocket في هذه المرحلة.
+
+## Phase 7C - Completed
+
+- `/admin/gallery` لإدارة صور معرض المطعم.
+- Gallery items scoped دائمًا عبر `restaurantId` القادم من `useActiveRestaurantScope`.
+- رفع صور المعرض يتم عبر Appwrite Storage و`AdminImageUploader`.
+- دعم `imageUrl` يدوي بجانب الرفع.
+- الصور المخفية لا تظهر في الموقع العام.
+- Public gallery يقرأ من Appwrite مع fallback إلى `restaurantConfig.ts`.
+- لا يوجد Agency Dashboard بعد.
+- لا توجد Appwrite Functions بعد.
+- لا يوجد viaSocket بعد.
+
+### Phase 7C Appwrite permissions for staging
+
+`gallery_items`
+
+- Read: `Guests` أو `Any` حتى تظهر الصور للزائر العام.
+- Create: `Users`.
+- Update: `Users`.
+- Delete: `Users`.
+
+`restaurant-assets`
+
+- Read: `Guests` أو `Any`.
+- Create: `Users`.
+- Update: `Users`.
+- Delete: `Users`.
+
+Security constraints:
+
+- لا تسمح بـ public create على `gallery_items`.
+- لا تسمح بـ public update/delete على `gallery_items`.
+- لا تسمح بـ public upload على `restaurant-assets`.
+- لا تقرأ كل `gallery_items` بدون `restaurantId`.
+- لا تسمح بتعديل `restaurantId` من الفورم أو URL.
+- React guards ليست حماية نهائية؛ يجب لاحقًا فرض الصلاحيات عبر Teams/Functions.
+- يجب تنظيف الصور غير المستخدمة لاحقًا.
+- لا تضع API key داخل React.
 
 ## Phase 8
 
-- viaSocket Automations.
-- إرسال أحداث محدودة مثل order created أو reservation created بدون secrets.
+Production security hardening أو نقل إنشاء الطلبات إلى Appwrite Functions.
+
+## Phase 8A
+
+- Move `createOrder` to an Appwrite Function.
+- تحقق من المدخلات والأسعار من مصدر موثوق.
+- أضف anti-spam وضبط permissions من السيرفر.
 
 ## Phase 9
 

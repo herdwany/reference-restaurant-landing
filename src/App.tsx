@@ -6,6 +6,7 @@ import AdminOverview from "./admin/AdminOverview";
 import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
 import AdminDishes from "./admin/pages/AdminDishes";
 import AdminFaqs from "./admin/pages/AdminFaqs";
+import AdminGallery from "./admin/pages/AdminGallery";
 import AdminOffers from "./admin/pages/AdminOffers";
 import AdminOrders from "./admin/pages/AdminOrders";
 import AdminReservations from "./admin/pages/AdminReservations";
@@ -53,6 +54,37 @@ function AdminLoginRoute() {
     <AuthProvider>
       <AdminLogin />
     </AuthProvider>
+  );
+}
+
+type PublicGalleryCardProps = {
+  fallbackImage: string;
+  image: GalleryImage;
+  onOpen: (image: GalleryImage) => void;
+};
+
+function PublicGalleryCard({ fallbackImage, image, onOpen }: PublicGalleryCardProps) {
+  const preferredImage = image.imageUrl || image.image || fallbackImage;
+  const [imageSrc, setImageSrc] = useState(preferredImage);
+
+  useEffect(() => {
+    setImageSrc(preferredImage);
+  }, [preferredImage]);
+
+  return (
+    <button className="gallery-card" type="button" onClick={() => onOpen({ ...image, image: imageSrc || fallbackImage })}>
+      {imageSrc ? (
+        <img
+          src={imageSrc}
+          alt={image.alt || image.title}
+          loading="lazy"
+          onError={() => setImageSrc((current) => (current === fallbackImage ? "" : fallbackImage))}
+        />
+      ) : (
+        <div className="gallery-card__fallback" aria-hidden="true" />
+      )}
+      <span>{image.title}</span>
+    </button>
   );
 }
 
@@ -262,11 +294,13 @@ function LandingPage() {
             <div className="container">
               <SectionTitle title={config.ui.sectionTitles.gallery} />
               <div className="gallery-grid">
-                {config.galleryImages.map((image) => (
-                  <button className="gallery-card" type="button" key={image.id} onClick={() => setSelectedGalleryImage(image)}>
-                    <img src={image.image} alt={image.title} loading="lazy" />
-                    <span>{image.title}</span>
-                  </button>
+                {config.galleryImages.map((image, index) => (
+                  <PublicGalleryCard
+                    fallbackImage={restaurantConfig.galleryImages[index % restaurantConfig.galleryImages.length]?.image || restaurantConfig.brand.heroImage}
+                    image={image}
+                    key={image.id}
+                    onOpen={setSelectedGalleryImage}
+                  />
                 ))}
               </div>
             </div>
@@ -330,7 +364,7 @@ function LandingPage() {
         closeLabel={config.ui.close}
       >
         {selectedGalleryImage ? (
-          <img className="gallery-modal-image" src={selectedGalleryImage.image} alt={selectedGalleryImage.title} />
+          <img className="gallery-modal-image" src={selectedGalleryImage.image} alt={selectedGalleryImage.alt || selectedGalleryImage.title} />
         ) : null}
       </Modal>
 
@@ -354,6 +388,7 @@ export default function App() {
             <Route path="reservations" element={<AdminReservations />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="faqs" element={<AdminFaqs />} />
+            <Route path="gallery" element={<AdminGallery />} />
             <Route path="*" element={<AdminOverview />} />
           </Route>
         </Route>

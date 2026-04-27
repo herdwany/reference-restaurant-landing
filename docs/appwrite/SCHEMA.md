@@ -96,7 +96,7 @@
 - `imageFileId`: string optional
 - `imageUrl`: url optional
 - `isVisible`: boolean
-- `sortOrder`: integer
+- `sortOrder`: integer optional
 
 ## testimonials
 
