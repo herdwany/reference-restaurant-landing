@@ -14,7 +14,7 @@
 
 - `name`: string
 - `slug`: string unique
-- `businessType`: enum `restaurant | cafe | bakery | salon | clinic | gym | car_rental | other`
+- `businessType`: enum/string `restaurant | cafe | bakery | cloud_kitchen | salon | clinic | gym | car_rental | other`
 - `status`: enum `draft | active | suspended`
 - `teamId`: string
 - `ownerUserId`: string

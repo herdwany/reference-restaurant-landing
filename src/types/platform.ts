@@ -2,6 +2,7 @@ export type BusinessType =
   | "restaurant"
   | "cafe"
   | "bakery"
+  | "cloud_kitchen"
   | "salon"
   | "clinic"
   | "gym"

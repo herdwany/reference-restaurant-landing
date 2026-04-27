@@ -317,15 +317,19 @@ Security constraints:
 - For `agency_admin`, `/admin` uses client-side `selectedRestaurantId` as the active restaurant scope.
 - For `owner` and `staff`, `/admin` still uses `profile.restaurantId`.
 - If `agency_admin` opens `/admin` without selecting a restaurant, CRUD is blocked and the UI asks them to return to `/agency`.
+- Phase 9C completed: `/agency` can create a client/restaurant through the `createClient` Appwrite Function.
+- `createClient` creates the owner Auth user, restaurant row, owner profile, and default settings row.
+- `createClient` verifies `role=agency_admin` server-side from `x-appwrite-user-id` and the `profiles` table.
+- No direct browser fallback exists for client creation.
 - No impersonation was added.
-- No create client flow yet.
 - No billing or subscriptions yet.
+- No public signup was added.
 - No delete restaurant flow.
 - Security note: `selectedRestaurantId` in `localStorage` is MVP UI context only, not a final security boundary.
 - Security note: agency restaurant reads/manage access should later move behind Appwrite Teams, Functions, or backend-enforced rules instead of relying only on React role guards and broad Appwrite read permissions.
 
 ## Future Phase 9 Work
-- Phase 9C: Create client / restaurant onboarding flow.
+- Create client repair flow for incomplete default settings, if needed.
 - ربط Teams والصلاحيات والاشتراكات.
 - تقوية restaurant list/manage عبر Function أو backend rules.
 - لا يوجد impersonation في هذه المرحلة، ويجب إبقاءه خارج Phase 9C unless explicitly planned.
