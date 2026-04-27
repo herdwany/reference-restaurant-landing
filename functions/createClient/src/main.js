@@ -324,32 +324,80 @@ const createDefaultSiteSettings = async (tablesDb, restaurantId, settingsColumnK
 
 const json = (res, body, status = 200) => res.json(body, status);
 
-export default async ({ req, res, log, error }) => {
+const getSafeErrorDiagnostics = (stage, caughtError) => {
+  const isObjectError = typeof caughtError === "object" && caughtError !== null;
+  const code =
+    caughtError instanceof HttpError
+      ? caughtError.status
+      : isObjectError && "code" in caughtError
+        ? caughtError.code
+        : undefined;
+  const type =
+    isObjectError && "type" in caughtError && caughtError.type
+      ? caughtError.type
+      : caughtError instanceof Error
+        ? caughtError.name
+        : typeof caughtError;
+  const message = caughtError instanceof Error ? caughtError.message : "Unknown createClient error.";
+
+  return {
+    stage,
+    code: code ?? null,
+    type,
+    message,
+  };
+};
+
+const logSafeError = (stage, caughtError) => {
+  console.error("createClient failed", getSafeErrorDiagnostics(stage, caughtError));
+};
+
+export default async ({ req, res, log }) => {
+  let stage = "parse_input";
+
   try {
     assertFunctionConfig();
 
-    const input = validateInput(parseBody(req));
+    const body = parseBody(req);
+
+    stage = "validate_payload";
+    const input = validateInput(body);
     const { tablesDb, users } = createServerClients();
+
+    stage = "verify_agency_admin";
     const { userId: agencyUserId } = await assertAgencyAdmin(tablesDb, req);
 
+    stage = "check_slug";
     await assertSlugAvailable(tablesDb, input.slug);
+
+    stage = "check_owner_email";
     await assertOwnerEmailAvailable(users, input.ownerEmail);
 
-    const [restaurantColumnKeys, profileColumnKeys, settingsColumnKeys] = await Promise.all([
-      getColumnKeys(tablesDb, config.restaurantsTableId),
-      getColumnKeys(tablesDb, config.profilesTableId),
-      getColumnKeys(tablesDb, config.siteSettingsTableId),
-    ]);
+    stage = "create_restaurant";
+    const restaurantColumnKeys = await getColumnKeys(tablesDb, config.restaurantsTableId);
 
+    stage = "create_profile";
+    const profileColumnKeys = await getColumnKeys(tablesDb, config.profilesTableId);
+
+    stage = "create_site_settings";
+    const settingsColumnKeys = await getColumnKeys(tablesDb, config.siteSettingsTableId);
+
+    stage = "create_auth_user";
     const owner = await createOwnerUser(users, input);
+
+    stage = "create_restaurant";
     const restaurant = await createRestaurant(tablesDb, input, owner.$id, agencyUserId, restaurantColumnKeys);
+
+    stage = "create_profile";
     await createOwnerProfile(tablesDb, input, owner.$id, restaurant.$id, profileColumnKeys);
 
     let warning = null;
 
+    stage = "create_site_settings";
     try {
       await createDefaultSiteSettings(tablesDb, restaurant.$id, settingsColumnKeys);
-    } catch {
+    } catch (settingsError) {
+      logSafeError(stage, settingsError);
       warning = "تم إنشاء العميل، لكن تعذر إنشاء إعدادات الموقع الافتراضية. قد تحتاج لإصلاحها لاحقًا.";
     }
 
@@ -365,14 +413,18 @@ export default async ({ req, res, log, error }) => {
   } catch (caughtError) {
     const status = caughtError instanceof HttpError ? caughtError.status : 500;
     const message = caughtError instanceof Error ? caughtError.message : "تعذر إنشاء العميل.";
+    const clientMessage =
+      status >= 500 ? "تعذر إنشاء العميل. حاول مرة أخرى أو راجع إعدادات Function." : message;
 
-    error(status >= 500 ? "createClient failed." : message);
+    logSafeError(stage, caughtError);
 
     return json(
       res,
       {
+        success: false,
         ok: false,
-        message: status >= 500 ? "تعذر إنشاء العميل. حاول مرة أخرى أو راجع إعدادات Function." : message,
+        stage,
+        message: clientMessage,
       },
       status,
     );
