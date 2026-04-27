@@ -28,12 +28,9 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
 
   return (
     <>
-      <button
-        className={`admin-sidebar__overlay${isOpen ? " is-visible" : ""}`}
-        type="button"
-        aria-label="إغلاق القائمة"
-        onClick={onClose}
-      />
+      {isOpen ? (
+        <button className="admin-sidebar__overlay is-visible" type="button" aria-label="إغلاق القائمة" onClick={onClose} />
+      ) : null}
 
       <aside className={`admin-sidebar${isOpen ? " is-open" : ""}`} aria-label="قائمة لوحة التحكم">
         <div className="admin-sidebar__header">
