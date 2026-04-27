@@ -32,7 +32,13 @@ import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { getSiteData } from "./services/siteDataService";
-import { OrdersRepositoryError, createOrder as createAppwriteOrder } from "./services/repositories/ordersRepository";
+import {
+  OrdersRepositoryError,
+  createOrder as createAppwriteOrder,
+  createOrderViaFunction,
+  hasCreateOrderFunctionConfig,
+} from "./services/repositories/ordersRepository";
+import { DEFAULT_RESTAURANT_SLUG } from "./lib/appwriteIds";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
 type ThemeStyle = CSSProperties & Record<string, string>;
@@ -188,6 +194,15 @@ function LandingPage() {
     return "تعذر حفظ الطلب في قاعدة البيانات. يمكنك متابعة الطلب عبر واتساب.";
   };
 
+  const getCheckoutItems = () =>
+    cart.items.map((item) => ({
+      dishId: item.source === "dish" && config.restaurant.id ? item.sourceId : undefined,
+      dishName: item.name,
+      quantity: item.quantity,
+      unitPrice: item.price,
+      subtotal: item.price * item.quantity,
+    }));
+
   const openWhatsappOrder = (customer: CheckoutCustomerDetails) => {
     window.open(
       createWhatsappUrl(
@@ -218,31 +233,39 @@ function LandingPage() {
       return;
     }
 
-    if (!config.restaurant.id) {
-      showToast("تعذر حفظ الطلب في Appwrite، سيتم فتح واتساب كبديل.", "error");
-      openWhatsappOrder(customer);
+    if (!hasCreateOrderFunctionConfig && !config.restaurant.id) {
+      showToast(
+        orderMode === "both" ? "تعذر حفظ الطلب في Appwrite، سيتم فتح واتساب كبديل." : "تعذر حفظ الطلب في Appwrite.",
+        "error",
+      );
+
+      if (orderMode === "both") {
+        openWhatsappOrder(customer);
+      }
+
       return;
     }
 
     setIsCheckingOut(true);
 
     try {
-      await createAppwriteOrder({
-        restaurantId: config.restaurant.id,
+      const baseOrderInput = {
+        restaurantId: config.restaurant.id ?? "",
+        restaurantSlug: DEFAULT_RESTAURANT_SLUG,
         customerName: customer.customerName,
         customerPhone: customer.customerPhone,
         customerAddress: customer.customerAddress,
         notes: customer.notes,
         deliveryFee: config.restaurant.deliveryFee,
-        source: "website",
-        items: cart.items.map((item) => ({
-          dishId: item.source === "dish" ? item.sourceId : undefined,
-          dishName: item.name,
-          quantity: item.quantity,
-          unitPrice: item.price,
-          subtotal: item.price * item.quantity,
-        })),
-      });
+        source: "website" as const,
+        items: getCheckoutItems(),
+      };
+
+      if (hasCreateOrderFunctionConfig) {
+        await createOrderViaFunction(baseOrderInput);
+      } else {
+        await createAppwriteOrder(baseOrderInput);
+      }
 
       showToast("تم حفظ الطلب بنجاح.", "success");
 
@@ -251,7 +274,10 @@ function LandingPage() {
       }
     } catch (error) {
       showToast(getCheckoutErrorMessage(error), "error");
-      openWhatsappOrder(customer);
+
+      if (orderMode === "both") {
+        openWhatsappOrder(customer);
+      }
     } finally {
       setIsCheckingOut(false);
     }

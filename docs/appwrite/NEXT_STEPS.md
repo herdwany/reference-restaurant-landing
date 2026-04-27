@@ -121,7 +121,7 @@ Security constraints:
 - Do not allow public read on `orders` or `order_items`.
 - Do not allow public update/delete on `orders` or `order_items`.
 - Do not expose customer data with public read.
-- Production should move `createOrder` to an Appwrite Function to validate input, recalculate prices from trusted dish data, set permissions, and add anti-spam protection.
+- Phase 8A adds a `createOrder` Appwrite Function; after deployment, remove public create permissions from these tables.
 
 ## Phase 6B - Completed
 
@@ -228,15 +228,51 @@ Security constraints:
 - يجب تنظيف الصور غير المستخدمة لاحقًا.
 - لا تضع API key داخل React.
 
+## Phase 8A - Completed
+
+- Added `functions/createOrder` as a server-side Appwrite Function.
+- Public checkout can call the Function when `VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID` is configured.
+- Without the Function ID, checkout keeps the old browser `createOrder` path as a staging fallback.
+- The Function resolves the active restaurant server-side from `restaurantSlug`.
+- The Function validates customer fields and cart items.
+- The Function recalculates dish prices for items with `dishId`.
+- Offer/menu items without `dishId` still use client-provided price temporarily.
+- TODO: Production must recalculate all official totals server-side from trusted dishes/offers/menu tables before payment.
+- No reservation Function was added.
+- No Agency Dashboard was added.
+- No viaSocket integration was added.
+
+### Phase 8A Appwrite permissions after Function verification
+
+`orders`
+
+- Create: public create can be removed after the Function is deployed and tested.
+- Read: `Users` only.
+- Update: `Users` only.
+- Delete: preferably disabled, or `Users` temporarily for admin testing.
+
+`order_items`
+
+- Create: public create can be removed after the Function is deployed and tested.
+- Read: `Users` only.
+- Update: not needed in most flows.
+- Delete: not needed in most flows.
+
+Security constraints:
+
+- The Function is responsible for public order creation.
+- Never allow public read on `orders` or `order_items`.
+- Keep `APPWRITE_API_KEY` only inside Function environment variables.
+- Never add `VITE_APPWRITE_API_KEY`.
+- Keep the old direct browser create path only as a staging fallback until permissions are hardened.
+
 ## Phase 8
 
-Production security hardening أو نقل إنشاء الطلبات إلى Appwrite Functions.
+Production security hardening.
 
-## Phase 8A
+## Phase 8B
 
-- Move `createOrder` to an Appwrite Function.
-- تحقق من المدخلات والأسعار من مصدر موثوق.
-- أضف anti-spam وضبط permissions من السيرفر.
+- Move `createReservation` to an Appwrite Function after order hardening is reviewed.
 
 ## Phase 9
 

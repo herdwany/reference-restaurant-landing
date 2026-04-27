@@ -1,4 +1,4 @@
-import { Account, Client, Storage, TablesDB, Teams } from "appwrite";
+import { Account, Client, Functions, Storage, TablesDB, Teams } from "appwrite";
 
 const endpoint = import.meta.env.VITE_APPWRITE_ENDPOINT?.trim() ?? "";
 const projectId = import.meta.env.VITE_APPWRITE_PROJECT_ID?.trim() ?? "";
@@ -22,6 +22,7 @@ export const account = new Account(appwriteClient);
 export const databases = new TablesDB(appwriteClient);
 export const tablesDB = databases;
 export const storage = new Storage(appwriteClient);
+export const functions = new Functions(appwriteClient);
 export const teams = new Teams(appwriteClient);
 
 export const appwriteRuntimeConfig = {

@@ -1,6 +1,12 @@
-import { AppwriteException, ID, Query, type Models } from "appwrite";
-import { databases } from "../../lib/appwriteClient";
-import { DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
+import { AppwriteException, ExecutionMethod, ID, Query, type Models } from "appwrite";
+import { databases, functions } from "../../lib/appwriteClient";
+import {
+  CREATE_ORDER_FUNCTION_ID,
+  DATABASE_ID,
+  TABLES,
+  hasAppwriteDataConfig,
+  hasCreateOrderFunctionConfig,
+} from "../../lib/appwriteIds";
 import type { Order, OrderItem, OrderSource, OrderStatus } from "../../types/platform";
 
 type OrdersRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED" | "WRITE_FAILED" | "DELETE_FAILED";
@@ -47,6 +53,7 @@ export type CreateOrderItemInput = {
 
 export type CreateOrderInput = {
   restaurantId: string;
+  restaurantSlug?: string;
   customerName: string;
   customerPhone: string;
   customerAddress?: string;
@@ -59,6 +66,14 @@ export type CreateOrderInput = {
 export type OrderWithItems = {
   order: Order;
   items: OrderItem[];
+};
+
+export type CreateOrderFunctionResult = {
+  itemCount: number;
+  orderId: string;
+  source: OrderSource;
+  status: OrderStatus;
+  totalAmount: number;
 };
 
 type OrderRowData = {
@@ -192,6 +207,42 @@ const assertCreateOrderInput = (input: CreateOrderInput) => {
   }
 };
 
+const assertCreateOrderFunctionInput = (input: CreateOrderInput) => {
+  if (!hasCreateOrderFunctionConfig) {
+    throw new OrdersRepositoryError("لم يتم ضبط Appwrite Function لإنشاء الطلبات بعد.", "APPWRITE_NOT_CONFIGURED");
+  }
+
+  if (!input.restaurantSlug?.trim()) {
+    throw new OrdersRepositoryError("تعذر تحديد رابط المطعم لإرسال الطلب.", "INVALID_INPUT");
+  }
+
+  if (!input.customerName.trim()) {
+    throw new OrdersRepositoryError("اسم العميل مطلوب لإتمام الطلب.", "INVALID_INPUT");
+  }
+
+  if (!input.customerPhone.trim()) {
+    throw new OrdersRepositoryError("رقم هاتف العميل مطلوب لإتمام الطلب.", "INVALID_INPUT");
+  }
+
+  if (input.items.length === 0) {
+    throw new OrdersRepositoryError("لا يمكن إنشاء طلب بدون منتجات.", "INVALID_INPUT");
+  }
+
+  for (const item of input.items) {
+    if (!item.dishName.trim()) {
+      throw new OrdersRepositoryError("اسم المنتج مطلوب داخل عناصر الطلب.", "INVALID_INPUT");
+    }
+
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0) {
+      throw new OrdersRepositoryError("كمية المنتج يجب أن تكون أكبر من صفر.", "INVALID_INPUT");
+    }
+
+    if (!Number.isFinite(item.unitPrice) || item.unitPrice <= 0) {
+      throw new OrdersRepositoryError("سعر المنتج غير صالح.", "INVALID_INPUT");
+    }
+  }
+};
+
 const normalizeOrderItem = (item: CreateOrderItemInput): CreateOrderItemInput & { subtotal: number } => {
   const quantity = Math.trunc(item.quantity);
   const unitPrice = Number(item.unitPrice);
@@ -246,6 +297,56 @@ const getOrderRowOrThrow = async (orderId: string) => {
   }
 };
 
+const getCreateOrderFunctionErrorMessage = (body: string | undefined) => {
+  if (!body) {
+    return "تعذر إنشاء الطلب عبر Appwrite Function.";
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(body);
+
+    if (parsed && typeof parsed === "object" && "message" in parsed && typeof parsed.message === "string") {
+      return parsed.message;
+    }
+  } catch {
+    return body;
+  }
+
+  return "تعذر إنشاء الطلب عبر Appwrite Function.";
+};
+
+const parseCreateOrderFunctionResult = (body: string): CreateOrderFunctionResult => {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(body);
+  } catch (error) {
+    throw new OrdersRepositoryError("استجابة Appwrite Function غير صالحة.", "WRITE_FAILED", error);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new OrdersRepositoryError("استجابة Appwrite Function غير صالحة.", "WRITE_FAILED");
+  }
+
+  const result = parsed as Partial<CreateOrderFunctionResult> & { ok?: boolean };
+
+  if (!result.ok || !result.orderId || typeof result.totalAmount !== "number" || typeof result.itemCount !== "number") {
+    throw new OrdersRepositoryError("Appwrite Function لم تُرجع ملخص طلب صالح.", "WRITE_FAILED");
+  }
+
+  const status = typeof result.status === "string" && isKnownOrderStatus(result.status) ? result.status : "new";
+
+  return {
+    itemCount: result.itemCount,
+    orderId: result.orderId,
+    source: result.source === "admin" || result.source === "whatsapp" ? result.source : "website",
+    status,
+    totalAmount: result.totalAmount,
+  };
+};
+
+export { hasCreateOrderFunctionConfig };
+
 const assertOrderBelongsToRestaurant = (order: OrderRow | Order, expectedRestaurantId?: string) => {
   if (!expectedRestaurantId) {
     return;
@@ -258,8 +359,52 @@ const assertOrderBelongsToRestaurant = (order: OrderRow | Order, expectedRestaur
   }
 };
 
-// TODO: في الإنتاج يجب نقل createOrder إلى Appwrite Function للتحقق من المدخلات،
-// إعادة حساب الأسعار من قاعدة البيانات، منع spam، وضبط permissions بدون أسرار داخل React.
+export async function createOrderViaFunction(input: CreateOrderInput): Promise<CreateOrderFunctionResult> {
+  assertCreateOrderFunctionInput(input);
+
+  const functionPayload = {
+    restaurantSlug: input.restaurantSlug?.trim(),
+    customerName: input.customerName.trim(),
+    customerPhone: input.customerPhone.trim(),
+    customerAddress: input.customerAddress?.trim() || undefined,
+    notes: input.notes?.trim() || undefined,
+    deliveryFee: input.deliveryFee,
+    source: "website",
+    items: input.items.map((item) => ({
+      dishId: item.dishId?.trim() || undefined,
+      dishName: item.dishName.trim(),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+    })),
+  };
+
+  try {
+    const execution = await functions.createExecution({
+      functionId: CREATE_ORDER_FUNCTION_ID,
+      body: JSON.stringify(functionPayload),
+      async: false,
+      method: ExecutionMethod.POST,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+
+    if (execution.status !== "completed" || execution.responseStatusCode < 200 || execution.responseStatusCode >= 300) {
+      throw new OrdersRepositoryError(getCreateOrderFunctionErrorMessage(execution.responseBody), "WRITE_FAILED");
+    }
+
+    return parseCreateOrderFunctionResult(execution.responseBody);
+  } catch (error) {
+    if (error instanceof OrdersRepositoryError) {
+      throw error;
+    }
+
+    throw new OrdersRepositoryError("تعذر إنشاء الطلب عبر Appwrite Function. يمكنك متابعة الطلب عبر واتساب.", "WRITE_FAILED", error);
+  }
+}
+
+// Staging fallback only. Production should prefer createOrderViaFunction, then remove public create
+// permissions from orders/order_items after the Function is verified.
 export async function createOrder(input: CreateOrderInput): Promise<OrderWithItems> {
   assertAppwriteDataReady();
   assertCreateOrderInput(input);

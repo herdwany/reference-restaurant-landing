@@ -146,6 +146,7 @@
 - `totalAmount`: float
 - `status`: enum `new | confirmed | preparing | ready | delivered | cancelled`
 - `source`: enum `website | whatsapp | admin`
+- `createdAtText`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
 
