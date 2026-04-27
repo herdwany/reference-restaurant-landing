@@ -5,6 +5,7 @@ import {
   uploadRestaurantAsset,
   validateRestaurantAssetFile,
   type RestaurantAssetType,
+  type UploadedRestaurantAsset,
 } from "../../services/appwrite/storageService";
 
 export type AdminImageValue = {
@@ -15,6 +16,7 @@ export type AdminImageValue = {
 type AdminImageUploaderProps = {
   disabled?: boolean;
   onChange: (value: AdminImageValue) => void;
+  onUploaded?: (asset: UploadedRestaurantAsset) => void;
   restaurantId: string;
   type: RestaurantAssetType;
   value: AdminImageValue;
@@ -31,6 +33,7 @@ const getErrorMessage = (error: unknown) => {
 export default function AdminImageUploader({
   disabled = false,
   onChange,
+  onUploaded,
   restaurantId,
   type,
   value,
@@ -95,6 +98,7 @@ export default function AdminImageUploader({
         imageFileId: uploadedAsset.fileId,
         imageUrl: uploadedAsset.imageUrl,
       });
+      onUploaded?.(uploadedAsset);
       setSelectedFile(null);
       setSuccessMessage("تم رفع الصورة بنجاح.");
     } catch (error) {

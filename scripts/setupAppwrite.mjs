@@ -332,10 +332,10 @@ const tables = [
     name: "Audit Logs",
     columns: [
       varchar("restaurantId", 255),
-      varchar("userId", 255, true),
+      varchar("userId", 255),
       varchar("action", 120, true),
       varchar("entityType", 120, true),
-      varchar("entityId", 255, true),
+      varchar("entityId", 255),
       text("metadata"),
       varchar("createdAtText", 80),
     ],

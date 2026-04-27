@@ -177,11 +177,11 @@
 ## audit_logs
 
 - `restaurantId`: string optional
-- `userId`: string
+- `userId`: string optional
 - `action`: string
 - `entityType`: string
-- `entityId`: string
-- `metadata`: text JSON
+- `entityId`: string optional
+- `metadata`: text JSON optional
 - `createdAt`: datetime
 
 ## Suggested Indexes

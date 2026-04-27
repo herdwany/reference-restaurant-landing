@@ -9,6 +9,7 @@ import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import {
   ReservationsRepositoryError,
   getReservationById,
@@ -95,6 +96,7 @@ const formatReservationTime = (value: string) => {
 
 export default function AdminReservations() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationFilter>("all");
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
@@ -192,6 +194,10 @@ export default function AdminReservations() {
   };
 
   const handleStatusChange = async (reservation: Reservation, status: ReservationStatus) => {
+    if (reservation.status === status) {
+      return;
+    }
+
     if (!activeRestaurantId) {
       setPageError("تعذر تحديد المطعم الحالي.");
       return;
@@ -207,6 +213,16 @@ export default function AdminReservations() {
         current.map((item) => (item.id === updatedReservation.id ? updatedReservation : item)),
       );
       setReservationDetails((current) => (current?.id === updatedReservation.id ? updatedReservation : current));
+      logAction({
+        action: "status_change",
+        entityType: "reservation",
+        entityId: updatedReservation.id,
+        metadata: {
+          reservationId: updatedReservation.id,
+          fromStatus: reservation.status,
+          toStatus: updatedReservation.status,
+        },
+      });
       setSuccessMessage("تم تحديث حالة الحجز بنجاح.");
     } catch (error) {
       setPageError(getErrorMessage(error));

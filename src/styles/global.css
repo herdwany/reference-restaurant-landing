@@ -4447,7 +4447,8 @@ a {
 }
 
 .admin-settings-page,
-.admin-faqs-page {
+.admin-faqs-page,
+.admin-activity-page {
   min-width: 0;
 }
 
@@ -4615,6 +4616,92 @@ a {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.admin-activity-list {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-activity-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(180px, 0.8fr);
+  gap: 14px;
+  align-items: start;
+  padding: 16px;
+}
+
+.admin-activity-card__main {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-activity-card__icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(249, 115, 22, 0.1);
+  color: var(--admin-secondary);
+}
+
+.admin-activity-card h3 {
+  margin: 0 0 4px;
+  overflow-wrap: anywhere;
+  font-size: 1.05rem;
+  line-height: 1.4;
+}
+
+.admin-activity-card p {
+  margin: 0;
+  color: var(--admin-muted);
+  font-weight: 850;
+}
+
+.admin-activity-card__meta {
+  display: grid;
+  gap: 6px;
+  color: #374151;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.admin-activity-card__metadata {
+  grid-column: 1 / -1;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-activity-card__metadata span {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #374151;
+  padding: 6px 10px;
+  font-size: 0.82rem;
+  font-weight: 900;
+  overflow-wrap: anywhere;
+}
+
+.admin-activity-card__metadata strong {
+  color: var(--admin-muted);
+}
+
+.admin-activity-card__empty-meta {
+  grid-column: 1 / -1;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
 }
 
 .admin-login-page,
@@ -4887,6 +4974,7 @@ a {
   .admin-orders-stats,
   .admin-order-card__meta,
   .admin-order-details__grid,
+  .admin-activity-card,
   .admin-order-status-actions,
   .admin-reservation-status-actions {
     grid-template-columns: 1fr;

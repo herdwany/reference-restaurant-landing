@@ -6,6 +6,7 @@ export type AdminFeatureIconName =
   | "calendarCheck"
   | "circleHelp"
   | "eye"
+  | "history"
   | "image"
   | "layoutDashboard"
   | "settings"
@@ -14,7 +15,7 @@ export type AdminFeatureIconName =
   | "utensils";
 
 export type AdminFeature = {
-  id: "overview" | "dishes" | "offers" | "settings" | "faqs" | "orders" | "reservations" | "gallery" | "preview";
+  id: "overview" | "dishes" | "offers" | "settings" | "faqs" | "orders" | "reservations" | "gallery" | "activity" | "preview";
   label: string;
   path: string;
   icon: AdminFeatureIconName;
@@ -105,6 +106,16 @@ export const adminFeatures = [
     status: "active",
     requiredRoles: restaurantRoles,
     description: "إدارة الصور التي تظهر في قسم أجواء المطعم.",
+    placement: "main",
+  },
+  {
+    id: "activity",
+    label: "سجل النشاط",
+    path: "/admin/activity",
+    icon: "history",
+    status: "active",
+    requiredRoles: restaurantRoles,
+    description: "راجع آخر العمليات المهمة التي تمت داخل لوحة التحكم.",
     placement: "main",
   },
   {

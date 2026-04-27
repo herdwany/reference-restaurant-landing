@@ -10,6 +10,7 @@ import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import {
   FaqRepositoryError,
   createFaq,
@@ -96,6 +97,7 @@ const getErrorMessage = (error: unknown) => {
 
 export default function AdminFaqs() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [formMode, setFormMode] = useState<FaqFormMode | null>(null);
   const [formValues, setFormValues] = useState<FaqFormValues>(emptyFaqFormValues);
@@ -200,6 +202,12 @@ export default function AdminFaqs() {
         return sortFaqs(nextFaqs);
       });
 
+      logAction({
+        action: formMode.type === "edit" ? "update" : "create",
+        entityType: "faq",
+        entityId: savedFaq.id,
+        metadata: { name: savedFaq.question },
+      });
       setSuccessMessage("تم حفظ السؤال بنجاح");
       setFormMode(null);
     } catch (error) {
@@ -222,6 +230,12 @@ export default function AdminFaqs() {
     try {
       const updatedFaq = await toggleFaqVisibility(faq.id, !faq.isVisible, activeRestaurantId);
       setFaqs((current) => sortFaqs(current.map((item) => (item.id === updatedFaq.id ? updatedFaq : item))));
+      logAction({
+        action: updatedFaq.isVisible ? "show" : "hide",
+        entityType: "faq",
+        entityId: updatedFaq.id,
+        metadata: { name: updatedFaq.question },
+      });
       setSuccessMessage(updatedFaq.isVisible ? "تم إظهار السؤال في الموقع" : "تم إخفاء السؤال من الموقع");
     } catch (error) {
       setPageError(getErrorMessage(error));
@@ -247,6 +261,12 @@ export default function AdminFaqs() {
     try {
       await deleteFaq(pendingDeleteFaq.id, activeRestaurantId);
       setFaqs((current) => current.filter((faq) => faq.id !== pendingDeleteFaq.id));
+      logAction({
+        action: "delete",
+        entityType: "faq",
+        entityId: pendingDeleteFaq.id,
+        metadata: { name: pendingDeleteFaq.question },
+      });
       setSuccessMessage("تم حذف السؤال نهائيًا");
       setPendingDeleteFaq(null);
     } catch (error) {

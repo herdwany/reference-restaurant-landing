@@ -9,6 +9,7 @@ import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import {
   OrdersRepositoryError,
   getOrderItems,
@@ -80,6 +81,7 @@ const getItemsQuantity = (items: readonly OrderItem[]) => items.reduce((total, i
 
 export default function AdminOrders() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const [orders, setOrders] = useState<Order[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [statusFilter, setStatusFilter] = useState<OrderFilter>("all");
@@ -177,6 +179,10 @@ export default function AdminOrders() {
   };
 
   const handleStatusChange = async (order: Order, status: OrderStatus) => {
+    if (order.status === status) {
+      return;
+    }
+
     if (!activeRestaurantId) {
       setPageError("تعذر تحديد المطعم الحالي.");
       return;
@@ -190,6 +196,16 @@ export default function AdminOrders() {
       const updatedOrder = await updateOrderStatus(order.id, status, activeRestaurantId);
       setOrders((current) => current.map((item) => (item.id === updatedOrder.id ? updatedOrder : item)));
       setOrderDetails((current) => (current?.order.id === updatedOrder.id ? { ...current, order: updatedOrder } : current));
+      logAction({
+        action: "status_change",
+        entityType: "order",
+        entityId: updatedOrder.id,
+        metadata: {
+          orderId: updatedOrder.id,
+          fromStatus: order.status,
+          toStatus: updatedOrder.status,
+        },
+      });
       setSuccessMessage("تم تحديث حالة الطلب بنجاح.");
     } catch (error) {
       setPageError(getErrorMessage(error));

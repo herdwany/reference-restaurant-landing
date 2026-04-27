@@ -11,6 +11,7 @@ import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import {
   GalleryRepositoryError,
   createGalleryItem,
@@ -118,6 +119,7 @@ const getErrorMessage = (error: unknown) => {
 
 export default function AdminGallery() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [formMode, setFormMode] = useState<GalleryFormMode | null>(null);
   const [formValues, setFormValues] = useState<GalleryFormValues>(emptyGalleryFormValues);
@@ -222,6 +224,15 @@ export default function AdminGallery() {
         return sortGalleryItems(nextItems);
       });
 
+      logAction({
+        action: formMode.type === "edit" ? "update" : "create",
+        entityType: "gallery",
+        entityId: savedItem.id,
+        metadata: {
+          name: savedItem.title,
+          isVisible: savedItem.isVisible,
+        },
+      });
       setSuccessMessage("تم حفظ صورة المعرض بنجاح");
       setFormMode(null);
     } catch (error) {
@@ -244,6 +255,12 @@ export default function AdminGallery() {
     try {
       const updatedItem = await toggleGalleryItemVisibility(item.id, !item.isVisible, activeRestaurantId);
       setGalleryItems((current) => sortGalleryItems(current.map((currentItem) => (currentItem.id === updatedItem.id ? updatedItem : currentItem))));
+      logAction({
+        action: updatedItem.isVisible ? "show" : "hide",
+        entityType: "gallery",
+        entityId: updatedItem.id,
+        metadata: { name: updatedItem.title },
+      });
       setSuccessMessage(updatedItem.isVisible ? "تم إظهار الصورة في الموقع" : "تم إخفاء الصورة من الموقع");
     } catch (error) {
       setPageError(getErrorMessage(error));
@@ -269,6 +286,12 @@ export default function AdminGallery() {
     try {
       await deleteGalleryItem(pendingDeleteItem.id, activeRestaurantId);
       setGalleryItems((current) => current.filter((item) => item.id !== pendingDeleteItem.id));
+      logAction({
+        action: "delete",
+        entityType: "gallery",
+        entityId: pendingDeleteItem.id,
+        metadata: { name: pendingDeleteItem.title },
+      });
       setSuccessMessage("تم حذف صورة المعرض نهائيًا");
       setPendingDeleteItem(null);
     } catch (error) {
@@ -460,6 +483,17 @@ export default function AdminGallery() {
                   updateFormValue("imageFileId", nextValue.imageFileId ?? "");
                   updateFormValue("imageUrl", nextValue.imageUrl ?? "");
                 }}
+                onUploaded={(asset) =>
+                  logAction({
+                    action: "upload",
+                    entityType: "image",
+                    entityId: asset.fileId,
+                    metadata: {
+                      type: "gallery",
+                      fileName: asset.fileName,
+                    },
+                  })
+                }
                 disabled={isSaving || !activeRestaurantId}
               />
             </div>

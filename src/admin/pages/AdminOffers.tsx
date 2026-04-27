@@ -11,6 +11,7 @@ import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import {
   OffersRepositoryError,
   createOffer,
@@ -193,6 +194,7 @@ const getErrorMessage = (error: unknown) => {
 
 export default function AdminOffers() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [formMode, setFormMode] = useState<OfferFormMode | null>(null);
   const [formValues, setFormValues] = useState<OfferFormValues>(emptyOfferFormValues);
@@ -297,6 +299,15 @@ export default function AdminOffers() {
         return sortOffers(nextOffers);
       });
 
+      logAction({
+        action: formMode.type === "edit" ? "update" : "create",
+        entityType: "offer",
+        entityId: savedOffer.id,
+        metadata: {
+          name: savedOffer.title,
+          isActive: savedOffer.isActive,
+        },
+      });
       setSuccessMessage("تم حفظ العرض بنجاح");
       setFormMode(null);
     } catch (error) {
@@ -319,6 +330,12 @@ export default function AdminOffers() {
     try {
       const updatedOffer = await toggleOfferActive(offer.id, !offer.isActive, activeRestaurantId);
       setOffers((current) => sortOffers(current.map((item) => (item.id === updatedOffer.id ? updatedOffer : item))));
+      logAction({
+        action: updatedOffer.isActive ? "activate" : "deactivate",
+        entityType: "offer",
+        entityId: updatedOffer.id,
+        metadata: { name: updatedOffer.title },
+      });
       setSuccessMessage(updatedOffer.isActive ? "تم تفعيل العرض" : "تم إيقاف العرض");
     } catch (error) {
       setPageError(getErrorMessage(error));
@@ -344,6 +361,12 @@ export default function AdminOffers() {
     try {
       await deleteOffer(pendingDeleteOffer.id, activeRestaurantId);
       setOffers((current) => current.filter((offer) => offer.id !== pendingDeleteOffer.id));
+      logAction({
+        action: "delete",
+        entityType: "offer",
+        entityId: pendingDeleteOffer.id,
+        metadata: { name: pendingDeleteOffer.title },
+      });
       setSuccessMessage("تم حذف العرض نهائيًا");
       setPendingDeleteOffer(null);
     } catch (error) {

@@ -7,6 +7,7 @@ import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import { useAuth } from "../../context/AuthContext";
 import { defaultRestaurantConfig } from "../../data/restaurantConfig";
 import {
@@ -289,6 +290,7 @@ const getErrorMessage = (error: unknown) => {
 
 export default function AdminSettings() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const { refreshProfile } = useAuth();
   const [formValues, setFormValues] = useState<SettingsFormValues>(getSettingsFormValues(activeRestaurant, null));
   const [formErrors, setFormErrors] = useState<SettingsFormErrors>({});
@@ -355,6 +357,22 @@ export default function AdminSettings() {
       ]);
 
       setFormValues(getSettingsFormValues(savedRestaurant, savedSettings));
+      logAction({
+        action: "contact_update",
+        entityType: "settings",
+        entityId: savedRestaurant.id,
+        metadata: { name: savedRestaurant.nameAr || savedRestaurant.name },
+      });
+      logAction({
+        action: "settings_update",
+        entityType: "settings",
+        entityId: savedSettings.id,
+        metadata: {
+          direction: savedSettings.direction,
+          orderMode: savedSettings.orderMode,
+          reservationMode: savedSettings.reservationMode,
+        },
+      });
       setSuccessMessage("تم حفظ الإعدادات بنجاح");
       void refreshProfile();
     } catch (error) {

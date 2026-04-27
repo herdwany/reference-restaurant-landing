@@ -11,6 +11,7 @@ import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
+import { useAuditLogger } from "../hooks/useAuditLogger";
 import {
   DishesRepositoryError,
   createDish,
@@ -169,6 +170,7 @@ const getErrorMessage = (error: unknown) => {
 
 export default function AdminDishes() {
   const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const logAction = useAuditLogger();
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [formMode, setFormMode] = useState<DishFormMode | null>(null);
   const [formValues, setFormValues] = useState<DishFormValues>(emptyDishFormValues);
@@ -273,6 +275,15 @@ export default function AdminDishes() {
         return sortDishes(nextDishes);
       });
 
+      logAction({
+        action: formMode.type === "edit" ? "update" : "create",
+        entityType: "dish",
+        entityId: savedDish.id,
+        metadata: {
+          name: savedDish.name,
+          isAvailable: savedDish.isAvailable,
+        },
+      });
       setSuccessMessage("تم حفظ الطبق بنجاح");
       setFormMode(null);
     } catch (error) {
@@ -295,6 +306,12 @@ export default function AdminDishes() {
     try {
       const updatedDish = await toggleDishAvailability(dish.id, !dish.isAvailable, activeRestaurantId);
       setDishes((current) => sortDishes(current.map((item) => (item.id === updatedDish.id ? updatedDish : item))));
+      logAction({
+        action: updatedDish.isAvailable ? "show" : "hide",
+        entityType: "dish",
+        entityId: updatedDish.id,
+        metadata: { name: updatedDish.name },
+      });
       setSuccessMessage(updatedDish.isAvailable ? "تم إظهار الطبق في الموقع" : "تم إخفاء الطبق من الموقع");
     } catch (error) {
       setPageError(getErrorMessage(error));
@@ -320,6 +337,12 @@ export default function AdminDishes() {
     try {
       await deleteDish(pendingDeleteDish.id, activeRestaurantId);
       setDishes((current) => current.filter((dish) => dish.id !== pendingDeleteDish.id));
+      logAction({
+        action: "delete",
+        entityType: "dish",
+        entityId: pendingDeleteDish.id,
+        metadata: { name: pendingDeleteDish.name },
+      });
       setSuccessMessage("تم حذف الطبق نهائيًا");
       setPendingDeleteDish(null);
     } catch (error) {

@@ -38,7 +38,7 @@ Use this checklist after deploying `createOrder` and `createReservation`.
 | `orders` | No access | Read, Update | Create only through Function, delete disabled |
 | `order_items` | No access | Read only | Create only through Function |
 | `reservations` | No access | Read, Update | Create only through Function, delete disabled |
-| `audit_logs` | No access | No access, or future manager read only | Future agency/admin hardening |
+| `audit_logs` | No access | Create, Read temporarily for current restaurant via app filter; Update/Delete disabled | MVP client-side logs only |
 | `restaurant-assets` | Read only | Create, Read, Update, Delete temporarily | No public upload/update/delete |
 
 ## Manual Verification
@@ -50,10 +50,25 @@ Use this checklist after deploying `createOrder` and `createReservation`.
 - [ ] Temporarily remove a Function ID in production build and confirm direct DB write is not attempted.
 - [ ] Dishes, offers, settings, FAQ, gallery, image uploads, cart, and WhatsApp still work.
 - [ ] No horizontal scroll on public or admin mobile views.
+- [ ] Audit logs appear in `/admin/activity` after admin create/update/delete/status changes.
+
+## audit_logs MVP Permissions
+
+- Guests/Any: no permissions.
+- Users: Create enabled temporarily.
+- Users: Read enabled temporarily, with app-side `restaurantId` filtering for the current restaurant only.
+- Users: Update/Delete disabled.
+
+Security notes:
+
+- Client-side audit logs are an MVP and are not tamper-proof.
+- Later, sensitive operations such as order and reservation status changes should be audited server-side through Functions or an agency/team backend.
+- Do not store personal customer data, full phone numbers, addresses, secrets, API keys, or full request payloads in `metadata`.
+- Never expose logs across restaurants without a required `restaurantId` filter.
 
 ## Remaining Hardening
 
 - [ ] Replace broad `Users` writes with Teams/Functions scoped to each restaurant.
 - [ ] Add anti-spam/rate limiting to public Functions.
 - [ ] Recalculate all official order totals server-side from trusted menu/offer data.
-- [ ] Add server-side audit logs after agency/admin permissions are designed.
+- [ ] Move audit logging for sensitive admin changes to server-side Functions or an agency/team backend.

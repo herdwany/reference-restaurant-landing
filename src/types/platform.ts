@@ -17,6 +17,30 @@ export type ColorTheme = "orange" | "red" | "gold";
 export type SiteDirection = "rtl" | "ltr";
 export type OrderMode = "whatsapp" | "database" | "both";
 export type ReservationMode = "whatsapp" | "database" | "both";
+export type AuditEntityType =
+  | "dish"
+  | "offer"
+  | "settings"
+  | "faq"
+  | "gallery"
+  | "order"
+  | "reservation"
+  | "image"
+  | "auth";
+export type AuditAction =
+  | "create"
+  | "update"
+  | "delete"
+  | "hide"
+  | "show"
+  | "activate"
+  | "deactivate"
+  | "status_change"
+  | "upload"
+  | "settings_update"
+  | "contact_update";
+export type AuditLogMetadataValue = string | number | boolean | null;
+export type AuditLogMetadata = Record<string, AuditLogMetadataValue>;
 
 export interface BaseModel {
   id: string;
@@ -177,9 +201,9 @@ export interface Reservation extends BaseModel {
 
 export interface AuditLog extends BaseModel {
   restaurantId?: string;
-  userId: string;
-  action: string;
-  entityType: string;
-  entityId: string;
-  metadata: string;
+  userId?: string;
+  action: AuditAction | string;
+  entityType: AuditEntityType | string;
+  entityId?: string;
+  metadata?: AuditLogMetadata;
 }

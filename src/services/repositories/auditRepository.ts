@@ -1,4 +1,6 @@
-// TODO: Must be implemented through Appwrite Functions later for security.
-export async function writeAuditLog(): Promise<null> {
-  return null;
-}
+export {
+  AuditLogsRepositoryError,
+  createAuditLog,
+  getAuditLogsByRestaurant,
+  type CreateAuditLogInput,
+} from "./auditLogsRepository";

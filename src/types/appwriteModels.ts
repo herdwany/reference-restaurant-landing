@@ -1,5 +1,9 @@
 export type {
   AuditLog,
+  AuditAction,
+  AuditEntityType,
+  AuditLogMetadata,
+  AuditLogMetadataValue,
   BaseModel,
   BusinessType,
   ColorTheme,

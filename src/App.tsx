@@ -4,6 +4,7 @@ import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
 import AdminOverview from "./admin/AdminOverview";
 import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
+import AdminActivity from "./admin/pages/AdminActivity";
 import AdminDishes from "./admin/pages/AdminDishes";
 import AdminFaqs from "./admin/pages/AdminFaqs";
 import AdminGallery from "./admin/pages/AdminGallery";
@@ -438,6 +439,7 @@ export default function App() {
             <Route path="settings" element={<AdminSettings />} />
             <Route path="faqs" element={<AdminFaqs />} />
             <Route path="gallery" element={<AdminGallery />} />
+            <Route path="activity" element={<AdminActivity />} />
             <Route path="*" element={<AdminOverview />} />
           </Route>
         </Route>
