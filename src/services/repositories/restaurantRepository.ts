@@ -49,6 +49,9 @@ export type RestaurantContactInput = {
   nameAr: string;
   tagline: string;
   description: string;
+  logoFileId?: string;
+  heroImageFileId?: string;
+  heroImageUrl?: string;
   phone: string;
   whatsappNumber: string;
   email?: string;
@@ -66,6 +69,9 @@ type RestaurantContactRowData = {
   nameAr: string;
   tagline: string;
   description: string;
+  logoFileId: string | null;
+  heroImageFileId: string | null;
+  heroImageUrl: string | null;
   phone: string;
   whatsappNumber: string;
   email: string | null;
@@ -121,6 +127,9 @@ const toRestaurantContactRowData = (input: RestaurantContactInput): RestaurantCo
     nameAr: input.nameAr.trim() || displayName,
     tagline: input.tagline.trim(),
     description: input.description.trim(),
+    logoFileId: optionalText(input.logoFileId),
+    heroImageFileId: optionalText(input.heroImageFileId),
+    heroImageUrl: optionalText(input.heroImageUrl),
     phone: input.phone.trim(),
     whatsappNumber: input.whatsappNumber.trim(),
     email: optionalText(input.email),

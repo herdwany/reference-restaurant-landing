@@ -1,8 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { RefreshCw, Save, Settings } from "lucide-react";
+import { ImageIcon, RefreshCw, Save, Settings } from "lucide-react";
 import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
@@ -20,6 +21,7 @@ import {
   upsertSiteSettings,
   type SiteSettingsMutationInput,
 } from "../../services/repositories/settingsRepository";
+import { getFileViewUrl } from "../../services/appwrite/storageService";
 import type { OrderMode, ReservationMode, Restaurant, SiteDirection, SiteSettings } from "../../types/platform";
 
 type SettingsFormValues = {
@@ -27,6 +29,11 @@ type SettingsFormValues = {
   nameAr: string;
   tagline: string;
   description: string;
+  logoFileId: string;
+  logoPreviewUrl: string;
+  heroImageFileId: string;
+  heroImageUrl: string;
+  heroPreviewUrl: string;
   phone: string;
   whatsappNumber: string;
   email: string;
@@ -93,6 +100,11 @@ const emptySettingsFormValues: SettingsFormValues = {
   nameAr: defaultRestaurantConfig.restaurant.name,
   tagline: defaultRestaurantConfig.restaurant.slogan,
   description: defaultRestaurantConfig.ui.footer.description,
+  logoFileId: "",
+  logoPreviewUrl: "",
+  heroImageFileId: "",
+  heroImageUrl: "",
+  heroPreviewUrl: "",
   phone: defaultRestaurantConfig.restaurant.phone,
   whatsappNumber: defaultRestaurantConfig.restaurant.whatsappNumber,
   email: defaultRestaurantConfig.restaurant.email,
@@ -119,15 +131,34 @@ const emptySettingsFormValues: SettingsFormValues = {
   showFooter: defaultRestaurantConfig.settings.sections.footer,
 };
 
+const getStoredFileUrl = (fileId: string | undefined) => {
+  if (!fileId) {
+    return "";
+  }
+
+  try {
+    return getFileViewUrl(fileId);
+  } catch {
+    return "";
+  }
+};
+
 const getSettingsFormValues = (restaurant: Restaurant | null, settings: SiteSettings | null): SettingsFormValues => {
   const restaurantName = restaurant?.name || restaurant?.nameAr || emptySettingsFormValues.name;
   const restaurantNameAr = restaurant?.nameAr || restaurantName;
+  const logoFileId = restaurant?.logoFileId ?? "";
+  const heroImageFileId = restaurant?.heroImageFileId ?? "";
 
   return {
     name: restaurantName,
     nameAr: restaurantNameAr,
     tagline: restaurant?.tagline ?? emptySettingsFormValues.tagline,
     description: restaurant?.description ?? emptySettingsFormValues.description,
+    logoFileId,
+    logoPreviewUrl: getStoredFileUrl(logoFileId),
+    heroImageFileId,
+    heroImageUrl: restaurant?.heroImageUrl ?? emptySettingsFormValues.heroImageUrl,
+    heroPreviewUrl: getStoredFileUrl(heroImageFileId),
     phone: restaurant?.phone ?? emptySettingsFormValues.phone,
     whatsappNumber: restaurant?.whatsappNumber ?? emptySettingsFormValues.whatsappNumber,
     email: restaurant?.email ?? emptySettingsFormValues.email,
@@ -186,6 +217,10 @@ const validateSettingsForm = (values: SettingsFormValues): SettingsFormErrors =>
     errors.mapsUrl = "رابط الخريطة يجب أن يكون URL صالحًا";
   }
 
+  if (values.heroImageUrl.trim() && !isAcceptableUrl(values.heroImageUrl.trim())) {
+    errors.heroImageUrl = "رابط صورة الواجهة يجب أن يكون URL صالحًا";
+  }
+
   for (const colorKey of ["primaryColor", "secondaryColor", "accentColor", "successColor"] as const) {
     if (values[colorKey].trim() && !isHexColor(values[colorKey].trim())) {
       errors[colorKey] = "اللون يجب أن يكون hex مثل #E51B2B";
@@ -212,6 +247,9 @@ const toRestaurantContactInput = (values: SettingsFormValues): RestaurantContact
   nameAr: values.nameAr.trim(),
   tagline: values.tagline.trim(),
   description: values.description.trim(),
+  logoFileId: values.logoFileId.trim() || undefined,
+  heroImageFileId: values.heroImageFileId.trim() || undefined,
+  heroImageUrl: values.heroImageUrl.trim() || undefined,
   phone: values.phone.trim(),
   whatsappNumber: values.whatsappNumber.trim(),
   email: values.email.trim() || undefined,
@@ -479,6 +517,64 @@ export default function AdminSettings() {
                   {renderFieldError(key)}
                 </label>
               ))}
+            </div>
+          </AdminCard>
+
+          <AdminCard className="admin-settings-section">
+            <div className="admin-settings-section__header">
+              <ImageIcon size={20} aria-hidden="true" />
+              <div>
+                <h3>صور الهوية</h3>
+                <p>الشعار وصورة الواجهة الرئيسية للموقع العام.</p>
+              </div>
+            </div>
+            <div className="admin-form-grid">
+              <div className="admin-form-grid__wide">
+                <span className="admin-field-label">شعار المطعم</span>
+                <AdminImageUploader
+                  restaurantId={activeRestaurantId ?? ""}
+                  type="logo"
+                  value={{
+                    imageFileId: formValues.logoFileId || undefined,
+                    imageUrl: formValues.logoPreviewUrl || undefined,
+                  }}
+                  onChange={(nextValue) => {
+                    updateFormValue("logoFileId", nextValue.imageFileId ?? "");
+                    updateFormValue("logoPreviewUrl", nextValue.imageUrl ?? "");
+                  }}
+                  disabled={isSaving || !activeRestaurantId}
+                />
+              </div>
+
+              <label>
+                <span>رابط صورة الواجهة اليدوي</span>
+                <input
+                  value={formValues.heroImageUrl}
+                  onChange={(event) => updateFormValue("heroImageUrl", event.target.value)}
+                  aria-invalid={Boolean(formErrors.heroImageUrl)}
+                  inputMode="url"
+                  placeholder="https://example.com/hero.jpg"
+                />
+                {renderFieldError("heroImageUrl")}
+              </label>
+
+              <div className="admin-form-grid__wide">
+                <span className="admin-field-label">صورة الواجهة الرئيسية</span>
+                <AdminImageUploader
+                  restaurantId={activeRestaurantId ?? ""}
+                  type="hero"
+                  value={{
+                    imageFileId: formValues.heroImageFileId || undefined,
+                    imageUrl: formValues.heroImageUrl || formValues.heroPreviewUrl || undefined,
+                  }}
+                  onChange={(nextValue) => {
+                    updateFormValue("heroImageFileId", nextValue.imageFileId ?? "");
+                    updateFormValue("heroImageUrl", nextValue.imageUrl ?? "");
+                    updateFormValue("heroPreviewUrl", nextValue.imageUrl ?? "");
+                  }}
+                  disabled={isSaving || !activeRestaurantId}
+                />
+              </div>
             </div>
           </AdminCard>
 

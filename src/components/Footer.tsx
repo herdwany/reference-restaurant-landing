@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { AtSign, Camera, Instagram, Mail, MapPin, Music2, Phone, UtensilsCrossed } from "lucide-react";
 import type { RestaurantConfig } from "../data/restaurantConfig";
 
@@ -11,14 +12,24 @@ const scrollToTarget = (targetId: string) => {
 
 export default function Footer({ config }: FooterProps) {
   const quickLinks = config.navigation.filter((link) => ["home", "menu", "offers", "about", "contact"].includes(link.targetId));
+  const [logoImageFailed, setLogoImageFailed] = useState(false);
+  const logoImageUrl = config.restaurant.logoImage && !logoImageFailed ? config.restaurant.logoImage : "";
+
+  useEffect(() => {
+    setLogoImageFailed(false);
+  }, [config.restaurant.logoImage]);
 
   return (
     <footer className="site-footer">
       <div className="container site-footer__grid">
         <div>
           <div className="footer-brand">
-            <span>
-              <UtensilsCrossed size={24} />
+            <span className={logoImageUrl ? "footer-brand__icon--image" : ""}>
+              {logoImageUrl ? (
+                <img src={logoImageUrl} alt="" loading="lazy" onError={() => setLogoImageFailed(true)} />
+              ) : (
+                <UtensilsCrossed size={24} />
+              )}
             </span>
             <div>
               <strong>{config.restaurant.name}</strong>

@@ -1,5 +1,6 @@
+import { useEffect, useState } from "react";
 import { Clock, Flame, MessageCircle, ShieldCheck, ShoppingBag, Sparkles, Star, Truck, Leaf } from "lucide-react";
-import type { Benefit, RestaurantConfig } from "../data/restaurantConfig";
+import { defaultRestaurantConfig, type Benefit, type RestaurantConfig } from "../data/restaurantConfig";
 
 interface HeroProps {
   config: RestaurantConfig;
@@ -19,6 +20,13 @@ const benefitIcons: Record<Benefit["icon"], typeof Star> = {
 };
 
 export default function Hero({ config, onOrderClick, onWhatsappClick }: HeroProps) {
+  const fallbackHeroImage = defaultRestaurantConfig.hero.image;
+  const [heroImageSrc, setHeroImageSrc] = useState(config.hero.image || fallbackHeroImage);
+
+  useEffect(() => {
+    setHeroImageSrc(config.hero.image || fallbackHeroImage);
+  }, [config.hero.image, fallbackHeroImage]);
+
   return (
     <section className="hero" id="home">
       <div className="hero__pattern" aria-hidden="true" />
@@ -57,7 +65,18 @@ export default function Hero({ config, onOrderClick, onWhatsappClick }: HeroProp
 
         <div className="hero__visual">
           <div className="hero__image-wrap">
-            <img src={config.hero.image} alt={config.hero.title} loading="eager" />
+            {heroImageSrc ? (
+              <img
+                src={heroImageSrc}
+                alt={config.hero.title}
+                loading="eager"
+                onError={() => setHeroImageSrc((current) => (current === fallbackHeroImage ? "" : fallbackHeroImage))}
+              />
+            ) : (
+              <div className="hero__image-fallback" aria-hidden="true">
+                <Sparkles size={54} />
+              </div>
+            )}
             <span className="hero__image-badge">
               <Flame size={18} />
               {config.hero.imageBadge}

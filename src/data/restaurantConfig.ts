@@ -15,6 +15,7 @@ export interface RestaurantInfo {
   name: string;
   slogan: string;
   logoText: string;
+  logoImage?: string;
   phone: string;
   whatsappNumber: string;
   email: string;

@@ -19,6 +19,7 @@ import { getVisibleFaqs } from "./repositories/faqRepository";
 import { getActiveOffers } from "./repositories/offersRepository";
 import { getRestaurantBySlug } from "./repositories/restaurantRepository";
 import { getSiteSettings } from "./repositories/settingsRepository";
+import { getFileViewUrl } from "./appwrite/storageService";
 
 export type SiteDataSource = "config" | "appwrite";
 
@@ -46,6 +47,20 @@ const isAcceptableImageUrl = (value: string | undefined) => {
     return false;
   }
 };
+
+const getStoredAssetUrl = (fileId: string | undefined) => {
+  if (!fileId) {
+    return undefined;
+  }
+
+  try {
+    return getFileViewUrl(fileId);
+  } catch {
+    return undefined;
+  }
+};
+
+const resolveImageUrl = (...candidates: (string | undefined)[]) => candidates.find(isAcceptableImageUrl);
 
 const mapDishes = (dishes: AppwriteDish[], base: RestaurantConfig): ConfigDish[] =>
   dishes.map((dish, index) => {
@@ -98,6 +113,7 @@ const mapFaqs = (faqs: AppwriteFAQItem[]): ConfigFAQItem[] =>
 
 const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): RestaurantConfig["restaurant"] => {
   const displayName = restaurant.nameAr || restaurant.name || base.restaurant.name;
+  const logoImage = resolveImageUrl(getStoredAssetUrl(restaurant.logoFileId));
 
   return {
     ...base.restaurant,
@@ -105,6 +121,7 @@ const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): Restau
     name: displayName,
     slogan: restaurant.tagline || base.restaurant.slogan,
     logoText: displayName,
+    logoImage,
     phone: restaurant.phone || base.restaurant.phone,
     whatsappNumber: restaurant.whatsappNumber || base.restaurant.whatsappNumber,
     email: restaurant.email || base.restaurant.email,
@@ -114,13 +131,16 @@ const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): Restau
   };
 };
 
+const getRestaurantHeroImage = (restaurant: Restaurant) =>
+  resolveImageUrl(restaurant.heroImageUrl, getStoredAssetUrl(restaurant.heroImageFileId));
+
 const mergeBrand = (restaurant: Restaurant, base: RestaurantConfig): RestaurantConfig["brand"] => ({
   ...base.brand,
   primaryColor: restaurant.primaryColor || base.brand.primaryColor,
   secondaryColor: restaurant.secondaryColor || base.brand.secondaryColor,
   accentColor: restaurant.accentColor || base.brand.accentColor,
   successColor: restaurant.successColor || base.brand.successColor,
-  heroImage: restaurant.heroImageUrl && isAcceptableImageUrl(restaurant.heroImageUrl) ? restaurant.heroImageUrl : base.brand.heroImage,
+  heroImage: getRestaurantHeroImage(restaurant) || base.brand.heroImage,
 });
 
 const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): RestaurantConfig["settings"] => {
@@ -184,6 +204,7 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
     const hasAppwriteOffers = offers.length > 0;
     const hasAppwriteFaqs = faqs.length > 0;
     const mergedSettings = mergeSettings(siteSettings, defaultRestaurantConfig);
+    const heroImage = getRestaurantHeroImage(restaurant) || defaultRestaurantConfig.hero.image;
     const mergedRestaurant = {
       ...mergeRestaurant(restaurant, defaultRestaurantConfig),
       currency: mergedSettings.currency || defaultRestaurantConfig.restaurant.currency,
@@ -198,6 +219,7 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
         hero: {
           ...defaultRestaurantConfig.hero,
           subtitle: restaurant.description || defaultRestaurantConfig.hero.subtitle,
+          image: heroImage,
         },
         ui: {
           ...defaultRestaurantConfig.ui,

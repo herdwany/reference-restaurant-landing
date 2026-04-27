@@ -16,6 +16,12 @@ const scrollToTarget = (targetId: string) => {
 export default function Header({ config, cartCount, onCartOpen, onTemplateOpen }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTarget, setActiveTarget] = useState(config.navigation[0]?.targetId ?? "home");
+  const [logoImageFailed, setLogoImageFailed] = useState(false);
+  const logoImageUrl = config.restaurant.logoImage && !logoImageFailed ? config.restaurant.logoImage : "";
+
+  useEffect(() => {
+    setLogoImageFailed(false);
+  }, [config.restaurant.logoImage]);
 
   useEffect(() => {
     const sectionIds = config.navigation.map((link) => link.targetId).concat(["faq", "booking"]);
@@ -60,8 +66,12 @@ export default function Header({ config, cartCount, onCartOpen, onTemplateOpen }
         </button>
 
         <button className="brand" type="button" onClick={() => scrollToTarget("home")} aria-label={config.restaurant.name}>
-          <span className="brand__icon">
-            <UtensilsCrossed size={25} />
+          <span className={`brand__icon ${logoImageUrl ? "brand__icon--image" : ""}`}>
+            {logoImageUrl ? (
+              <img src={logoImageUrl} alt="" loading="eager" onError={() => setLogoImageFailed(true)} />
+            ) : (
+              <UtensilsCrossed size={25} />
+            )}
           </span>
           <span>
             <strong>{config.restaurant.logoText}</strong>
