@@ -101,6 +101,7 @@ const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): Restau
 
   return {
     ...base.restaurant,
+    id: restaurant.id,
     name: displayName,
     slogan: restaurant.tagline || base.restaurant.slogan,
     logoText: displayName,
@@ -124,7 +125,10 @@ const mergeBrand = (restaurant: Restaurant, base: RestaurantConfig): RestaurantC
 
 const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): RestaurantConfig["settings"] => {
   if (!settings) {
-    return base.settings;
+    return {
+      ...base.settings,
+      orderMode: "both",
+    };
   }
 
   return {

@@ -85,10 +85,47 @@
 - No image upload yet.
 - No agency dashboard yet.
 
-## Phase 6
+## Phase 6A - Completed
 
-- Orders + Reservations.
-- إدارة حالات الطلبات والحجوزات.
+- Public checkout can create `orders` and `order_items` in Appwrite TablesDB.
+- Checkout uses `restaurantId` from the restaurant loaded by slug, not from a public form field.
+- `orderMode` supports `whatsapp`, `database`, and `both`.
+- WhatsApp checkout fallback remains available if Appwrite create fails.
+- `/admin/orders` displays orders scoped by the active restaurant only.
+- Owners and staff manage orders for their own restaurant through `useActiveRestaurantScope`.
+- `agency_admin` without a selected restaurant sees the agency-scope warning instead of all orders.
+- Order status can be changed to `new`, `confirmed`, `preparing`, `ready`, `delivered`, or `cancelled`.
+- Order details show customer data and item rows without adding reservations.
+- No Reservations Manager, Image Upload, Agency Dashboard, Appwrite Functions, or viaSocket integration was added.
+
+### Phase 6A Appwrite permissions for staging
+
+For current direct browser testing:
+
+`orders`
+
+- Create: `Any` or `Guests` if public visitors submit orders directly.
+- Read: `Users`.
+- Update: `Users`.
+- Delete: `Users` or nothing.
+
+`order_items`
+
+- Create: `Any` or `Guests`.
+- Read: `Users`.
+- Update: `Users` or nothing.
+- Delete: `Users` or nothing.
+
+Security constraints:
+
+- Do not allow public read on `orders` or `order_items`.
+- Do not allow public update/delete on `orders` or `order_items`.
+- Do not expose customer data with public read.
+- Production should move `createOrder` to an Appwrite Function to validate input, recalculate prices from trusted dish data, set permissions, and add anti-spam protection.
+
+## Phase 6B
+
+- Reservations only, when explicitly scheduled.
 
 ## Phase 7
 

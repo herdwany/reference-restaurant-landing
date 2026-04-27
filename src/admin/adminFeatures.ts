@@ -81,7 +81,7 @@ export const adminFeatures = [
     label: "الطلبات",
     path: "/admin/orders",
     icon: "shoppingBag",
-    status: "coming_soon",
+    status: "active",
     requiredRoles: restaurantRoles,
     description: "متابعة طلبات الموقع وتحديث حالتها.",
     placement: "main",

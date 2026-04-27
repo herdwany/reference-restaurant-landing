@@ -210,7 +210,7 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 ## ملاحظات
 
 - السلة والحجوزات محفوظة في `localStorage`.
-- إتمام الطلب يفتح واتساب برسالة منسقة تحتوي المنتجات والكميات والإجمالي.
+- إتمام الطلب يدعم `orderMode`: واتساب فقط، قاعدة البيانات فقط، أو الحفظ في Appwrite ثم فتح واتساب.
 - نموذج الحجز يتحقق من الحقول قبل الحفظ أو الإرسال عبر واتساب.
 - كل روابط الهيدر تعمل بسلاسة، ورابط المعرض يفتح قسماً تفاعلياً قابل للتوسعة.
 
@@ -257,11 +257,21 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - لا يوجد Image Upload بعد.
 - لا يوجد Agency Dashboard بعد.
 
+## Phase 6A - Orders
+
+- تم إضافة `/admin/orders` لإدارة طلبات المطعم الحالي فقط.
+- الموقع العام يحفظ `orders` و`order_items` في Appwrite عند تفعيل `database` أو `both`.
+- `restaurantId` في الطلب العام يأتي من المطعم المحمّل بالـ slug، وليس من مدخلات العميل.
+- تغيير حالة الطلب يتم من لوحة التحكم بعد التحقق من أن الطلب تابع لنفس `activeRestaurantId`.
+- زر الرد عبر واتساب يفتح رسالة جاهزة للعميل حسب حالة الطلب.
+- السلة وfallback واتساب ما زالا يعملان، ولا توجد إدارة حجوزات أو رفع صور أو لوحة وكالة في هذه المرحلة.
+- للاختبار: افتح Create فقط على `orders` و`order_items` للزوار إذا أردت الحفظ المباشر من الموقع، مع عدم فتح public read/update/delete.
+
 الخطوات القادمة:
 
-- Phase 6: Orders + Reservations.
+- Phase 6B: Reservations فقط عند طلبها صراحة.
 - Phase 7: Image Upload.
 - Phase 8: viaSocket Automations.
 - Phase 9: Agency Dashboard.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا فرض الصلاحيات عبر Appwrite Teams/Permissions أو Appwrite Functions، ولا يجب فتح public write على `site_settings` أو `faqs` أو وضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا نقل `createOrder` إلى Appwrite Function لإعادة حساب الأسعار ومنع spam وضبط permissions، ولا يجب فتح public read على بيانات العملاء أو وضع API keys داخل React.

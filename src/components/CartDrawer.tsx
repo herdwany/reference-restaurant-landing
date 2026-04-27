@@ -1,21 +1,46 @@
-import { useEffect } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import type { CartItem, RestaurantConfig } from "../data/restaurantConfig";
 import { formatPrice, getCartSubtotal } from "../utils/formatters";
 
+export type CheckoutCustomerDetails = {
+  customerAddress?: string;
+  customerName: string;
+  customerPhone: string;
+  notes?: string;
+};
+
 interface CartDrawerProps {
   config: RestaurantConfig;
+  isCheckingOut?: boolean;
   isOpen: boolean;
   items: CartItem[];
   onClose: () => void;
   onIncrement: (id: string) => void;
   onDecrement: (id: string) => void;
   onRemove: (id: string) => void;
-  onCheckout: () => void;
+  onCheckout: (details: CheckoutCustomerDetails) => Promise<void> | void;
 }
+
+type CheckoutFormValues = {
+  customerAddress: string;
+  customerName: string;
+  customerPhone: string;
+  notes: string;
+};
+
+type CheckoutFormErrors = Partial<Record<keyof CheckoutFormValues, string>>;
+
+const emptyCheckoutFormValues: CheckoutFormValues = {
+  customerAddress: "",
+  customerName: "",
+  customerPhone: "",
+  notes: "",
+};
 
 export default function CartDrawer({
   config,
+  isCheckingOut = false,
   isOpen,
   items,
   onClose,
@@ -24,8 +49,16 @@ export default function CartDrawer({
   onRemove,
   onCheckout,
 }: CartDrawerProps) {
+  const [formValues, setFormValues] = useState<CheckoutFormValues>(emptyCheckoutFormValues);
+  const [formErrors, setFormErrors] = useState<CheckoutFormErrors>({});
   const subtotal = getCartSubtotal(items);
   const total = subtotal + config.restaurant.deliveryFee;
+  const checkoutLabel =
+    config.settings.orderMode === "database"
+      ? "إرسال الطلب"
+      : config.settings.orderMode === "both"
+        ? "إرسال الطلب وفتح واتساب"
+        : config.ui.cart.checkoutWhatsapp;
 
   useEffect(() => {
     if (!isOpen) {
@@ -45,6 +78,41 @@ export default function CartDrawer({
       window.removeEventListener("keydown", onKeyDown);
     };
   }, [isOpen, onClose]);
+
+  const updateFormValue = <Key extends keyof CheckoutFormValues>(key: Key, value: CheckoutFormValues[Key]) => {
+    setFormValues((current) => ({ ...current, [key]: value }));
+    setFormErrors((current) => ({ ...current, [key]: undefined }));
+  };
+
+  const validateCheckoutForm = () => {
+    const errors: CheckoutFormErrors = {};
+
+    if (!formValues.customerName.trim()) {
+      errors.customerName = "اسم العميل مطلوب";
+    }
+
+    if (!formValues.customerPhone.trim()) {
+      errors.customerPhone = "رقم الهاتف مطلوب";
+    }
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!validateCheckoutForm()) {
+      return;
+    }
+
+    await onCheckout({
+      customerAddress: formValues.customerAddress.trim() || undefined,
+      customerName: formValues.customerName.trim(),
+      customerPhone: formValues.customerPhone.trim(),
+      notes: formValues.notes.trim() || undefined,
+    });
+  };
 
   return (
     <div
@@ -96,22 +164,57 @@ export default function CartDrawer({
             </div>
 
             <div className="cart-summary">
-              <div>
+              <div className="cart-summary__row">
                 <span>{config.ui.cart.subtotal}</span>
                 <strong>{formatPrice(subtotal, config.restaurant.currency)}</strong>
               </div>
-              <div>
+              <div className="cart-summary__row">
                 <span>{config.ui.cart.delivery}</span>
                 <strong>{formatPrice(config.restaurant.deliveryFee, config.restaurant.currency)}</strong>
               </div>
-              <div className="cart-summary__total">
+              <div className="cart-summary__row cart-summary__total">
                 <span>{config.ui.cart.total}</span>
                 <strong>{formatPrice(total, config.restaurant.currency)}</strong>
               </div>
               <p>{config.ui.cart.customerLocationHint}</p>
-              <button className="primary-button primary-button--wide" type="button" onClick={onCheckout}>
-                {config.ui.cart.checkoutWhatsapp}
-              </button>
+              <form className="cart-checkout-form" onSubmit={handleSubmit} noValidate>
+                <label>
+                  <span>اسم العميل</span>
+                  <input
+                    value={formValues.customerName}
+                    onChange={(event) => updateFormValue("customerName", event.target.value)}
+                    aria-invalid={Boolean(formErrors.customerName)}
+                    autoComplete="name"
+                  />
+                  {formErrors.customerName ? <small>{formErrors.customerName}</small> : null}
+                </label>
+                <label>
+                  <span>رقم الهاتف</span>
+                  <input
+                    value={formValues.customerPhone}
+                    onChange={(event) => updateFormValue("customerPhone", event.target.value)}
+                    aria-invalid={Boolean(formErrors.customerPhone)}
+                    autoComplete="tel"
+                    inputMode="tel"
+                  />
+                  {formErrors.customerPhone ? <small>{formErrors.customerPhone}</small> : null}
+                </label>
+                <label>
+                  <span>العنوان</span>
+                  <input
+                    value={formValues.customerAddress}
+                    onChange={(event) => updateFormValue("customerAddress", event.target.value)}
+                    autoComplete="street-address"
+                  />
+                </label>
+                <label>
+                  <span>ملاحظات</span>
+                  <textarea value={formValues.notes} onChange={(event) => updateFormValue("notes", event.target.value)} rows={2} />
+                </label>
+                <button className="primary-button primary-button--wide" type="submit" disabled={isCheckingOut}>
+                  {isCheckingOut ? "جاري إتمام الطلب..." : checkoutLabel}
+                </button>
+              </form>
             </div>
           </>
         )}

@@ -11,6 +11,7 @@ export type IconKey =
 export type CartSource = "dish" | "offer" | "menu";
 
 export interface RestaurantInfo {
+  id?: string;
   name: string;
   slogan: string;
   logoText: string;

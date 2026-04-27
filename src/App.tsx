@@ -7,11 +7,12 @@ import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
 import AdminDishes from "./admin/pages/AdminDishes";
 import AdminFaqs from "./admin/pages/AdminFaqs";
 import AdminOffers from "./admin/pages/AdminOffers";
+import AdminOrders from "./admin/pages/AdminOrders";
 import AdminSettings from "./admin/pages/AdminSettings";
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
 import BookingForm from "./components/BookingForm";
-import CartDrawer from "./components/CartDrawer";
+import CartDrawer, { type CheckoutCustomerDetails } from "./components/CartDrawer";
 import FAQ from "./components/FAQ";
 import FeaturedDishes from "./components/FeaturedDishes";
 import Footer from "./components/Footer";
@@ -29,6 +30,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { getSiteData } from "./services/siteDataService";
+import { OrdersRepositoryError, createOrder as createAppwriteOrder } from "./services/repositories/ordersRepository";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
 type ThemeStyle = CSSProperties & Record<string, string>;
@@ -59,6 +61,7 @@ function LandingPage() {
   const cart = useCart();
   const { toasts, showToast, dismissToast } = useToast();
   const [cartOpen, setCartOpen] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [templateOpen, setTemplateOpen] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
 
@@ -144,20 +147,81 @@ function LandingPage() {
     showToast(config.ui.toasts.removed, "info");
   };
 
-  const handleCheckout = () => {
+  const getCheckoutErrorMessage = (error: unknown) => {
+    if (error instanceof OrdersRepositoryError) {
+      return error.message;
+    }
+
+    return "تعذر حفظ الطلب في قاعدة البيانات. يمكنك متابعة الطلب عبر واتساب.";
+  };
+
+  const openWhatsappOrder = (customer: CheckoutCustomerDetails) => {
+    window.open(
+      createWhatsappUrl(
+        config.restaurant.whatsappNumber,
+        createOrderMessage(
+          config.restaurant.name,
+          cart.items,
+          config.restaurant.currency,
+          config.restaurant.deliveryFee,
+          customer,
+        ),
+      ),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const handleCheckout = async (customer: CheckoutCustomerDetails) => {
     if (cart.items.length === 0) {
       showToast(config.ui.toasts.cartEmpty, "error");
       return;
     }
 
-    window.open(
-      createWhatsappUrl(
-        config.restaurant.whatsappNumber,
-        createOrderMessage(config.restaurant.name, cart.items, config.restaurant.currency, config.restaurant.deliveryFee),
-      ),
-      "_blank",
-      "noopener,noreferrer",
-    );
+    const orderMode = config.settings.orderMode ?? "both";
+
+    if (orderMode === "whatsapp") {
+      openWhatsappOrder(customer);
+      return;
+    }
+
+    if (!config.restaurant.id) {
+      showToast("تعذر حفظ الطلب في Appwrite، سيتم فتح واتساب كبديل.", "error");
+      openWhatsappOrder(customer);
+      return;
+    }
+
+    setIsCheckingOut(true);
+
+    try {
+      await createAppwriteOrder({
+        restaurantId: config.restaurant.id,
+        customerName: customer.customerName,
+        customerPhone: customer.customerPhone,
+        customerAddress: customer.customerAddress,
+        notes: customer.notes,
+        deliveryFee: config.restaurant.deliveryFee,
+        source: "website",
+        items: cart.items.map((item) => ({
+          dishId: item.source === "dish" ? item.sourceId : undefined,
+          dishName: item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          subtotal: item.price * item.quantity,
+        })),
+      });
+
+      showToast("تم حفظ الطلب بنجاح.", "success");
+
+      if (orderMode === "both") {
+        openWhatsappOrder(customer);
+      }
+    } catch (error) {
+      showToast(getCheckoutErrorMessage(error), "error");
+      openWhatsappOrder(customer);
+    } finally {
+      setIsCheckingOut(false);
+    }
   };
 
   const handleHeroOrder = () => {
@@ -230,6 +294,7 @@ function LandingPage() {
 
       <CartDrawer
         config={config}
+        isCheckingOut={isCheckingOut}
         isOpen={cartOpen}
         items={cart.items}
         onClose={() => setCartOpen(false)}
@@ -284,6 +349,7 @@ export default function App() {
             <Route index element={<AdminOverview />} />
             <Route path="dishes" element={<AdminDishes />} />
             <Route path="offers" element={<AdminOffers />} />
+            <Route path="orders" element={<AdminOrders />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="faqs" element={<AdminFaqs />} />
             <Route path="*" element={<AdminOverview />} />
