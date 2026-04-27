@@ -6,6 +6,7 @@ import {
   TABLES,
   hasAppwriteDataConfig,
   hasCreateReservationFunctionConfig,
+  isProductionBuild,
 } from "../../lib/appwriteIds";
 import type { Reservation, ReservationStatus } from "../../types/platform";
 
@@ -317,6 +318,10 @@ export async function createReservationViaFunction(input: CreateReservationInput
 // Staging fallback only. Production should prefer createReservationViaFunction, then remove
 // public create permissions from reservations after the Function is verified.
 export async function createReservation(input: CreateReservationInput): Promise<Reservation> {
+  if (isProductionBuild) {
+    throw new ReservationsRepositoryError("لا يمكن إنشاء الحجز مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
+  }
+
   assertAppwriteDataReady();
   assertCreateReservationInput(input);
 

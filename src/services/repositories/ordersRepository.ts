@@ -6,6 +6,7 @@ import {
   TABLES,
   hasAppwriteDataConfig,
   hasCreateOrderFunctionConfig,
+  isProductionBuild,
 } from "../../lib/appwriteIds";
 import type { Order, OrderItem, OrderSource, OrderStatus } from "../../types/platform";
 
@@ -406,6 +407,10 @@ export async function createOrderViaFunction(input: CreateOrderInput): Promise<C
 // Staging fallback only. Production should prefer createOrderViaFunction, then remove public create
 // permissions from orders/order_items after the Function is verified.
 export async function createOrder(input: CreateOrderInput): Promise<OrderWithItems> {
+  if (isProductionBuild) {
+    throw new OrdersRepositoryError("لا يمكن إنشاء الطلب مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
+  }
+
   assertAppwriteDataReady();
   assertCreateOrderInput(input);
 

@@ -90,6 +90,7 @@ Expected response:
 - If the Function fails and `orderMode=both`, the cart is preserved and WhatsApp opens as a fallback.
 - If `orderMode=database`, the frontend shows an error and does not auto-open WhatsApp.
 - If `orderMode=whatsapp`, the Function is not called.
+- In production builds, direct browser writes to `orders` / `order_items` are blocked when the Function ID is missing.
 
 ## Permissions After Verification
 
@@ -204,6 +205,7 @@ Expected response:
 - If the Function fails and `reservationMode=both`, the form data is preserved and WhatsApp opens as a fallback.
 - If `reservationMode=database`, the frontend shows an error and does not auto-open WhatsApp.
 - If `reservationMode=whatsapp`, the Function is not called.
+- In production builds, direct browser writes to `reservations` are blocked when the Function ID is missing.
 
 ## createReservation Permissions After Verification
 
@@ -216,3 +218,23 @@ After the Function is deployed and tested:
 - Keep delete disabled or temporary for authenticated admin testing only.
 
 Never enable public read for reservations.
+
+## Phase 8C: Production Guard
+
+Production builds require Function IDs for database-backed public order and reservation flows:
+
+```env
+VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID=
+VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID=
+```
+
+If either ID is missing in production:
+
+- `orderMode=database` shows an error and does not write directly to `orders`.
+- `orderMode=both` falls back to WhatsApp and does not write directly to `orders`.
+- `reservationMode=database` shows an error and does not write directly to `reservations`.
+- `reservationMode=both` falls back to WhatsApp and does not write directly to `reservations`.
+
+The old direct Client SDK create path remains only for development/staging testing.
+
+See `docs/appwrite/PRODUCTION_SECURITY_CHECKLIST.md` before removing public create permissions.

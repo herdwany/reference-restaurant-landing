@@ -7,6 +7,8 @@ export const CREATE_RESERVATION_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREA
 export const DEFAULT_RESTAURANT_SLUG =
   import.meta.env.VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG?.trim() || "demo-restaurant";
 export const ENABLE_ANALYTICS = import.meta.env.VITE_ENABLE_ANALYTICS === "true";
+export const isProductionBuild = import.meta.env.PROD;
+export const isDevelopmentBuild = import.meta.env.DEV;
 
 // appwrite@24 supports TablesDB and Rows. Keep these IDs as table IDs, not legacy collection IDs.
 export const COLLECTIONS = {
@@ -30,3 +32,4 @@ export const hasAppwriteDataConfig = isAppwriteConfigured && Boolean(DATABASE_ID
 export const hasAppwriteStorageConfig = isAppwriteConfigured && Boolean(BUCKET_ID);
 export const hasCreateOrderFunctionConfig = isAppwriteConfigured && Boolean(CREATE_ORDER_FUNCTION_ID);
 export const hasCreateReservationFunctionConfig = isAppwriteConfigured && Boolean(CREATE_RESERVATION_FUNCTION_ID);
+export const canUseDirectSensitiveTableFallback = !isProductionBuild;

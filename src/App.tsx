@@ -38,7 +38,7 @@ import {
   createOrderViaFunction,
   hasCreateOrderFunctionConfig,
 } from "./services/repositories/ordersRepository";
-import { DEFAULT_RESTAURANT_SLUG } from "./lib/appwriteIds";
+import { DEFAULT_RESTAURANT_SLUG, canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "./lib/appwriteIds";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
 type ThemeStyle = CSSProperties & Record<string, string>;
@@ -233,6 +233,21 @@ function LandingPage() {
       return;
     }
 
+    if (!hasCreateOrderFunctionConfig && isProductionBuild) {
+      showToast(
+        orderMode === "both"
+          ? "لم يتم تفعيل دالة إنشاء الطلبات في الإنتاج. سيتم فتح واتساب كبديل."
+          : "لم يتم تفعيل دالة إنشاء الطلبات في الإنتاج. لا يمكن حفظ الطلب الآن.",
+        "error",
+      );
+
+      if (orderMode === "both") {
+        openWhatsappOrder(customer);
+      }
+
+      return;
+    }
+
     if (!hasCreateOrderFunctionConfig && !config.restaurant.id) {
       showToast(
         orderMode === "both" ? "تعذر حفظ الطلب في Appwrite، سيتم فتح واتساب كبديل." : "تعذر حفظ الطلب في Appwrite.",
@@ -264,6 +279,14 @@ function LandingPage() {
       if (hasCreateOrderFunctionConfig) {
         await createOrderViaFunction(baseOrderInput);
       } else {
+        if (!canUseDirectSensitiveTableFallback) {
+          throw new OrdersRepositoryError("لا يمكن إنشاء الطلب مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
+        }
+
+        if (isDevelopmentBuild) {
+          console.warn("Using direct browser createOrder fallback. This path is for development/staging only.");
+        }
+
         await createAppwriteOrder(baseOrderInput);
       }
 

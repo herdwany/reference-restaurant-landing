@@ -299,6 +299,15 @@ Security constraints:
 - Keep the old direct browser create path only as a staging fallback until permissions are hardened.
 - Any changes under `functions/*` must be committed, pushed to GitHub, then redeployed in Appwrite.
 
+## Phase 8C - Completed
+
+- Production builds block direct browser writes to `orders`, `order_items`, and `reservations` when Function IDs are missing.
+- Development/staging can still use direct Client SDK create fallback for local testing.
+- Missing Function IDs in production show Arabic errors and optionally fall back to WhatsApp for `both` modes.
+- Added `docs/appwrite/PRODUCTION_SECURITY_CHECKLIST.md`.
+- Added final Appwrite permissions matrix for public content, sensitive tables, and `restaurant-assets`.
+- No Agency Dashboard, viaSocket, billing, analytics, or new UI features were added.
+
 ## Phase 9
 
 - Agency Dashboard.

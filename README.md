@@ -188,7 +188,9 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - `docs/appwrite/SETUP.md`
 - `docs/appwrite/SCHEMA.md`
 - `docs/appwrite/SECURITY.md`
+- `docs/appwrite/FUNCTIONS.md`
 - `docs/appwrite/NEXT_STEPS.md`
+- `docs/appwrite/PRODUCTION_SECURITY_CHECKLIST.md`
 - `docs/security/SECURITY_MODEL.md`
 - `docs/security/THREAT_MODEL.md`
 - `docs/security/THIRD_PARTY_TOOLS.md`
@@ -294,7 +296,7 @@ Security constraints:
 - لا تفعّل public read على `reservations`.
 - لا تفعّل public update/delete على `reservations`.
 - لا تفتح customer data للقراءة العامة.
-- في الإنتاج يجب نقل `createReservation` إلى Appwrite Function للتحقق من المدخلات ومنع spam وضبط permissions.
+- في الإنتاج استخدم `createReservation` Appwrite Function، ثم أزل public create من جدول `reservations`.
 
 ## Phase 7A - Image Upload
 
@@ -328,4 +330,4 @@ Security constraints:
 - Phase 8: viaSocket Automations.
 - Phase 9: Agency Dashboard.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا نقل `createOrder` و`createReservation` وعمليات upload الحساسة إلى Appwrite Function أو طبقة صلاحيات أدق لإعادة التحقق من المدخلات ومنع spam وضبط permissions، ولا يجب فتح public read على بيانات العملاء أو وضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.

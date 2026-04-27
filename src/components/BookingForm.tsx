@@ -8,7 +8,7 @@ import {
   hasCreateReservationFunctionConfig,
   type CreateReservationInput,
 } from "../services/repositories/reservationsRepository";
-import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
+import { DEFAULT_RESTAURANT_SLUG, canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "../lib/appwriteIds";
 import { createBookingMessage, createWhatsappUrl } from "../utils/formatters";
 import { hasValidationErrors, validateBookingForm } from "../utils/validators";
 import type { BookingErrors } from "../utils/validators";
@@ -111,6 +111,22 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
       return;
     }
 
+    if (!hasCreateReservationFunctionConfig && isProductionBuild) {
+      onToast(
+        reservationMode === "both"
+          ? "لم يتم تفعيل دالة إنشاء الحجوزات في الإنتاج. سيتم فتح واتساب كبديل."
+          : "لم يتم تفعيل دالة إنشاء الحجوزات في الإنتاج. لا يمكن حفظ الحجز الآن.",
+        "error",
+      );
+      saveBooking(booking);
+
+      if (reservationMode === "both") {
+        openWhatsappBooking(booking);
+      }
+
+      return;
+    }
+
     if (!hasCreateReservationFunctionConfig && !config.restaurant.id) {
       onToast(
         reservationMode === "both"
@@ -135,6 +151,14 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
       if (hasCreateReservationFunctionConfig) {
         await createReservationViaFunction(reservationInput);
       } else {
+        if (!canUseDirectSensitiveTableFallback) {
+          throw new ReservationsRepositoryError("لا يمكن إنشاء الحجز مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
+        }
+
+        if (isDevelopmentBuild) {
+          console.warn("Using direct browser createReservation fallback. This path is for development/staging only.");
+        }
+
         await createAppwriteReservation(reservationInput);
       }
 
