@@ -4,8 +4,11 @@ import type { BookingFormData, RestaurantConfig } from "../data/restaurantConfig
 import {
   ReservationsRepositoryError,
   createReservation as createAppwriteReservation,
+  createReservationViaFunction,
+  hasCreateReservationFunctionConfig,
   type CreateReservationInput,
 } from "../services/repositories/reservationsRepository";
+import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
 import { createBookingMessage, createWhatsappUrl } from "../utils/formatters";
 import { hasValidationErrors, validateBookingForm } from "../utils/validators";
 import type { BookingErrors } from "../utils/validators";
@@ -84,6 +87,7 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
 
   const toReservationInput = (booking: BookingFormData): CreateReservationInput => ({
     restaurantId: config.restaurant.id ?? "",
+    restaurantSlug: DEFAULT_RESTAURANT_SLUG,
     customerName: booking.fullName,
     customerPhone: booking.phone,
     reservationDate: booking.date,
@@ -107,17 +111,33 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
       return;
     }
 
-    if (!config.restaurant.id) {
-      onToast("تعذر حفظ الحجز في Appwrite. سيتم فتح واتساب كبديل حتى لا تضيع البيانات.", "error");
+    if (!hasCreateReservationFunctionConfig && !config.restaurant.id) {
+      onToast(
+        reservationMode === "both"
+          ? "تعذر حفظ الحجز في Appwrite. سيتم فتح واتساب كبديل حتى لا تضيع البيانات."
+          : "تعذر حفظ الحجز في Appwrite.",
+        "error",
+      );
       saveBooking(booking);
-      openWhatsappBooking(booking);
+
+      if (reservationMode === "both") {
+        openWhatsappBooking(booking);
+      }
+
       return;
     }
 
     setIsSubmitting(true);
 
     try {
-      await createAppwriteReservation(toReservationInput(booking));
+      const reservationInput = toReservationInput(booking);
+
+      if (hasCreateReservationFunctionConfig) {
+        await createReservationViaFunction(reservationInput);
+      } else {
+        await createAppwriteReservation(reservationInput);
+      }
+
       persistSuccessfulBooking(booking, { resetValues: reservationMode === "database" || reservationMode === "both" });
 
       if (reservationMode === "both") {
@@ -126,7 +146,10 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
     } catch (error) {
       saveBooking(booking);
       onToast(getReservationErrorMessage(error), "error");
-      openWhatsappBooking(booking);
+
+      if (reservationMode === "both") {
+        openWhatsappBooking(booking);
+      }
     } finally {
       setIsSubmitting(false);
     }

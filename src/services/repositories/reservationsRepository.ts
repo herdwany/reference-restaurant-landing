@@ -1,6 +1,12 @@
-import { AppwriteException, ID, Query, type Models } from "appwrite";
-import { databases } from "../../lib/appwriteClient";
-import { DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
+import { AppwriteException, ExecutionMethod, ID, Query, type Models } from "appwrite";
+import { databases, functions } from "../../lib/appwriteClient";
+import {
+  CREATE_RESERVATION_FUNCTION_ID,
+  DATABASE_ID,
+  TABLES,
+  hasAppwriteDataConfig,
+  hasCreateReservationFunctionConfig,
+} from "../../lib/appwriteIds";
 import type { Reservation, ReservationStatus } from "../../types/platform";
 
 type ReservationsRepositoryErrorCode =
@@ -34,12 +40,22 @@ interface ReservationRow extends Models.Row {
 
 export type CreateReservationInput = {
   restaurantId: string;
+  restaurantSlug?: string;
   customerName: string;
   customerPhone: string;
   reservationDate: string;
   reservationTime: string;
   peopleCount: number;
   notes?: string;
+};
+
+export type CreateReservationFunctionResult = {
+  peopleCount: number;
+  reservationDate: string;
+  reservationId: string;
+  reservationTime: string;
+  source: "website";
+  status: ReservationStatus;
 };
 
 type ReservationRowData = {
@@ -125,6 +141,36 @@ const assertCreateReservationInput = (input: CreateReservationInput) => {
   }
 };
 
+const assertCreateReservationFunctionInput = (input: CreateReservationInput) => {
+  if (!hasCreateReservationFunctionConfig) {
+    throw new ReservationsRepositoryError("لم يتم ضبط Appwrite Function لإنشاء الحجوزات بعد.", "APPWRITE_NOT_CONFIGURED");
+  }
+
+  if (!input.restaurantSlug?.trim()) {
+    throw new ReservationsRepositoryError("تعذر تحديد رابط المطعم لإرسال الحجز.", "INVALID_INPUT");
+  }
+
+  if (!input.customerName.trim()) {
+    throw new ReservationsRepositoryError("اسم العميل مطلوب لإتمام الحجز.", "INVALID_INPUT");
+  }
+
+  if (!input.customerPhone.trim()) {
+    throw new ReservationsRepositoryError("رقم هاتف العميل مطلوب لإتمام الحجز.", "INVALID_INPUT");
+  }
+
+  if (!input.reservationDate.trim()) {
+    throw new ReservationsRepositoryError("تاريخ الحجز مطلوب.", "INVALID_INPUT");
+  }
+
+  if (!input.reservationTime.trim()) {
+    throw new ReservationsRepositoryError("وقت الحجز مطلوب.", "INVALID_INPUT");
+  }
+
+  if (!Number.isFinite(input.peopleCount) || Math.trunc(input.peopleCount) < 1) {
+    throw new ReservationsRepositoryError("عدد الأشخاص يجب أن يكون 1 أو أكثر.", "INVALID_INPUT");
+  }
+};
+
 const toReservationRowData = (input: CreateReservationInput): ReservationRowData => ({
   restaurantId: input.restaurantId,
   customerName: input.customerName.trim(),
@@ -172,8 +218,104 @@ const assertReservationBelongsToRestaurant = (reservation: Reservation | Reserva
   }
 };
 
-// TODO: في الإنتاج يجب نقل createReservation إلى Appwrite Function للتحقق من المدخلات،
-// منع spam، وضبط permissions قبل تخزين بيانات العملاء من المتصفح.
+const getCreateReservationFunctionErrorMessage = (body: string | undefined) => {
+  if (!body) {
+    return "تعذر إنشاء الحجز عبر Appwrite Function.";
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(body);
+
+    if (parsed && typeof parsed === "object" && "message" in parsed && typeof parsed.message === "string") {
+      return parsed.message;
+    }
+  } catch {
+    return body;
+  }
+
+  return "تعذر إنشاء الحجز عبر Appwrite Function.";
+};
+
+const parseCreateReservationFunctionResult = (body: string): CreateReservationFunctionResult => {
+  let parsed: unknown;
+
+  try {
+    parsed = JSON.parse(body);
+  } catch (error) {
+    throw new ReservationsRepositoryError("استجابة Appwrite Function غير صالحة.", "WRITE_FAILED", error);
+  }
+
+  if (!parsed || typeof parsed !== "object") {
+    throw new ReservationsRepositoryError("استجابة Appwrite Function غير صالحة.", "WRITE_FAILED");
+  }
+
+  const result = parsed as Partial<CreateReservationFunctionResult> & { ok?: boolean };
+
+  if (
+    !result.ok ||
+    !result.reservationId ||
+    !result.reservationDate ||
+    !result.reservationTime ||
+    typeof result.peopleCount !== "number"
+  ) {
+    throw new ReservationsRepositoryError("Appwrite Function لم تُرجع ملخص حجز صالح.", "WRITE_FAILED");
+  }
+
+  const status = typeof result.status === "string" && isKnownReservationStatus(result.status) ? result.status : "new";
+
+  return {
+    peopleCount: result.peopleCount,
+    reservationDate: result.reservationDate,
+    reservationId: result.reservationId,
+    reservationTime: result.reservationTime,
+    source: "website",
+    status,
+  };
+};
+
+export { hasCreateReservationFunctionConfig };
+
+export async function createReservationViaFunction(input: CreateReservationInput): Promise<CreateReservationFunctionResult> {
+  assertCreateReservationFunctionInput(input);
+
+  const functionPayload = {
+    restaurantSlug: input.restaurantSlug?.trim(),
+    customerName: input.customerName.trim(),
+    customerPhone: input.customerPhone.trim(),
+    reservationDate: input.reservationDate.trim(),
+    reservationTime: input.reservationTime.trim(),
+    peopleCount: Math.trunc(input.peopleCount),
+    notes: input.notes?.trim() || undefined,
+    source: "website",
+  };
+
+  try {
+    const execution = await functions.createExecution({
+      functionId: CREATE_RESERVATION_FUNCTION_ID,
+      body: JSON.stringify(functionPayload),
+      async: false,
+      method: ExecutionMethod.POST,
+      headers: {
+        "content-type": "application/json",
+      },
+    });
+
+    if (execution.status !== "completed" || execution.responseStatusCode < 200 || execution.responseStatusCode >= 300) {
+      throw new ReservationsRepositoryError(getCreateReservationFunctionErrorMessage(execution.responseBody), "WRITE_FAILED");
+    }
+
+    return parseCreateReservationFunctionResult(execution.responseBody);
+  } catch (error) {
+    if (error instanceof ReservationsRepositoryError) {
+      throw error;
+    }
+
+    throw new ReservationsRepositoryError("تعذر إنشاء الحجز عبر Appwrite Function. يمكنك متابعة الحجز عبر واتساب.", "WRITE_FAILED", error);
+  }
+}
+
+// Staging fallback only. Production should prefer createReservationViaFunction, then remove
+// public create permissions from reservations after the Function is verified.
 export async function createReservation(input: CreateReservationInput): Promise<Reservation> {
   assertAppwriteDataReady();
   assertCreateReservationInput(input);

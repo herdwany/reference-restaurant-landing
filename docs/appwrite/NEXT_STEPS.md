@@ -152,7 +152,7 @@ Security constraints:
 - Do not allow public read on `reservations`.
 - Do not allow public update/delete on `reservations`.
 - Do not expose customer data with public read.
-- Production should move `createReservation` to an Appwrite Function to validate input, add anti-spam protection, and set tighter permissions.
+- Phase 8B adds a `createReservation` Appwrite Function; after deployment, remove public create permissions from this table.
 
 ## Phase 7A - Completed
 
@@ -270,9 +270,34 @@ Security constraints:
 
 Production security hardening.
 
-## Phase 8B
+## Phase 8B - Completed
 
-- Move `createReservation` to an Appwrite Function after order hardening is reviewed.
+- Added `functions/createReservation` as a server-side Appwrite Function.
+- Public booking can call the Function when `VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID` is configured.
+- Without the Function ID, booking keeps the old browser `createReservation` path as a staging fallback.
+- The Function resolves the active restaurant server-side from `restaurantSlug`.
+- The Function validates customer name, phone, reservation date, time, and people count.
+- No order Function changes were made.
+- No Agency Dashboard was added.
+- No viaSocket integration was added.
+
+### Phase 8B Appwrite permissions after Function verification
+
+`reservations`
+
+- Create: public create can be removed after the Function is deployed and tested.
+- Read: `Users` only.
+- Update: `Users` only.
+- Delete: preferably disabled, or `Users` temporarily for admin testing.
+
+Security constraints:
+
+- The Function is responsible for public reservation creation.
+- Never allow public read on `reservations`.
+- Keep `APPWRITE_API_KEY` only inside Function environment variables.
+- Never add `VITE_APPWRITE_API_KEY`.
+- Keep the old direct browser create path only as a staging fallback until permissions are hardened.
+- Any changes under `functions/*` must be committed, pushed to GitHub, then redeployed in Appwrite.
 
 ## Phase 9
 

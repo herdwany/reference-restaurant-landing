@@ -170,6 +170,7 @@
 - `peopleCount`: integer
 - `notes`: text optional
 - `status`: enum `new | confirmed | cancelled | completed`
+- `createdAtText`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
 
