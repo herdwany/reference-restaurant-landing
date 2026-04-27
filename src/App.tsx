@@ -12,6 +12,7 @@ import AdminOffers from "./admin/pages/AdminOffers";
 import AdminOrders from "./admin/pages/AdminOrders";
 import AdminReservations from "./admin/pages/AdminReservations";
 import AdminSettings from "./admin/pages/AdminSettings";
+import AgencyDashboard from "./agency/AgencyDashboard";
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
 import BookingForm from "./components/BookingForm";
@@ -60,6 +61,14 @@ function AdminLoginRoute() {
   return (
     <AuthProvider>
       <AdminLogin />
+    </AuthProvider>
+  );
+}
+
+function AgencyRoute() {
+  return (
+    <AuthProvider>
+      <AgencyDashboard />
     </AuthProvider>
   );
 }
@@ -429,6 +438,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/admin/login" element={<AdminLoginRoute />} />
+        <Route path="/agency" element={<AgencyRoute />} />
         <Route path="/admin" element={<AdminProtectedRoutes />}>
           <Route element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />

@@ -1,4 +1,4 @@
-import { Eye, Menu } from "lucide-react";
+import { Building2, Eye, Menu } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { getAdminFeatureForPath } from "../adminFeatures";
@@ -9,7 +9,7 @@ type AdminTopbarProps = {
 };
 
 export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
-  const { currentUser, profile, role } = useAuth();
+  const { currentUser, isAgencyAdmin, profile, role } = useAuth();
   const location = useLocation();
   const activeFeature = getAdminFeatureForPath(location.pathname);
   const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
@@ -28,6 +28,12 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
       </div>
 
       <div className="admin-topbar__actions">
+        {isAgencyAdmin ? (
+          <Link className="admin-icon-link" to="/agency" aria-label="لوحة الوكالة">
+            <Building2 size={19} aria-hidden="true" />
+            <span>لوحة الوكالة</span>
+          </Link>
+        ) : null}
         <Link className="admin-icon-link" to="/" aria-label="معاينة الموقع">
           <Eye size={19} aria-hidden="true" />
           <span>معاينة الموقع</span>

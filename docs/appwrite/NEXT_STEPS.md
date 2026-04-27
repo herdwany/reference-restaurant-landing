@@ -310,7 +310,17 @@ Security constraints:
 
 ## Phase 9
 
-- Agency Dashboard.
+- Phase 9A completed: `/agency` foundation for `agency_admin` only.
+- `/agency` lists restaurants from `restaurants` with basic stats, search, and status filters.
+- Owner/staff accounts are blocked from `/agency` with a clear message.
+- No create client flow yet.
+- No billing or subscriptions yet.
+- No impersonation yet.
+- No selected restaurant admin scope yet.
+- Security note: agency restaurant reads should later move behind Appwrite Teams or an Appwrite Function instead of relying only on React role guards and broad Appwrite read permissions.
+- TODO Phase 9B: selectedRestaurantId, agency admin can select a restaurant, `/admin` can manage the selected restaurant when `role=agency_admin`, and create client flow.
+
+## Future Phase 9 Work
 - إنشاء مطاعم جديدة.
 - اختيار مطعم كـ`selectedRestaurantId`.
 - ربط Teams والصلاحيات والاشتراكات.

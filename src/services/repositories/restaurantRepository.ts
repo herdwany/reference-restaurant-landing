@@ -64,6 +64,13 @@ export type RestaurantContactInput = {
   successColor: string;
 };
 
+export type AgencyRestaurantStats = {
+  active: number;
+  draft: number;
+  suspended: number;
+  total: number;
+};
+
 type RestaurantContactRowData = {
   name: string;
   nameAr: string;
@@ -166,6 +173,14 @@ const getWriteErrorMessage = (error: unknown) => {
   return "تعذر حفظ بيانات المطعم. تحقق من الاتصال أو الصلاحيات.";
 };
 
+const getReadErrorMessage = (error: unknown) => {
+  if (error instanceof AppwriteException && (error.code === 401 || error.code === 403)) {
+    return "تعذر تحميل بيانات المطاعم. تحقق من تسجيل الدخول أو صلاحيات Appwrite.";
+  }
+
+  return "تعذر تحميل بيانات المطاعم. تحقق من الاتصال أو صلاحيات Appwrite.";
+};
+
 export async function getRestaurantBySlug(slug: string): Promise<Restaurant | null> {
   const row = await getFirstRow<RestaurantRow>(COLLECTIONS.restaurants, [
     Query.equal("slug", slug),
@@ -179,6 +194,38 @@ export async function getRestaurantBySlug(slug: string): Promise<Restaurant | nu
 export async function getRestaurantById(restaurantId: string): Promise<Restaurant | null> {
   const row = await getRowById<RestaurantRow>(COLLECTIONS.restaurants, restaurantId);
   return row ? mapRestaurant(row) : null;
+}
+
+// Phase 9A foundation: React route guards restrict this call to agency_admin.
+// TODO Phase 9B/hardening: move broad agency restaurant listing behind Teams or an Appwrite Function.
+export async function getRestaurantsForAgency(limit = 100): Promise<Restaurant[]> {
+  assertAppwriteDataReady();
+
+  const safeLimit = Math.min(Math.max(Math.trunc(limit) || 100, 1), 100);
+
+  try {
+    const response = await databases.listRows<RestaurantRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.restaurants,
+      queries: [Query.orderDesc("$createdAt"), Query.limit(safeLimit)],
+    });
+
+    return response.rows.map(mapRestaurant);
+  } catch (error) {
+    throw new RestaurantRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
+  }
+}
+
+export function getRestaurantStatsForAgency(restaurants: readonly Restaurant[]): AgencyRestaurantStats {
+  return restaurants.reduce<AgencyRestaurantStats>(
+    (stats, restaurant) => ({
+      active: stats.active + (restaurant.status === "active" ? 1 : 0),
+      draft: stats.draft + (restaurant.status === "draft" ? 1 : 0),
+      suspended: stats.suspended + (restaurant.status === "suspended" ? 1 : 0),
+      total: stats.total + 1,
+    }),
+    { active: 0, draft: 0, suspended: 0, total: 0 },
+  );
 }
 
 export async function updateRestaurantContact(restaurantId: string, input: RestaurantContactInput): Promise<Restaurant> {

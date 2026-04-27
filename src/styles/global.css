@@ -3091,7 +3091,8 @@ a {
 /* Admin shell */
 .admin-shell,
 .admin-login-page,
-.admin-standalone {
+.admin-standalone,
+.agency-shell {
   --admin-primary: #e51b2b;
   --admin-secondary: #f97316;
   --admin-accent: #fbbf24;
@@ -4704,6 +4705,275 @@ a {
   font-size: 0.9rem;
 }
 
+.agency-shell {
+  display: grid;
+  gap: 18px;
+  overflow-x: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 248, 237, 0.94)),
+    var(--admin-bg);
+  padding: 28px;
+}
+
+.agency-shell--centered {
+  place-items: center;
+  padding: 24px;
+}
+
+.agency-status-card {
+  width: min(100%, 520px);
+}
+
+.agency-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  padding: 22px;
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
+}
+
+.agency-header > div:first-child {
+  min-width: 0;
+}
+
+.agency-header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--admin-secondary);
+  font-weight: 950;
+}
+
+.agency-header h1 {
+  margin: 8px 0 8px;
+  font-size: 2rem;
+  line-height: 1.25;
+}
+
+.agency-header p {
+  max-width: 640px;
+  margin: 0;
+  color: #4b5563;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+.agency-header__actions {
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.agency-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.agency-stats div {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 16px;
+  box-shadow: 0 10px 24px rgba(31, 41, 55, 0.04);
+}
+
+.agency-stats span {
+  color: var(--admin-muted);
+  font-weight: 900;
+}
+
+.agency-stats strong {
+  color: var(--admin-ink);
+  font-size: 1.55rem;
+}
+
+.agency-toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  padding: 14px;
+}
+
+.agency-search {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 0 12px;
+}
+
+.agency-search svg {
+  color: var(--admin-muted);
+}
+
+.agency-search input {
+  width: 100%;
+  min-height: 44px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--admin-ink);
+  font-weight: 850;
+  outline: 0;
+}
+
+.agency-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.agency-filters button {
+  min-height: 38px;
+  border: 1px solid var(--admin-border);
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #374151;
+  padding: 0 13px;
+  font-weight: 950;
+}
+
+.agency-filters button.is-active {
+  border-color: rgba(229, 27, 43, 0.28);
+  background: rgba(229, 27, 43, 0.08);
+  color: var(--admin-primary);
+}
+
+.agency-restaurant-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.agency-restaurant-card {
+  display: grid;
+  min-width: 0;
+  gap: 16px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  padding: 16px;
+  box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
+}
+
+.agency-restaurant-card__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.agency-restaurant-card h2 {
+  margin: 0 0 6px;
+  overflow-wrap: anywhere;
+  font-size: 1.18rem;
+  line-height: 1.35;
+}
+
+.agency-restaurant-card code {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border-radius: 999px;
+  background: rgba(249, 115, 22, 0.1);
+  color: #8a5200;
+  padding: 5px 9px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.agency-status {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.agency-status--active {
+  background: rgba(34, 197, 94, 0.12);
+  color: #137333;
+}
+
+.agency-status--draft {
+  background: rgba(107, 114, 128, 0.12);
+  color: #374151;
+}
+
+.agency-status--suspended {
+  background: rgba(229, 27, 43, 0.1);
+  color: #991b1b;
+}
+
+.agency-restaurant-card__meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.agency-restaurant-card__meta div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 11px;
+}
+
+.agency-restaurant-card__meta span {
+  color: var(--admin-muted);
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.agency-restaurant-card__meta strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-ink);
+  font-weight: 950;
+}
+
+.agency-restaurant-card__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.agency-restaurant-card__actions .admin-action-button {
+  min-width: 0;
+  padding-inline: 9px;
+}
+
+.agency-restaurant-card__actions .admin-action-button span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .admin-login-page,
 .admin-standalone {
   display: grid;
@@ -4866,6 +5136,11 @@ a {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .agency-stats,
+  .agency-restaurant-card__meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .admin-toggle-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -4960,6 +5235,24 @@ a {
   .admin-identity-card {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .agency-shell {
+    padding: 18px 14px 28px;
+  }
+
+  .agency-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agency-header__actions,
+  .agency-header__actions .admin-icon-link {
+    width: 100%;
+  }
+
+  .agency-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 560px) {
@@ -4975,6 +5268,11 @@ a {
   .admin-order-card__meta,
   .admin-order-details__grid,
   .admin-activity-card,
+  .agency-stats,
+  .agency-restaurant-grid,
+  .agency-restaurant-card__header,
+  .agency-restaurant-card__meta,
+  .agency-restaurant-card__actions,
   .admin-order-status-actions,
   .admin-reservation-status-actions {
     grid-template-columns: 1fr;
