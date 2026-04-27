@@ -158,6 +158,7 @@ export interface BookingFormData {
   date: string;
   time: string;
   guests: string;
+  notes?: string;
 }
 
 export interface SectionVisibilitySettings {
@@ -219,6 +220,7 @@ export interface RestaurantConfig {
       date: string;
       time: string;
       guests: string;
+      notes: string;
       submit: string;
       whatsappSubmit: string;
       successTitle: string;
@@ -711,6 +713,7 @@ export const restaurantConfig: RestaurantConfig = {
       date: "التاريخ",
       time: "الوقت",
       guests: "عدد الأشخاص",
+      notes: "ملاحظات إضافية",
       submit: "احجز الآن",
       whatsappSubmit: "إرسال الحجز إلى واتساب",
       successTitle: "تم استلام طلب الحجز",

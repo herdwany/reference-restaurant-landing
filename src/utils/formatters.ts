@@ -65,4 +65,7 @@ export const createBookingMessage = (restaurantName: string, booking: BookingFor
     `التاريخ: ${booking.date}`,
     `الوقت: ${booking.time}`,
     `عدد الأشخاص: ${booking.guests}`,
-  ].join("\n");
+    booking.notes?.trim() ? `ملاحظات: ${booking.notes.trim()}` : null,
+  ]
+    .filter((line): line is string => Boolean(line))
+    .join("\n");

@@ -128,6 +128,7 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
     return {
       ...base.settings,
       orderMode: "both",
+      reservationMode: "both",
     };
   }
 

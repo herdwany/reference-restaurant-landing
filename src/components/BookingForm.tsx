@@ -1,6 +1,11 @@
 import { FormEvent, useState } from "react";
 import { CalendarCheck, MessageCircle } from "lucide-react";
 import type { BookingFormData, RestaurantConfig } from "../data/restaurantConfig";
+import {
+  ReservationsRepositoryError,
+  createReservation as createAppwriteReservation,
+  type CreateReservationInput,
+} from "../services/repositories/reservationsRepository";
 import { createBookingMessage, createWhatsappUrl } from "../utils/formatters";
 import { hasValidationErrors, validateBookingForm } from "../utils/validators";
 import type { BookingErrors } from "../utils/validators";
@@ -17,6 +22,7 @@ const initialBooking: BookingFormData = {
   date: "",
   time: "",
   guests: "",
+  notes: "",
 };
 
 const saveBooking = (booking: BookingFormData) => {
@@ -30,6 +36,7 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
   const [errors, setErrors] = useState<BookingErrors>({});
   const [lastBooking, setLastBooking] = useState<BookingFormData | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const updateField = (field: keyof BookingFormData, value: string) => {
     setValues((current) => ({ ...current, [field]: value }));
@@ -48,17 +55,81 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
     return true;
   };
 
-  const submitBooking = (event: FormEvent<HTMLFormElement>) => {
+  const persistSuccessfulBooking = (booking: BookingFormData, options?: { resetValues?: boolean }) => {
+    saveBooking(booking);
+    setLastBooking(booking);
+    setSuccessOpen(true);
+    onToast(config.ui.toasts.bookingSuccess, "success");
+
+    if (options?.resetValues) {
+      setValues(initialBooking);
+    }
+  };
+
+  const openWhatsappBooking = (booking: BookingFormData) => {
+    window.open(
+      createWhatsappUrl(config.restaurant.whatsappNumber, createBookingMessage(config.restaurant.name, booking)),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const getReservationErrorMessage = (error: unknown) => {
+    if (error instanceof ReservationsRepositoryError) {
+      return error.message;
+    }
+
+    return "تعذر حفظ الحجز في قاعدة البيانات. سيتم فتح واتساب كبديل إذا كان متاحًا.";
+  };
+
+  const toReservationInput = (booking: BookingFormData): CreateReservationInput => ({
+    restaurantId: config.restaurant.id ?? "",
+    customerName: booking.fullName,
+    customerPhone: booking.phone,
+    reservationDate: booking.date,
+    reservationTime: booking.time,
+    peopleCount: Number(booking.guests),
+    notes: booking.notes,
+  });
+
+  const submitBooking = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!validate()) {
       return;
     }
 
-    saveBooking(values);
-    setLastBooking(values);
-    setSuccessOpen(true);
-    setValues(initialBooking);
-    onToast(config.ui.toasts.bookingSuccess, "success");
+    const booking = { ...values };
+    const reservationMode = config.settings.reservationMode ?? "both";
+
+    if (reservationMode === "whatsapp") {
+      persistSuccessfulBooking(booking);
+      openWhatsappBooking(booking);
+      return;
+    }
+
+    if (!config.restaurant.id) {
+      onToast("تعذر حفظ الحجز في Appwrite. سيتم فتح واتساب كبديل حتى لا تضيع البيانات.", "error");
+      saveBooking(booking);
+      openWhatsappBooking(booking);
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      await createAppwriteReservation(toReservationInput(booking));
+      persistSuccessfulBooking(booking, { resetValues: reservationMode === "database" || reservationMode === "both" });
+
+      if (reservationMode === "both") {
+        openWhatsappBooking(booking);
+      }
+    } catch (error) {
+      saveBooking(booking);
+      onToast(getReservationErrorMessage(error), "error");
+      openWhatsappBooking(booking);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const sendToWhatsapp = () => {
@@ -66,14 +137,11 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
       return;
     }
 
-    saveBooking(values);
-    setLastBooking(values);
+    const booking = { ...values };
+    saveBooking(booking);
+    setLastBooking(booking);
     onToast(config.ui.toasts.bookingSuccess, "success");
-    window.open(
-      createWhatsappUrl(config.restaurant.whatsappNumber, createBookingMessage(config.restaurant.name, values)),
-      "_blank",
-      "noopener,noreferrer",
-    );
+    openWhatsappBooking(booking);
   };
 
   const minDate = new Date().toISOString().split("T")[0];
@@ -84,7 +152,12 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
         <CalendarCheck size={23} />
         {config.ui.booking.title}
       </h3>
-      <form onSubmit={submitBooking} noValidate>
+      <form
+        onSubmit={(event) => {
+          void submitBooking(event);
+        }}
+        noValidate
+      >
         <label>
           <span>{config.ui.booking.fullName}</span>
           <input
@@ -142,10 +215,19 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
           />
           {errors.guests ? <small>{errors.guests}</small> : null}
         </label>
-        <button className="primary-button primary-button--wide" type="submit">
-          {config.ui.booking.submit}
+        <label>
+          <span>{config.ui.booking.notes}</span>
+          <textarea
+            value={values.notes ?? ""}
+            onChange={(event) => updateField("notes", event.target.value)}
+            placeholder={config.ui.booking.notes}
+            rows={4}
+          />
+        </label>
+        <button className="primary-button primary-button--wide" type="submit" disabled={isSubmitting}>
+          {isSubmitting ? "جارٍ إرسال الحجز..." : config.ui.booking.submit}
         </button>
-        <button className="secondary-whatsapp-button" type="button" onClick={sendToWhatsapp}>
+        <button className="secondary-whatsapp-button" type="button" onClick={sendToWhatsapp} disabled={isSubmitting}>
           <MessageCircle size={19} />
           {config.ui.booking.whatsappSubmit}
         </button>

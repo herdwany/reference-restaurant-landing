@@ -123,9 +123,36 @@ Security constraints:
 - Do not expose customer data with public read.
 - Production should move `createOrder` to an Appwrite Function to validate input, recalculate prices from trusted dish data, set permissions, and add anti-spam protection.
 
-## Phase 6B
+## Phase 6B - Completed
 
-- Reservations only, when explicitly scheduled.
+- Public booking can create `reservations` in Appwrite TablesDB.
+- Public booking uses `restaurantId` from the restaurant loaded by slug, not from a public form field.
+- `reservationMode` supports `whatsapp`, `database`, and `both`.
+- WhatsApp fallback remains available if Appwrite create fails, and local form data is not discarded.
+- `/admin/reservations` displays reservations scoped by the active restaurant only.
+- Owners and staff manage reservations for their own restaurant through `useActiveRestaurantScope`.
+- `agency_admin` without a selected restaurant sees the agency-scope warning instead of all reservations.
+- Reservation status can be changed to `new`, `confirmed`, `completed`, or `cancelled`.
+- Reservation details show customer data and notes without adding image upload, Functions, or automations.
+- No Image Upload, Agency Dashboard, Appwrite Functions, or viaSocket integration was added.
+
+### Phase 6B Appwrite permissions for staging
+
+For current direct browser testing:
+
+`reservations`
+
+- Create: `Any` or `Guests`, plus `Users`.
+- Read: `Users`.
+- Update: `Users`.
+- Delete: nothing, or `Users` temporarily only if you need delete testing.
+
+Security constraints:
+
+- Do not allow public read on `reservations`.
+- Do not allow public update/delete on `reservations`.
+- Do not expose customer data with public read.
+- Production should move `createReservation` to an Appwrite Function to validate input, add anti-spam protection, and set tighter permissions.
 
 ## Phase 7
 

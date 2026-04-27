@@ -209,9 +209,9 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 
 ## ملاحظات
 
-- السلة والحجوزات محفوظة في `localStorage`.
+- السلة ما زالت تستخدم `localStorage` محليًا، والحجوزات تحتفظ أيضًا بـ fallback محلي حتى لا تضيع بيانات العميل.
 - إتمام الطلب يدعم `orderMode`: واتساب فقط، قاعدة البيانات فقط، أو الحفظ في Appwrite ثم فتح واتساب.
-- نموذج الحجز يتحقق من الحقول قبل الحفظ أو الإرسال عبر واتساب.
+- نموذج الحجز يدعم `reservationMode`: واتساب فقط، قاعدة البيانات فقط، أو الحفظ في Appwrite ثم فتح واتساب.
 - كل روابط الهيدر تعمل بسلاسة، ورابط المعرض يفتح قسماً تفاعلياً قابل للتوسعة.
 
 ## Phase 3 - Admin CMS Foundation
@@ -267,11 +267,39 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - السلة وfallback واتساب ما زالا يعملان، ولا توجد إدارة حجوزات أو رفع صور أو لوحة وكالة في هذه المرحلة.
 - للاختبار: افتح Create فقط على `orders` و`order_items` للزوار إذا أردت الحفظ المباشر من الموقع، مع عدم فتح public read/update/delete.
 
+## Phase 6B - Reservations
+
+- تم إضافة `/admin/reservations` لإدارة حجوزات المطعم الحالي فقط.
+- نموذج الحجز العام يحفظ `reservations` في Appwrite عند تفعيل `reservationMode` إلى `database` أو `both`.
+- إذا كان `reservationMode=whatsapp` يبقى الحجز عبر واتساب فقط من دون حفظ في Appwrite.
+- عند فشل Appwrite لا تضيع بيانات الحجز: تبقى قيم النموذج محليًا ويتم فتح واتساب كبديل.
+- `restaurantId` في الحجز العام يأتي من المطعم المحمّل بالـ slug داخل `getSiteData` وليس من أي input عام.
+- `/admin/reservations` يقرأ الحجوزات scoped عبر `useActiveRestaurantScope` و`restaurantId` فقط.
+- تغيير حالة الحجز إلى `new` أو `confirmed` أو `completed` أو `cancelled` يتحقق أولًا من أن الحجز تابع لنفس `activeRestaurantId`.
+- زر الرد عبر واتساب يفتح رسالة جاهزة للعميل بناءً على اسم المطعم وتاريخ الحجز ووقته وحالته.
+
+### Phase 6B Appwrite permissions for staging
+
+For current direct browser testing:
+
+`reservations`
+
+- Create: `Any` أو `Guests` و`Users`.
+- Read: `Users`.
+- Update: `Users`.
+- Delete: لا شيء، أو `Users` مؤقتًا فقط إذا احتجت اختبار الحذف.
+
+Security constraints:
+
+- لا تفعّل public read على `reservations`.
+- لا تفعّل public update/delete على `reservations`.
+- لا تفتح customer data للقراءة العامة.
+- في الإنتاج يجب نقل `createReservation` إلى Appwrite Function للتحقق من المدخلات ومنع spam وضبط permissions.
+
 الخطوات القادمة:
 
-- Phase 6B: Reservations فقط عند طلبها صراحة.
 - Phase 7: Image Upload.
 - Phase 8: viaSocket Automations.
 - Phase 9: Agency Dashboard.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا نقل `createOrder` إلى Appwrite Function لإعادة حساب الأسعار ومنع spam وضبط permissions، ولا يجب فتح public read على بيانات العملاء أو وضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا نقل `createOrder` و`createReservation` إلى Appwrite Function لإعادة التحقق من المدخلات ومنع spam وضبط permissions، ولا يجب فتح public read على بيانات العملاء أو وضع API keys داخل React.

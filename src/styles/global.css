@@ -931,8 +931,24 @@ a {
     box-shadow 220ms ease;
 }
 
+.booking-card textarea {
+  width: 100%;
+  min-height: 108px;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 12px 14px;
+  color: var(--color-dark);
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease;
+}
+
 .booking-card input:hover,
-.booking-card input:focus {
+.booking-card input:focus,
+.booking-card textarea:hover,
+.booking-card textarea:focus {
   border-color: rgba(249, 115, 22, 0.7);
   box-shadow: 0 0 0 4px rgba(249, 115, 22, 0.08);
 }
@@ -4199,6 +4215,10 @@ a {
   gap: 8px;
 }
 
+.admin-reservation-status-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .admin-order-status-actions .admin-action-button {
   min-width: 0;
 }
@@ -4738,7 +4758,8 @@ a {
   .admin-orders-stats,
   .admin-order-card__meta,
   .admin-order-details__grid,
-  .admin-order-status-actions {
+  .admin-order-status-actions,
+  .admin-reservation-status-actions {
     grid-template-columns: 1fr;
   }
 

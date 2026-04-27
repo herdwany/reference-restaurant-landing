@@ -8,6 +8,7 @@ import AdminDishes from "./admin/pages/AdminDishes";
 import AdminFaqs from "./admin/pages/AdminFaqs";
 import AdminOffers from "./admin/pages/AdminOffers";
 import AdminOrders from "./admin/pages/AdminOrders";
+import AdminReservations from "./admin/pages/AdminReservations";
 import AdminSettings from "./admin/pages/AdminSettings";
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
@@ -350,6 +351,7 @@ export default function App() {
             <Route path="dishes" element={<AdminDishes />} />
             <Route path="offers" element={<AdminOffers />} />
             <Route path="orders" element={<AdminOrders />} />
+            <Route path="reservations" element={<AdminReservations />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="faqs" element={<AdminFaqs />} />
             <Route path="*" element={<AdminOverview />} />

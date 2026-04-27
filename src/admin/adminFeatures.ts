@@ -91,7 +91,7 @@ export const adminFeatures = [
     label: "الحجوزات",
     path: "/admin/reservations",
     icon: "calendarCheck",
-    status: "coming_soon",
+    status: "active",
     requiredRoles: restaurantRoles,
     description: "متابعة حجوزات الطاولات وتأكيدها.",
     placement: "main",
@@ -111,8 +111,8 @@ export const adminFeatures = [
 // TODO: Future agency flow:
 // agency_admin opens /agency, selects a restaurant, then selectedRestaurantId becomes
 // the active admin scope for /admin/dishes, /admin/offers, and the other CMS modules.
-export const adminMainFeatures = adminFeatures.filter((feature) => feature.placement === "main");
-export const adminFooterFeatures = adminFeatures.filter((feature) => feature.placement === "footer");
+export const adminMainFeatures: readonly AdminFeature[] = adminFeatures.filter((feature) => feature.placement === "main");
+export const adminFooterFeatures: readonly AdminFeature[] = adminFeatures.filter((feature) => feature.placement === "footer");
 
 export const getAdminFeatureForPath = (pathname: string) => {
   const activeFeature = adminMainFeatures
