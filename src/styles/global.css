@@ -4242,6 +4242,13 @@ a {
   font-weight: 950;
 }
 
+.admin-field-label {
+  display: inline-flex;
+  margin-bottom: 7px;
+  color: #374151;
+  font-weight: 950;
+}
+
 .admin-form-grid input,
 .admin-form-grid select,
 .admin-form-grid textarea {
@@ -4291,6 +4298,83 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 12px;
+}
+
+.admin-image-uploader {
+  display: grid;
+  grid-template-columns: minmax(0, 220px) minmax(0, 1fr);
+  gap: 14px;
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fffdf9;
+  padding: 14px;
+}
+
+.admin-image-uploader__preview {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #f8fafc;
+  aspect-ratio: 1 / 1;
+}
+
+.admin-image-uploader__preview img,
+.admin-image-uploader__placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.admin-image-uploader__preview img {
+  object-fit: cover;
+}
+
+.admin-image-uploader__placeholder {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  color: var(--admin-muted);
+  padding: 14px;
+  text-align: center;
+  font-weight: 850;
+}
+
+.admin-image-uploader__controls {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-width: 0;
+}
+
+.admin-image-uploader__picker {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.admin-image-uploader__picker input {
+  width: 100%;
+  min-width: 0;
+  border: 1px dashed var(--admin-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--admin-ink);
+  padding: 12px;
+}
+
+.admin-image-uploader__file-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-muted);
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.admin-image-uploader__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .admin-dish-form__checks label {
@@ -4834,5 +4918,14 @@ a {
   .admin-dish-form__actions .admin-action-button,
   .admin-confirm-dialog__actions .admin-action-button {
     width: 100%;
+  }
+
+  .admin-image-uploader {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-image-uploader__actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 }

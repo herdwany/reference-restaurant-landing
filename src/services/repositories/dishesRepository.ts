@@ -39,6 +39,7 @@ export type DishMutationInput = {
   description?: string;
   price: number;
   oldPrice?: number;
+  imageFileId?: string;
   imageUrl?: string;
   badge?: string;
   category: string;
@@ -54,6 +55,7 @@ type DishRowData = {
   description: string;
   price: number;
   oldPrice: number | null;
+  imageFileId: string | null;
   imageUrl: string | null;
   badge: string | null;
   category: string;
@@ -120,6 +122,7 @@ const toDishRowData = (input: DishMutationInput): DishRowData => ({
   description: input.description?.trim() ?? "",
   price: input.price,
   oldPrice: optionalNumber(input.oldPrice),
+  imageFileId: optionalText(input.imageFileId),
   imageUrl: optionalText(input.imageUrl),
   badge: optionalText(input.badge),
   category: input.category.trim(),

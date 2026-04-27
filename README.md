@@ -221,7 +221,7 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - كل عمليات الأطباق scoped عبر `restaurantId` القادم من `AuthContext`، وليس من الفورم أو الرابط.
 - يمكن إضافة طبق، تعديل طبق، إخفاء/إظهار طبق عبر `isAvailable`.
 - الحذف النهائي موجود كإجراء ثانوي مع confirm واضح.
-- `imageUrl` فقط حاليًا، ولا يوجد image upload بعد.
+- يدعم الآن `imageUrl` اليدوي، وتمت إضافة upload حقيقي لاحقًا في Phase 7A للأطباق والعروض فقط.
 - لم يتم بناء Offers Manager أو Orders Manager أو Reservations Manager أو Settings Manager أو Agency Dashboard في هذه المرحلة.
 
 ## Phase 3.5 - Public Dishes Binding
@@ -230,14 +230,14 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - إذا كان Appwrite غير مفعّل أو فشل الاتصال أو لم توجد أطباق، يرجع الموقع إلى `restaurantConfig.ts`.
 - الأطباق المخفية `isAvailable=false` لا تظهر في الموقع العام.
 - لم يتم ربط الطلبات أو الحجوزات بعد.
-- لا يوجد image upload بعد، ويتم استخدام `imageUrl` فقط عند توفره.
+- الصور المرفوعة لاحقًا عبر Phase 7A تظهر أيضًا في الموقع العام عبر `imageUrl`.
 
 ## Phase 4 - Offers Manager
 
 - تم إضافة `/admin/offers` لإدارة عروض المطعم داخل لوحة التحكم.
 - كل عمليات العروض scoped عبر `restaurantId` القادم من `useActiveRestaurantScope`.
 - يمكن إضافة عرض، تعديل عرض، تفعيل/إيقاف عرض، وحذف عرض مع confirm.
-- `imageUrl` فقط حاليًا، ولا يوجد image upload بعد.
+- يدعم الآن `imageUrl` اليدوي، وتمت إضافة upload حقيقي لاحقًا في Phase 7A للأطباق والعروض فقط.
 - لا يوجد Orders/Reservations أو Agency Dashboard بعد.
 
 ## Phase 4.5 - Public Offers Binding
@@ -245,7 +245,7 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - تم ربط قسم عروض اليوم في الموقع العام بقراءة العروض النشطة من Appwrite.
 - إذا كان Appwrite غير مفعّل أو فشل الاتصال أو لم توجد عروض، يرجع الموقع إلى `restaurantConfig.ts`.
 - العروض المتوقفة `isActive=false` لا تظهر في الموقع العام.
-- لا يوجد Orders/Reservations أو Image Upload أو Agency Dashboard بعد.
+- لا يوجد Orders/Reservations أو Agency Dashboard بعد، وصور العروض المرفوعة لاحقًا عبر Phase 7A تظهر أيضًا هنا.
 
 ## Phase 5 - Contact, Settings, FAQ
 
@@ -254,7 +254,7 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - الموقع العام يقرأ contact/settings وFAQ الظاهرة من Appwrite مع fallback إلى `restaurantConfig.ts`.
 - `restaurantId` يأتي من `AuthContext` و`useActiveRestaurantScope` فقط، ولا يظهر أو يتغير من الفورم.
 - لا يوجد Orders/Reservations بعد.
-- لا يوجد Image Upload بعد.
+- لا يوجد Image Upload داخل settings بعد.
 - لا يوجد Agency Dashboard بعد.
 
 ## Phase 6A - Orders
@@ -296,10 +296,36 @@ Security constraints:
 - لا تفتح customer data للقراءة العامة.
 - في الإنتاج يجب نقل `createReservation` إلى Appwrite Function للتحقق من المدخلات ومنع spam وضبط permissions.
 
+## Phase 7A - Image Upload
+
+- تم إضافة upload محدود وآمن للصور داخل `/admin/dishes` و`/admin/offers` فقط.
+- يمكن للمستخدم رفع `JPG` أو `PNG` أو `WebP` حتى `3MB`.
+- يتم حفظ `imageFileId` و`imageUrl` في rows الخاصة بالأطباق والعروض.
+- يبقى `imageUrl` اليدوي مدعومًا إذا أراد المالك استخدام رابط خارجي بدل Appwrite Storage.
+- الموقع العام يعرض الصور المرفوعة لأن `imageUrl` المحفوظ يأتي من `Storage.getFileView`.
+- إزالة الصورة من النموذج لا تحذف الملف فعليًا في هذه المرحلة، لتجنب فقدان البيانات.
+
+### Phase 7A Appwrite Storage permissions for staging
+
+`restaurant-assets`
+
+- Read: `Guests` أو `Any` حتى تظهر الصور في الموقع العام.
+- Create: `Users`.
+- Update: `Users`.
+- Delete: `Users`.
+
+Security constraints:
+
+- لا تفعّل `public create` على الـ bucket.
+- لا تفعّل `public update/delete` على الـ bucket.
+- إذا بقي `fileSecurity` مفعّلًا، فالواجهة الحالية تضيف `public read` على الملف المرفوع وتُبقي `update/delete` للمستخدم الرافع فقط.
+- في الإنتاج، الأفضل نقل upload إلى Appwrite Function أو ربطه بصلاحيات فرق أدق حسب المطعم.
+- يجب تنظيف الصور غير المستخدمة لاحقًا عند فشل حفظ الصف أو استبدال الصورة.
+
 الخطوات القادمة:
 
-- Phase 7: Image Upload.
+- Phase 7B: Gallery/Logo/Hero uploads فقط عند طلبها صراحة.
 - Phase 8: viaSocket Automations.
 - Phase 9: Agency Dashboard.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا نقل `createOrder` و`createReservation` إلى Appwrite Function لإعادة التحقق من المدخلات ومنع spam وضبط permissions، ولا يجب فتح public read على بيانات العملاء أو وضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. يجب لاحقًا نقل `createOrder` و`createReservation` وعمليات upload الحساسة إلى Appwrite Function أو طبقة صلاحيات أدق لإعادة التحقق من المدخلات ومنع spam وضبط permissions، ولا يجب فتح public read على بيانات العملاء أو وضع API keys داخل React.

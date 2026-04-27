@@ -39,7 +39,7 @@
 - إضافة وتعديل طبق.
 - إخفاء وإظهار طبق عبر `isAvailable`.
 - حذف نهائي متاح كإجراء ثانوي مع confirm واضح.
-- `imageUrl` فقط حاليًا، بدون image upload.
+- `imageUrl` اليدوي بقي مدعومًا، وتمت إضافة upload لاحقًا في Phase 7A للأطباق والعروض فقط.
 - لا يوجد Offers Manager بعد.
 - لا يوجد Orders Manager بعد.
 - لا يوجد Reservations Manager بعد.
@@ -54,14 +54,14 @@
 - All public dishes queries stay scoped by `restaurantId`.
 - Public offers binding added in Phase 4.5.
 - No orders/reservations yet.
-- No image upload yet.
+- Uploaded dish images from Phase 7A are compatible with public rendering through `imageUrl`.
 
 ## Phase 4 - Completed
 
 - `/admin/offers` لإدارة عروض المطعم.
 - Offers scoped by `restaurantId`.
 - Add/Edit/Activate/Deactivate/Delete offer.
-- `imageUrl` فقط حاليًا، بدون image upload.
+- `imageUrl` اليدوي بقي مدعومًا، وتمت إضافة upload لاحقًا في Phase 7A للأطباق والعروض فقط.
 - لا يوجد Orders/Reservations بعد.
 - لا يوجد Agency Dashboard بعد.
 
@@ -71,7 +71,7 @@
 - Fallback to `restaurantConfig.ts` when Appwrite is not configured, fails, restaurant is missing, or offers are empty.
 - Inactive offers with `isActive=false` do not appear publicly.
 - No orders/reservations yet.
-- No image upload yet.
+- Uploaded offer images from Phase 7A are compatible with public rendering through `imageUrl`.
 - No agency dashboard yet.
 
 ## Phase 5 - Completed
@@ -82,7 +82,7 @@
 - FAQ scoped by `restaurantId`.
 - Public site reads settings and FAQ from Appwrite with fallback to `restaurantConfig.ts`.
 - No orders/reservations yet.
-- No image upload yet.
+- No image upload inside settings yet.
 - No agency dashboard yet.
 
 ## Phase 6A - Completed
@@ -154,10 +154,36 @@ Security constraints:
 - Do not expose customer data with public read.
 - Production should move `createReservation` to an Appwrite Function to validate input, add anti-spam protection, and set tighter permissions.
 
-## Phase 7
+## Phase 7A - Completed
 
-- Image Upload عبر Appwrite Storage.
-- ضبط permissions للملفات حسب المطعم.
+- `/admin/dishes` and `/admin/offers` can upload image files to Appwrite Storage.
+- Upload accepts `image/jpeg`, `image/png`, and `image/webp` only.
+- File size is limited to `3MB`.
+- Uploaded files store `imageFileId` and `imageUrl` back into dishes/offers rows.
+- Manual external `imageUrl` remains supported.
+- Public dishes/offers continue to render uploaded images through stored `imageUrl`.
+- No Gallery Manager, Logo Upload, Hero Upload, Agency Dashboard, Appwrite Functions, or viaSocket integration was added.
+
+### Phase 7A Appwrite Storage permissions for staging
+
+`restaurant-assets`
+
+- Read: `Guests` or `Any`.
+- Create: `Users`.
+- Update: `Users`.
+- Delete: `Users`.
+
+Security constraints:
+
+- Do not allow public create on the bucket.
+- Do not allow public update/delete on the bucket.
+- If file-level security remains enabled, the current frontend uploader adds public read to the uploaded file and keeps update/delete to the uploading user only.
+- Production should move upload to an Appwrite Function or stricter team-scoped storage permissions.
+- Unused uploaded files should be cleaned up later after failed saves or image replacements.
+
+## Phase 7B
+
+- Gallery/Logo/Hero uploads فقط عند طلبها صراحة.
 
 ## Phase 8
 

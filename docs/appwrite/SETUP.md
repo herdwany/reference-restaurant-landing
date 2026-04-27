@@ -133,10 +133,16 @@ restaurant-assets
 الصلاحيات المقترحة:
 
 - public read للصور المنشورة فقط.
-- write/update/delete للـ `owner`, `staff`, و`agency_admin`.
+- create/update/delete للـ `Users`.
 - لا تسمح للزائر العام برفع الصور.
 
-لا يوجد upload في هذه المرحلة. سيتم تنفيذه لاحقاً من لوحة التحكم أو Appwrite Function.
+الرفع مدعوم الآن داخل `/admin/dishes` و`/admin/offers` فقط.
+
+ملاحظة مهمة:
+
+- إذا كان `fileSecurity` مفعّلًا على الـ bucket، فواجهة الرفع الحالية تضيف `public read` للملف المرفوع حتى يظهر في الموقع العام.
+- `update/delete` يبقيان للمستخدم الرافع فقط في هذه المرحلة.
+- للإنتاج، الأفضل نقل upload إلى Appwrite Function أو Teams/Permissions أدق حسب المطعم.
 
 ## Security Notes
 

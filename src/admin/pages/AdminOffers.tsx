@@ -6,6 +6,7 @@ import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
 import AdminFormModal from "../components/AdminFormModal";
+import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
@@ -26,6 +27,7 @@ type OfferFormValues = {
   ctaText: string;
   description: string;
   endsAt: string;
+  imageFileId: string;
   imageUrl: string;
   isActive: boolean;
   oldPrice: string;
@@ -51,6 +53,7 @@ const emptyOfferFormValues: OfferFormValues = {
   ctaText: "اطلب الآن",
   description: "",
   endsAt: "",
+  imageFileId: "",
   imageUrl: "",
   isActive: true,
   oldPrice: "",
@@ -90,6 +93,7 @@ const getOfferFormValues = (offer?: Offer): OfferFormValues => {
     ctaText: offer.ctaText || "اطلب الآن",
     description: offer.description,
     endsAt: toLocalInputValue(offer.endsAt),
+    imageFileId: offer.imageFileId ?? "",
     imageUrl: offer.imageUrl ?? "",
     isActive: offer.isActive,
     oldPrice: formatOptionalNumber(offer.oldPrice),
@@ -163,6 +167,7 @@ const toOfferMutationInput = (values: OfferFormValues): OfferMutationInput => ({
   ctaText: values.ctaText.trim() || "اطلب الآن",
   description: values.description.trim(),
   endsAt: values.endsAt || undefined,
+  imageFileId: values.imageFileId.trim() || undefined,
   imageUrl: values.imageUrl.trim() || undefined,
   isActive: values.isActive,
   oldPrice: parseOptionalNumber(values.oldPrice),
@@ -548,6 +553,23 @@ export default function AdminOffers() {
               />
               {formErrors.imageUrl ? <small>{formErrors.imageUrl}</small> : null}
             </label>
+
+            <div className="admin-form-grid__wide">
+              <span className="admin-field-label">رفع الصورة</span>
+              <AdminImageUploader
+                restaurantId={activeRestaurantId ?? ""}
+                type="offer"
+                value={{
+                  imageFileId: formValues.imageFileId || undefined,
+                  imageUrl: formValues.imageUrl || undefined,
+                }}
+                onChange={(nextValue) => {
+                  updateFormValue("imageFileId", nextValue.imageFileId ?? "");
+                  updateFormValue("imageUrl", nextValue.imageUrl ?? "");
+                }}
+                disabled={isSaving || !activeRestaurantId}
+              />
+            </div>
 
             <label>
               <span>نص زر العرض</span>

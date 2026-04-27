@@ -40,6 +40,7 @@ export type OfferMutationInput = {
   description?: string;
   price: number;
   oldPrice?: number;
+  imageFileId?: string;
   imageUrl?: string;
   colorTheme: ColorTheme;
   ctaText: string;
@@ -54,6 +55,7 @@ type OfferRowData = {
   description: string;
   price: number;
   oldPrice: number | null;
+  imageFileId: string | null;
   imageUrl: string | null;
   colorTheme: ColorTheme;
   ctaText: string;
@@ -101,6 +103,7 @@ const toOfferRowData = (input: OfferMutationInput): OfferRowData => ({
   description: input.description?.trim() ?? "",
   price: input.price,
   oldPrice: optionalNumber(input.oldPrice),
+  imageFileId: optionalText(input.imageFileId),
   imageUrl: optionalText(input.imageUrl),
   colorTheme: input.colorTheme,
   ctaText: input.ctaText.trim() || "اطلب الآن",

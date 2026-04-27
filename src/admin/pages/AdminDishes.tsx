@@ -6,6 +6,7 @@ import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
 import AdminFormModal from "../components/AdminFormModal";
+import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
@@ -25,6 +26,7 @@ type DishFormValues = {
   badge: string;
   category: string;
   description: string;
+  imageFileId: string;
   imageUrl: string;
   ingredients: string;
   isAvailable: boolean;
@@ -45,6 +47,7 @@ const emptyDishFormValues: DishFormValues = {
   badge: "",
   category: "",
   description: "",
+  imageFileId: "",
   imageUrl: "",
   ingredients: "",
   isAvailable: true,
@@ -69,6 +72,7 @@ const getDishFormValues = (dish?: Dish): DishFormValues => {
     badge: dish.badge ?? "",
     category: dish.category,
     description: dish.description,
+    imageFileId: dish.imageFileId ?? "",
     imageUrl: dish.imageUrl ?? "",
     ingredients: dish.ingredients?.join("\n") ?? "",
     isAvailable: dish.isAvailable,
@@ -134,6 +138,7 @@ const toDishMutationInput = (values: DishFormValues): DishMutationInput => ({
   badge: values.badge.trim() || undefined,
   category: values.category.trim(),
   description: values.description.trim(),
+  imageFileId: values.imageFileId.trim() || undefined,
   imageUrl: values.imageUrl.trim() || undefined,
   ingredients: values.ingredients
     .split(/\r?\n/)
@@ -527,6 +532,23 @@ export default function AdminDishes() {
               />
               {formErrors.imageUrl ? <small>{formErrors.imageUrl}</small> : null}
             </label>
+
+            <div className="admin-form-grid__wide">
+              <span className="admin-field-label">رفع الصورة</span>
+              <AdminImageUploader
+                restaurantId={activeRestaurantId ?? ""}
+                type="dish"
+                value={{
+                  imageFileId: formValues.imageFileId || undefined,
+                  imageUrl: formValues.imageUrl || undefined,
+                }}
+                onChange={(nextValue) => {
+                  updateFormValue("imageFileId", nextValue.imageFileId ?? "");
+                  updateFormValue("imageUrl", nextValue.imageUrl ?? "");
+                }}
+                disabled={isSaving || !activeRestaurantId}
+              />
+            </div>
 
             <label>
               <span>شارة قصيرة</span>
