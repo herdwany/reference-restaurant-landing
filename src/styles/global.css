@@ -3259,6 +3259,7 @@ a {
 
 .admin-sidebar__overlay {
   display: none;
+  pointer-events: none;
 }
 
 .admin-main {
@@ -5278,7 +5279,7 @@ a {
     position: fixed;
     inset: 0;
     z-index: 210;
-    display: block;
+    display: none;
     border: 0;
     background: rgba(17, 24, 39, 0.38);
     opacity: 0;
@@ -5287,6 +5288,7 @@ a {
   }
 
   .admin-sidebar__overlay.is-visible {
+    display: block;
     opacity: 1;
     pointer-events: auto;
   }

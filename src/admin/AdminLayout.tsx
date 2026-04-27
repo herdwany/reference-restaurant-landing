@@ -3,11 +3,14 @@ import { Link, Outlet } from "react-router-dom";
 import AdminErrorState from "./components/AdminErrorState";
 import AdminSidebar from "./components/AdminSidebar";
 import AdminTopbar from "./components/AdminTopbar";
+import { useAuth } from "../context/AuthContext";
 import { useActiveRestaurantScope } from "./hooks/useActiveRestaurantScope";
 
 export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { requiresAgencySelection, scopeError } = useActiveRestaurantScope();
+  const { isAgencyAdmin } = useAuth();
+  const { activeRestaurantId, scopeError } = useActiveRestaurantScope();
+  const shouldBlockForAgencySelection = isAgencyAdmin && !activeRestaurantId;
 
   return (
     <div className="admin-shell" dir="rtl">
@@ -15,7 +18,7 @@ export default function AdminLayout() {
       <div className="admin-main">
         <AdminTopbar onMenuClick={() => setIsSidebarOpen(true)} />
         <main className="admin-content">
-          {requiresAgencySelection && scopeError ? (
+          {shouldBlockForAgencySelection && scopeError ? (
             <AdminErrorState
               title="اختر مطعمًا أولًا"
               message={scopeError}
