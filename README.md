@@ -326,8 +326,9 @@ Security constraints:
 
 الخطوات القادمة:
 
-- Phase 7B: Gallery/Logo/Hero uploads فقط عند طلبها صراحة.
-- Phase 8: viaSocket Automations.
-- Phase 9: Agency Dashboard.
+- Phase 9B: مكتملة. `agency_admin` يختار مطعمًا من `/agency` ثم يفتح `/admin` لإدارة ذلك المطعم عبر `selectedRestaurantId` المخزن client-side كسياق MVP فقط.
+- سلوك `owner` و`staff` بقي عبر `profile.restaurantId`.
+- لا يوجد impersonation، ولا create client flow، ولا billing في Phase 9B.
+- Phase 9C: Create client / restaurant onboarding flow.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، ولا يوجد impersonation في هذه المرحلة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.

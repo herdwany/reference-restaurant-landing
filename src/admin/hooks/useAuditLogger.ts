@@ -12,12 +12,12 @@ type LogActionInput = {
 };
 
 export function useAuditLogger() {
-  const { currentUser, profile, restaurantId, role } = useAuth();
+  const { currentUser, profile, role } = useAuth();
   const { activeRestaurantId } = useActiveRestaurantScope();
 
   return useCallback(
     ({ action, entityType, entityId, metadata }: LogActionInput) => {
-      const scopedRestaurantId = activeRestaurantId ?? profile?.restaurantId ?? restaurantId ?? undefined;
+      const scopedRestaurantId = activeRestaurantId ?? undefined;
       const userId = profile?.userId || currentUser?.$id;
 
       if (!scopedRestaurantId || (role !== "owner" && role !== "staff" && role !== "agency_admin")) {
@@ -30,9 +30,12 @@ export function useAuditLogger() {
         action,
         entityType,
         entityId,
-        metadata,
+        metadata: {
+          ...(metadata ?? {}),
+          role,
+        },
       });
     },
-    [activeRestaurantId, currentUser?.$id, profile?.restaurantId, profile?.userId, restaurantId, role],
+    [activeRestaurantId, currentUser?.$id, profile?.userId, role],
   );
 }

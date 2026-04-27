@@ -85,7 +85,7 @@ const formatUser = (userId: string | undefined) => {
 };
 
 export default function AdminActivity() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -197,7 +197,7 @@ export default function AdminActivity() {
   return (
     <section className="admin-activity-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="سجل النشاط"
         description="راجع آخر العمليات التي تمت داخل لوحة التحكم."
         actions={

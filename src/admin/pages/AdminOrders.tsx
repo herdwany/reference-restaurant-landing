@@ -80,7 +80,7 @@ const formatDate = (value: string | undefined) => {
 const getItemsQuantity = (items: readonly OrderItem[]) => items.reduce((total, item) => total + item.quantity, 0);
 
 export default function AdminOrders() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const [orders, setOrders] = useState<Order[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
@@ -215,7 +215,7 @@ export default function AdminOrders() {
   };
 
   const openWhatsappReply = (order: Order) => {
-    const restaurantName = activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
+    const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
     const message = `مرحبًا ${order.customerName}، بخصوص طلبك من ${restaurantName}، حالة طلبك الآن: ${statusLabels[order.status]}.`;
 
     window.open(createWhatsappUrl(order.customerPhone, message), "_blank", "noopener,noreferrer");
@@ -333,7 +333,7 @@ export default function AdminOrders() {
   return (
     <section className="admin-orders-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="الطلبات"
         description="تابع الطلبات الواردة من موقع مطعمك."
         actions={

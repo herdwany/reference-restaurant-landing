@@ -193,7 +193,7 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminOffers() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [formMode, setFormMode] = useState<OfferFormMode | null>(null);
@@ -482,7 +482,7 @@ export default function AdminOffers() {
   return (
     <section className="admin-dishes-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="العروض"
         description="أدر العروض التي تظهر لعملاء مطعمك."
         actions={

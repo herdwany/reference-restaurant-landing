@@ -313,17 +313,22 @@ Security constraints:
 - Phase 9A completed: `/agency` foundation for `agency_admin` only.
 - `/agency` lists restaurants from `restaurants` with basic stats, search, and status filters.
 - Owner/staff accounts are blocked from `/agency` with a clear message.
+- Phase 9B completed: `agency_admin` can select a restaurant from `/agency` and open `/admin` for that selected restaurant.
+- For `agency_admin`, `/admin` uses client-side `selectedRestaurantId` as the active restaurant scope.
+- For `owner` and `staff`, `/admin` still uses `profile.restaurantId`.
+- If `agency_admin` opens `/admin` without selecting a restaurant, CRUD is blocked and the UI asks them to return to `/agency`.
+- No impersonation was added.
 - No create client flow yet.
 - No billing or subscriptions yet.
-- No impersonation yet.
-- No selected restaurant admin scope yet.
-- Security note: agency restaurant reads should later move behind Appwrite Teams or an Appwrite Function instead of relying only on React role guards and broad Appwrite read permissions.
-- TODO Phase 9B: selectedRestaurantId, agency admin can select a restaurant, `/admin` can manage the selected restaurant when `role=agency_admin`, and create client flow.
+- No delete restaurant flow.
+- Security note: `selectedRestaurantId` in `localStorage` is MVP UI context only, not a final security boundary.
+- Security note: agency restaurant reads/manage access should later move behind Appwrite Teams, Functions, or backend-enforced rules instead of relying only on React role guards and broad Appwrite read permissions.
 
 ## Future Phase 9 Work
-- إنشاء مطاعم جديدة.
-- اختيار مطعم كـ`selectedRestaurantId`.
+- Phase 9C: Create client / restaurant onboarding flow.
 - ربط Teams والصلاحيات والاشتراكات.
+- تقوية restaurant list/manage عبر Function أو backend rules.
+- لا يوجد impersonation في هذه المرحلة، ويجب إبقاءه خارج Phase 9C unless explicitly planned.
 
 ## Security Notes
 

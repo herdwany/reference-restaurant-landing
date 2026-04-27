@@ -130,9 +130,8 @@ export const adminFeatures = [
   },
 ] as const satisfies readonly AdminFeature[];
 
-// TODO: Future agency flow:
-// agency_admin opens /agency, selects a restaurant, then selectedRestaurantId becomes
-// the active admin scope for /admin/dishes, /admin/offers, and the other CMS modules.
+// TODO Phase 9 hardening: selectedRestaurantId is MVP UI context only.
+// Enforce agency access with Teams/Functions/backend rules before production.
 export const adminMainFeatures: readonly AdminFeature[] = adminFeatures.filter((feature) => feature.placement === "main");
 export const adminFooterFeatures: readonly AdminFeature[] = adminFeatures.filter((feature) => feature.placement === "footer");
 

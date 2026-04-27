@@ -3291,6 +3291,11 @@ a {
   gap: 12px;
 }
 
+.admin-topbar__actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .admin-topbar__title span {
   display: block;
   color: var(--admin-muted);
@@ -3370,6 +3375,37 @@ a {
   font-size: 0.84rem;
   font-weight: 950;
   white-space: nowrap;
+}
+
+.admin-agency-mode {
+  display: flex;
+  min-width: min(100%, 280px);
+  max-width: 100%;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(229, 27, 43, 0.22);
+  border-radius: 8px;
+  background: rgba(229, 27, 43, 0.07);
+  color: #991b1b;
+  padding: 7px;
+}
+
+.admin-agency-mode__text {
+  min-width: 0;
+  overflow: hidden;
+  padding-inline: 5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.86rem;
+  font-weight: 950;
+}
+
+.admin-agency-mode .admin-icon-link {
+  min-height: 34px;
+  flex: 0 0 auto;
+  background: #fffdf9;
+  padding-inline: 10px;
+  font-size: 0.82rem;
 }
 
 .admin-content {
@@ -4770,6 +4806,49 @@ a {
   gap: 10px;
 }
 
+.agency-selection-banner {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  border: 1px solid rgba(229, 27, 43, 0.22);
+  border-radius: 8px;
+  background: rgba(229, 27, 43, 0.07);
+  padding: 14px;
+}
+
+.agency-selection-banner div {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.agency-selection-banner span {
+  color: #991b1b;
+  font-weight: 950;
+}
+
+.agency-selection-banner strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--admin-ink);
+}
+
+.agency-selection-banner code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #8a5200;
+  padding: 5px 9px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
 .agency-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -4874,6 +4953,11 @@ a {
   box-shadow: 0 12px 30px rgba(31, 41, 55, 0.06);
 }
 
+.agency-restaurant-card.is-selected {
+  border-color: rgba(229, 27, 43, 0.32);
+  box-shadow: 0 16px 34px rgba(229, 27, 43, 0.11);
+}
+
 .agency-restaurant-card__header {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -4906,6 +4990,26 @@ a {
   min-height: 30px;
   align-items: center;
   border-radius: 999px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 950;
+  white-space: nowrap;
+}
+
+.agency-restaurant-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.agency-current-selection {
+  display: inline-flex;
+  min-height: 30px;
+  align-items: center;
+  border-radius: 999px;
+  background: rgba(229, 27, 43, 0.1);
+  color: #991b1b;
   padding: 0 10px;
   font-size: 0.78rem;
   font-weight: 950;
@@ -5196,6 +5300,11 @@ a {
     gap: 8px;
   }
 
+  .admin-agency-mode {
+    flex: 1 1 100%;
+    order: -1;
+  }
+
   .admin-icon-link span {
     display: none;
   }
@@ -5247,6 +5356,15 @@ a {
 
   .agency-header__actions,
   .agency-header__actions .admin-icon-link {
+    width: 100%;
+  }
+
+  .agency-selection-banner {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .agency-selection-banner .admin-primary-link {
     width: 100%;
   }
 

@@ -169,7 +169,7 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminDishes() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [formMode, setFormMode] = useState<DishFormMode | null>(null);
@@ -466,7 +466,7 @@ export default function AdminDishes() {
   return (
     <section className="admin-dishes-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="الأطباق والمنيو"
         description="أدر الأطباق التي تظهر في موقع مطعمك."
         actions={

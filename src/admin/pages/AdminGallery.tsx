@@ -118,7 +118,7 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminGallery() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [formMode, setFormMode] = useState<GalleryFormMode | null>(null);
@@ -397,7 +397,7 @@ export default function AdminGallery() {
   return (
     <section className="admin-gallery-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="معرض الصور"
         description="أدر الصور التي تظهر في قسم أجواء المطعم."
         actions={

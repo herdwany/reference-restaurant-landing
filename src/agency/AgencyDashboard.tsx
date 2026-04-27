@@ -1,7 +1,7 @@
-import { AlertTriangle, Building2, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck } from "lucide-react";
+import { AlertTriangle, Building2, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck, X } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import AdminActionButton from "../admin/components/AdminActionButton";
 import AdminEmptyState from "../admin/components/AdminEmptyState";
 import AdminErrorState from "../admin/components/AdminErrorState";
@@ -15,6 +15,11 @@ import {
   getRestaurantsForAgency,
 } from "../services/repositories/restaurantRepository";
 import type { BusinessType, Restaurant, RestaurantStatus } from "../types/platform";
+import {
+  clearAgencySelectedRestaurant,
+  getAgencySelectedRestaurant,
+  setAgencySelectedRestaurant,
+} from "./agencySelection";
 
 type AgencyStatusMessageProps = {
   action?: ReactNode;
@@ -105,12 +110,13 @@ const matchesSearch = (restaurant: Restaurant, query: string) => {
 export default function AgencyDashboard() {
   const { isAgencyAdmin, isAuthConfigured, isAuthenticated, isLoading: isAuthLoading, role } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [selectedRestaurant, setSelectedRestaurant] = useState(() => getAgencySelectedRestaurant());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [actionMessage, setActionMessage] = useState<string | null>(null);
 
   const loadRestaurants = useCallback(async () => {
     setIsLoading(true);
@@ -183,12 +189,17 @@ export default function AgencyDashboard() {
     );
   }
 
-  const showPhase9BMessage = (restaurant: Restaurant) => {
-    setActionMessage(`سيتم تفعيل إدارة مطعم محدد في Phase 9B: ${restaurant.nameAr || restaurant.name}`);
+  const openClientAdmin = (restaurant: Restaurant) => {
+    setAgencySelectedRestaurant(restaurant);
+    setSelectedRestaurant(getAgencySelectedRestaurant());
+    navigate("/admin");
   };
 
-  // TODO Phase 9B: add selectedRestaurantId, allow agency_admin to manage a selected restaurant in /admin,
-  // and introduce the create client flow without impersonation.
+  const clearSelectedRestaurant = () => {
+    clearAgencySelectedRestaurant();
+    setSelectedRestaurant(null);
+  };
+
   return (
     <main className="agency-shell" dir="rtl">
       <header className="agency-header">
@@ -204,11 +215,30 @@ export default function AgencyDashboard() {
           <Link className="admin-icon-link" to="/admin">
             لوحة العميل
           </Link>
+          {selectedRestaurant ? (
+            <button className="admin-icon-link" type="button" onClick={clearSelectedRestaurant}>
+              <X size={17} aria-hidden="true" />
+              <span>إلغاء الاختيار</span>
+            </button>
+          ) : null}
           <Link className="admin-icon-link" to="/">
             الموقع العام
           </Link>
         </div>
       </header>
+
+      {selectedRestaurant ? (
+        <section className="agency-selection-banner" aria-label="المطعم المحدد حاليًا">
+          <div>
+            <span>الاختيار الحالي</span>
+            <strong>{selectedRestaurant.selectedRestaurantName}</strong>
+            <code>{selectedRestaurant.selectedRestaurantSlug}</code>
+          </div>
+          <Link className="admin-primary-link" to="/admin">
+            فتح لوحة العميل
+          </Link>
+        </section>
+      ) : null}
 
       <section className="agency-stats" aria-label="إحصائيات المواقع">
         <div>
@@ -253,8 +283,6 @@ export default function AgencyDashboard() {
         </div>
       </section>
 
-      {actionMessage ? <div className="admin-feedback admin-feedback--success">{actionMessage}</div> : null}
-
       {isLoading ? <AdminLoadingState label="جارٍ تحميل مواقع العملاء..." /> : null}
 
       {!isLoading && pageError ? (
@@ -286,50 +314,57 @@ export default function AgencyDashboard() {
 
       {!isLoading && !pageError && filteredRestaurants.length > 0 ? (
         <section className="agency-restaurant-grid" aria-label="مواقع العملاء">
-          {filteredRestaurants.map((restaurant) => (
-            <article className="agency-restaurant-card" key={restaurant.id}>
-              <div className="agency-restaurant-card__header">
-                <div>
-                  <h2>{restaurant.nameAr || restaurant.name}</h2>
-                  <code>{restaurant.slug}</code>
-                </div>
-                <span className={`agency-status agency-status--${restaurant.status}`}>{statusLabels[restaurant.status]}</span>
-              </div>
+          {filteredRestaurants.map((restaurant) => {
+            const isSelected = selectedRestaurant?.selectedRestaurantId === restaurant.id;
 
-              <div className="agency-restaurant-card__meta">
-                <div>
-                  <span>نوع النشاط</span>
-                  <strong>{businessTypeLabels[restaurant.businessType] ?? restaurant.businessType}</strong>
+            return (
+              <article className={`agency-restaurant-card${isSelected ? " is-selected" : ""}`} key={restaurant.id}>
+                <div className="agency-restaurant-card__header">
+                  <div>
+                    <h2>{restaurant.nameAr || restaurant.name}</h2>
+                    <code>{restaurant.slug}</code>
+                  </div>
+                  <div className="agency-restaurant-card__badges">
+                    {isSelected ? <span className="agency-current-selection">محدد الآن</span> : null}
+                    <span className={`agency-status agency-status--${restaurant.status}`}>{statusLabels[restaurant.status]}</span>
+                  </div>
                 </div>
-                <div>
-                  <span>Owner User ID</span>
-                  <strong>{restaurant.ownerUserId || "غير محدد"}</strong>
-                </div>
-                <div>
-                  <span>تاريخ الإنشاء</span>
-                  <strong>{formatDate(restaurant.createdAt)}</strong>
-                </div>
-              </div>
 
-              <div className="agency-restaurant-card__actions">
-                {restaurant.slug === DEFAULT_RESTAURANT_SLUG ? (
-                  <a className="admin-action-button admin-action-button--secondary" href="/" target="_blank" rel="noopener noreferrer">
-                    <ExternalLink size={17} aria-hidden="true" />
-                    <span>معاينة الموقع</span>
-                  </a>
-                ) : (
-                  <button className="admin-action-button admin-action-button--secondary" type="button" disabled>
-                    <ExternalLink size={17} aria-hidden="true" />
-                    <span>معاينة الموقع</span>
-                  </button>
-                )}
+                <div className="agency-restaurant-card__meta">
+                  <div>
+                    <span>نوع النشاط</span>
+                    <strong>{businessTypeLabels[restaurant.businessType] ?? restaurant.businessType}</strong>
+                  </div>
+                  <div>
+                    <span>Owner User ID</span>
+                    <strong>{restaurant.ownerUserId || "غير محدد"}</strong>
+                  </div>
+                  <div>
+                    <span>تاريخ الإنشاء</span>
+                    <strong>{formatDate(restaurant.createdAt)}</strong>
+                  </div>
+                </div>
 
-                <AdminActionButton variant="primary" onClick={() => showPhase9BMessage(restaurant)}>
-                  فتح لوحة العميل
-                </AdminActionButton>
-              </div>
-            </article>
-          ))}
+                <div className="agency-restaurant-card__actions">
+                  {restaurant.slug === DEFAULT_RESTAURANT_SLUG ? (
+                    <a className="admin-action-button admin-action-button--secondary" href="/" target="_blank" rel="noopener noreferrer">
+                      <ExternalLink size={17} aria-hidden="true" />
+                      <span>معاينة الموقع</span>
+                    </a>
+                  ) : (
+                    <button className="admin-action-button admin-action-button--secondary" type="button" disabled>
+                      <ExternalLink size={17} aria-hidden="true" />
+                      <span>معاينة الموقع</span>
+                    </button>
+                  )}
+
+                  <AdminActionButton variant="primary" onClick={() => openClientAdmin(restaurant)}>
+                    فتح لوحة العميل
+                  </AdminActionButton>
+                </div>
+              </article>
+            );
+          })}
         </section>
       ) : null}
     </main>

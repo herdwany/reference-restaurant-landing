@@ -95,7 +95,7 @@ const formatReservationTime = (value: string) => {
 };
 
 export default function AdminReservations() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationFilter>("all");
@@ -232,7 +232,7 @@ export default function AdminReservations() {
   };
 
   const openWhatsappReply = (reservation: Reservation) => {
-    const restaurantName = activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
+    const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
     const message = `مرحبًا ${reservation.customerName}، بخصوص حجزك في ${restaurantName} بتاريخ ${formatReservationDate(
       reservation.reservationDate,
     )} الساعة ${formatReservationTime(reservation.reservationTime)}، حالة الحجز الآن: ${statusLabels[reservation.status]}.`;
@@ -368,7 +368,7 @@ export default function AdminReservations() {
   return (
     <section className="admin-orders-page admin-reservations-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="الحجوزات"
         description="تابع حجوزات الطاولات الواردة من موقع مطعمك."
         actions={

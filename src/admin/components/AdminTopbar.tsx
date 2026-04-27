@@ -1,8 +1,10 @@
 import { Building2, Eye, Menu } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { clearAgencySelectedRestaurant } from "../../agency/agencySelection";
 import { useAuth } from "../../context/AuthContext";
 import { getAdminFeatureForPath } from "../adminFeatures";
 import { getRoleLabel } from "../adminLabels";
+import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 
 type AdminTopbarProps = {
   onMenuClick: () => void;
@@ -11,9 +13,17 @@ type AdminTopbarProps = {
 export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   const { currentUser, isAgencyAdmin, profile, role } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
+  const { activeRestaurantId, activeRestaurantName, activeRestaurantSlug } = useActiveRestaurantScope();
   const activeFeature = getAdminFeatureForPath(location.pathname);
   const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
   const roleLabel = getRoleLabel(role);
+  const showAgencyMode = isAgencyAdmin && Boolean(activeRestaurantId);
+
+  const clearAgencySelection = () => {
+    clearAgencySelectedRestaurant();
+    navigate("/agency");
+  };
 
   return (
     <header className="admin-topbar">
@@ -28,6 +38,17 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
       </div>
 
       <div className="admin-topbar__actions">
+        {showAgencyMode ? (
+          <div className="admin-agency-mode" title={activeRestaurantSlug ?? undefined}>
+            <span className="admin-agency-mode__text">وضع الوكالة: تدير الآن {activeRestaurantName}</span>
+            <Link className="admin-icon-link" to="/agency">
+              تغيير المطعم
+            </Link>
+            <button className="admin-icon-link" type="button" onClick={clearAgencySelection}>
+              إلغاء الاختيار
+            </button>
+          </div>
+        ) : null}
         {isAgencyAdmin ? (
           <Link className="admin-icon-link" to="/agency" aria-label="لوحة الوكالة">
             <Building2 size={19} aria-hidden="true" />

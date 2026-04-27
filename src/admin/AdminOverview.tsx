@@ -4,15 +4,17 @@ import { useAuth } from "../context/AuthContext";
 import { adminFeatureIcons } from "./adminFeatureIcons";
 import { adminMainFeatures } from "./adminFeatures";
 import { getRoleLabel } from "./adminLabels";
+import { useActiveRestaurantScope } from "./hooks/useActiveRestaurantScope";
 
 const overviewCards = adminMainFeatures.filter((feature) => feature.id !== "overview");
 
 export default function AdminOverview() {
-  const { currentUser, profile, restaurant, restaurantId, role } = useAuth();
+  const { currentUser, profile, role } = useAuth();
+  const { activeRestaurantId, activeRestaurantName, activeRestaurantSlug } = useActiveRestaurantScope();
   const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
   const displayEmail = profile?.email || currentUser?.email || "غير متوفر";
   const roleLabel = getRoleLabel(role);
-  const restaurantName = restaurant?.nameAr || restaurant?.name || (restaurantId ? "غير متاح" : "غير مرتبط");
+  const restaurantName = activeRestaurantName || (activeRestaurantId ? "غير متاح" : "غير مرتبط");
 
   return (
     <section className="admin-overview">
@@ -45,10 +47,16 @@ export default function AdminOverview() {
           <span>المطعم</span>
           <strong>{restaurantName}</strong>
         </div>
-        {restaurantId ? (
+        {activeRestaurantSlug ? (
+          <div>
+            <span>Slug</span>
+            <strong>{activeRestaurantSlug}</strong>
+          </div>
+        ) : null}
+        {activeRestaurantId ? (
           <div className="admin-identity-card__debug">
             <span>Restaurant ID</span>
-            <code>{restaurantId}</code>
+            <code>{activeRestaurantId}</code>
           </div>
         ) : null}
       </div>

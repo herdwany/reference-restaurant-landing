@@ -96,7 +96,7 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminFaqs() {
-  const { activeRestaurant, activeRestaurantId, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [formMode, setFormMode] = useState<FaqFormMode | null>(null);
@@ -355,7 +355,7 @@ export default function AdminFaqs() {
   return (
     <section className="admin-faqs-page">
       <AdminPageHeader
-        eyebrow={activeRestaurant?.nameAr || activeRestaurant?.name}
+        eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
         title="الأسئلة الشائعة"
         description="أدر الأسئلة التي تظهر في موقع مطعمك."
         actions={
