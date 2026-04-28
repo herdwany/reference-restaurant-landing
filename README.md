@@ -334,7 +334,7 @@ Security constraints:
 - الموقع العام يعرض رسائل `draft/suspended/cancelled` بدل الموقع النشط عند تعطيل العميل.
 - Phase 9D لا يحتوي payment gateway، ولا invoices، ولا billing provider، ولا subscriptions حقيقية، ولا viaSocket، ولا impersonation، ولا domain routing.
 - سلوك `owner` و`staff` بقي عبر `profile.restaurantId`.
-- الخطوة التالية المقترحة: Phase 9G - Subdomain/custom domain resolver when hosting strategy is confirmed.
+- الخطوة التالية المقترحة: Phase 9H - Backup/export client data.
 
 ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، و`updateRestaurantAgencyControls` مسار MVP من الواجهة يجب نقله لاحقًا إلى Appwrite Function تتحقق من `agency_admin`. Feature flags ليست حماية نهائية للبيانات الحساسة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.
 
@@ -358,4 +358,22 @@ Security constraints:
 - No DNS automation, domain purchasing, payment, invoices, viaSocket, subdomain routing, or custom domain routing was added.
 - Commercial note: `/r/:slug` or platform subdomain can be included as the platform link; custom domains may require client-side purchase/renewal or a separate managed service. Domain cost is not pure agency profit and should be documented in offers.
 
-Next planned phase: Phase 9G - Subdomain/custom domain resolver when hosting strategy is confirmed.
+## Production / Deployment
+
+- Current public client URL format: `/r/:slug`.
+- Demo/default public URL: `/`.
+- Admin URL: `/admin`.
+- Agency URL: `/agency`.
+- Domain management in `/agency` is metadata-only for now.
+- Subdomains and custom domains require a future resolver, DNS strategy, SSL behavior, and hosting setup before they can serve public sites.
+- Production strategy docs live in `docs/deployment/`.
+
+## Phase 9G - Production Hosting Strategy
+
+- Added production hosting strategy documentation for Vercel or Appwrite Sites frontend hosting with Appwrite Cloud backend services.
+- Documented staging vs production environment separation and the allowed frontend `VITE_*` variables.
+- Added production deployment checklist covering builds, Functions, permissions, routing, roles, and operations.
+- Added a domain roadmap that keeps `/r/:slug` as the working URL while subdomain/custom domain routing remains future work.
+- No DNS automation, subdomain resolver, custom domain resolver, billing, payment, Appwrite schema change, or Function change was added.
+
+Next planned phase: Phase 9H - Backup/export client data.

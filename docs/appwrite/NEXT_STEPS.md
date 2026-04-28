@@ -338,7 +338,10 @@ Security constraints:
 
 ## Future Phase 9 Work
 
-- Phase 9G: Subdomain/custom domain resolver when hosting strategy is confirmed.
+- Phase 9H: Backup/export client data.
+- Phase 9I: Production deployment setup.
+- Phase 9J: Subdomain resolver after hosting decision.
+- Phase 9K: Custom domain resolver after DNS strategy.
 - Create client repair flow for incomplete default settings, if needed.
 - ربط Teams والصلاحيات والاشتراكات.
 - تقوية restaurant list/manage عبر Function أو backend rules.
@@ -375,7 +378,22 @@ Security constraints:
 - No DNS automation, domain purchasing, payment, invoices, viaSocket, subdomain routing, or custom domain routing was added.
 - Commercial note: `/r/:slug` or future platform subdomain can be treated as the included platform link. Custom domains may require purchase/renewal by the client or a separate managed service, and domain cost is not pure agency profit.
 
-## Phase 9G - Next
+## Phase 9G - Completed
 
-- Subdomain/custom domain resolver when hosting strategy is confirmed.
-- Confirm hosting, wildcard domain, CNAME target, verification flow, and unique-domain migration before activating real domain routing.
+- Added `docs/deployment/PRODUCTION_STRATEGY.md`.
+- Added `docs/deployment/ENVIRONMENTS.md`.
+- Added `docs/deployment/DEPLOYMENT_CHECKLIST.md`.
+- Added `docs/deployment/DOMAIN_ROADMAP.md`.
+- Documented frontend hosting options: Vercel or Appwrite Sites.
+- Documented Appwrite Cloud, Appwrite Functions, Appwrite Storage, and TablesDB as the backend platform.
+- Documented staging vs production environment separation.
+- Documented that `/r/:slug` is the working public URL format.
+- Documented that subdomain/custom domain metadata exists in `/agency`, but real routing is not active.
+- No subdomain resolver, custom domain resolver, DNS automation, payment, billing, Appwrite schema change, or Function change was added.
+
+## Upcoming Production Phases
+
+- Phase 9H: Backup/export client data.
+- Phase 9I: Production deployment setup.
+- Phase 9J: Subdomain resolver after hosting decision.
+- Phase 9K: Custom domain resolver after DNS strategy.

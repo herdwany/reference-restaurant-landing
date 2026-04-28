@@ -1270,7 +1270,10 @@ export default function AgencyDashboard() {
                 <span>معاينة الرابط</span>
                 <strong dir="ltr">{getPlannedDomainPreview(domainValues, domainRestaurant.slug)}</strong>
                 <p>
-                  المعاينة الأساسية الآمنة ما زالت تفتح {getPublicPreviewPath(domainRestaurant)} إلى حين تفعيل resolver للدومينات.
+                  الرابط العامل حاليًا هو {getPublicPreviewPath(domainRestaurant)}. الدومينات المخصصة محفوظة للتجهيز وستعمل بعد تفعيل DNS/Resolver.
+                </p>
+                <p>
+                  روابط subdomain/custom domain المعروضة هنا مخططة فقط وليست مفعلة للتوجيه العام بعد.
                 </p>
               </div>
 
