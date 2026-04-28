@@ -334,7 +334,7 @@ Security constraints:
 - الموقع العام يعرض رسائل `draft/suspended/cancelled` بدل الموقع النشط عند تعطيل العميل.
 - Phase 9D لا يحتوي payment gateway، ولا invoices، ولا billing provider، ولا subscriptions حقيقية، ولا viaSocket، ولا impersonation، ولا domain routing.
 - سلوك `owner` و`staff` بقي عبر `profile.restaurantId`.
-- الخطوة التالية المقترحة: Phase 9I - Production deployment setup.
+- الخطوة التالية المقترحة: Phase 9J - Subdomain resolver after hosting decision.
 
 ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، و`updateRestaurantAgencyControls` مسار MVP من الواجهة يجب نقله لاحقًا إلى Appwrite Function تتحقق من `agency_admin`. Feature flags ليست حماية نهائية للبيانات الحساسة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.
 
@@ -367,6 +367,9 @@ Security constraints:
 - Domain management in `/agency` is metadata-only for now.
 - Subdomains and custom domains require a future resolver, DNS strategy, SSL behavior, and hosting setup before they can serve public sites.
 - Production strategy docs live in `docs/deployment/`.
+- Production deployment setup starts from `.env.production.example`.
+- Staging deployment setup starts from `.env.staging.example`.
+- Main deployment docs: `PRODUCTION_DEPLOYMENT.md`, `FRONTEND_HOSTING_OPTIONS.md`, and `POST_DEPLOYMENT_TESTS.md`.
 
 ## Phase 9G - Production Hosting Strategy
 
@@ -386,4 +389,15 @@ Security constraints:
 - `exports/` is ignored by Git because it can contain sensitive customer data.
 - Restore/import, scheduled backups, cloud upload, React UI, agency export button, Storage asset downloads, schema changes, and Function changes were not added.
 
-Next planned phase: Phase 9I - Production deployment setup.
+## Phase 9I - Production Deployment Setup
+
+- Added `.env.production.example` and `.env.staging.example` with public Vite variables only.
+- Added production deployment guide, frontend hosting options, and post-deployment test checklist under `docs/deployment/`.
+- Documented the recommended first deployment path: Vercel frontend with Appwrite Cloud backend.
+- Documented Appwrite Sites as an alternative hosting option.
+- Updated Function deployment notes for `createOrder`, `createReservation`, and `createClient`.
+- Updated production security checklist to include Function execute access and sensitive table rules.
+- Added `npm run build:production` as a production build alias.
+- No routing, schema, Function logic, repositories, feature gates, billing, payment, viaSocket, subdomain resolver, or custom domain resolver was added.
+
+Next planned phase: Phase 9J - Subdomain resolver after hosting decision.

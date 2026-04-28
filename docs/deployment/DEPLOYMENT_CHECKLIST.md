@@ -50,7 +50,7 @@ Use this checklist before every production deployment.
 
 ## Operations
 
-- [ ] Backup/export plan exists, or a Phase 9H TODO is tracked before launch.
+- [ ] Backup/export plan exists and `npm run export:client` has been tested for at least one staging client.
 - [ ] Domain strategy is documented for the client.
 - [ ] `/r/:slug` is communicated as the currently working public URL.
 - [ ] Subdomain/custom domain timelines are not promised until resolver and DNS strategy are complete.

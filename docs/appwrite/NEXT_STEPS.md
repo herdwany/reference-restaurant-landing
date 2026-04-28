@@ -338,7 +338,6 @@ Security constraints:
 
 ## Future Phase 9 Work
 
-- Phase 9I: Production deployment setup.
 - Phase 9J: Subdomain resolver after hosting decision.
 - Phase 9K: Custom domain resolver after DNS strategy.
 - Create client repair flow for incomplete default settings, if needed.
@@ -404,8 +403,21 @@ Security constraints:
 - Added `exports/` to `.gitignore`.
 - Restore/import, scheduled backups, cloud upload, React UI, agency dashboard button, Appwrite schema changes, and Function changes were not added.
 
+## Phase 9I - Completed
+
+- Added `.env.production.example` with public Vite production variables only.
+- Added `.env.staging.example` for staging frontend configuration.
+- Updated `.env.example` to point toward deployment-specific templates.
+- Added `docs/deployment/PRODUCTION_DEPLOYMENT.md`.
+- Added `docs/deployment/FRONTEND_HOSTING_OPTIONS.md`.
+- Added `docs/deployment/POST_DEPLOYMENT_TESTS.md`.
+- Updated Function deployment notes for `createOrder`, `createReservation`, and `createClient`.
+- Updated the production security checklist with execute access and sensitive table checks.
+- Added `npm run build:production` as an alias for production builds.
+- Confirmed production direct browser fallbacks for orders/reservations are already blocked when Function IDs are missing, and `createClient` has no direct browser fallback.
+- No App routes, Appwrite schema, Function logic, repositories, feature gates, billing, payment, viaSocket, subdomain resolver, or custom domain resolver were changed.
+
 ## Upcoming Production Phases
 
-- Phase 9I: Production deployment setup.
 - Phase 9J: Subdomain resolver after hosting decision.
 - Phase 9K: Custom domain resolver after DNS strategy.

@@ -1,5 +1,21 @@
 # Appwrite Functions
 
+## Production Deployment Summary
+
+Use these settings when deploying production Functions:
+
+| Function | Root directory | Entrypoint | Build command | Execute access |
+| --- | --- | --- | --- | --- |
+| `createOrder` | `functions/createOrder` | `src/main.js` | `npm install` | `Guests` or `Any` |
+| `createReservation` | `functions/createReservation` | `src/main.js` | `npm install` | `Guests` or `Any` |
+| `createClient` | `functions/createClient` | `src/main.js` | `npm install` | `Users` only |
+
+`createOrder` and `createReservation` are public visitor entrypoints and must be paired with closed table permissions for `orders`, `order_items`, and `reservations`.
+
+`createClient` is an authenticated agency operation. It verifies `agency_admin` server-side through `profiles`; never allow `Guests` or `Any` to execute it.
+
+Keep `APPWRITE_API_KEY` only in Function environment variables. Frontend Vite env should contain only public Function IDs.
+
 ## Phase 8A: createOrder
 
 The public checkout should use the `createOrder` Function in production instead of writing directly to `orders` and `order_items` from the browser.

@@ -45,6 +45,11 @@ Do not create any `VITE_APPWRITE_API_KEY` variable.
 
 API keys belong only in Appwrite Function environment variables or a secure server runtime, never in the React bundle.
 
+Use these templates when configuring frontend hosting:
+
+- `.env.staging.example`
+- `.env.production.example`
+
 ## Environment Promotion
 
 Before promoting staging to production:

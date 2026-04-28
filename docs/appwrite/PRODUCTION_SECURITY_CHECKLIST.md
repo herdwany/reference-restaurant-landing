@@ -1,14 +1,18 @@
 # Production Security Checklist
 
-Use this checklist after deploying `createOrder` and `createReservation`.
+Use this checklist after deploying `createOrder`, `createReservation`, and `createClient`.
 
 ## Functions
 
 - [ ] `createOrder` Function is deployed from `functions/createOrder`.
 - [ ] `createReservation` Function is deployed from `functions/createReservation`.
+- [ ] `createClient` Function is deployed from `functions/createClient`.
 - [ ] `VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID` is set in production frontend env.
 - [ ] `VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID` is set in production frontend env.
-- [ ] Function execute access is `Guests` or `Any`.
+- [ ] `VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID` is set in production frontend env.
+- [ ] `createOrder` execute access is `Guests` or `Any`.
+- [ ] `createReservation` execute access is `Guests` or `Any`.
+- [ ] `createClient` execute access is `Users` only.
 - [ ] `APPWRITE_API_KEY` exists only in Function environment variables.
 - [ ] `.env.local`, `.env.production`, and Vite env variables do not contain `APPWRITE_API_KEY`.
 - [ ] After changing files under `functions/*`, changes are committed, pushed to GitHub, then redeployed in Appwrite.
@@ -21,6 +25,8 @@ Use this checklist after deploying `createOrder` and `createReservation`.
 - [ ] No public read on `orders`.
 - [ ] No public read on `order_items`.
 - [ ] No public read on `reservations`.
+- [ ] No public read on `profiles`.
+- [ ] No public read on `audit_logs`.
 - [ ] Order checkout still works through `createOrder` after public create is removed.
 - [ ] Booking still works through `createReservation` after public create is removed.
 
