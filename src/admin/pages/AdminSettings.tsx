@@ -24,7 +24,16 @@ import {
   type SiteSettingsMutationInput,
 } from "../../services/repositories/settingsRepository";
 import { getFileViewUrl } from "../../services/appwrite/storageService";
-import type { OrderMode, ReservationMode, Restaurant, SiteDirection, SiteSettings } from "../../types/platform";
+import type {
+  HeroLayoutPreset,
+  HeroMediaType,
+  OrderMode,
+  ReservationMode,
+  Restaurant,
+  SiteDirection,
+  SiteSettings,
+  ThemePreset,
+} from "../../types/platform";
 
 type SettingsFormValues = {
   name: string;
@@ -51,13 +60,27 @@ type SettingsFormValues = {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  heroTitle: string;
+  heroSubtitle: string;
+  primaryCtaText: string;
+  secondaryCtaText: string;
+  heroMediaType: HeroMediaType;
+  heroVideoUrl: string;
+  heroLayout: HeroLayoutPreset;
+  themePreset: ThemePreset;
+  featuredSectionTitle: string;
+  offersSectionTitle: string;
+  gallerySectionTitle: string;
+  faqSectionTitle: string;
   showHero: boolean;
   showTrustBadges: boolean;
+  showFeatured: boolean;
   showFeaturedDishes: boolean;
   showOffers: boolean;
   showGallery: boolean;
   showTestimonials: boolean;
   showActionGrid: boolean;
+  showContact: boolean;
   showFaq: boolean;
   showFooter: boolean;
 };
@@ -67,6 +90,9 @@ type SettingsFormErrors = Partial<Record<keyof SettingsFormValues, string>>;
 const orderModes = ["whatsapp", "database", "both"] as const satisfies readonly OrderMode[];
 const reservationModes = ["whatsapp", "database", "both"] as const satisfies readonly ReservationMode[];
 const directions = ["rtl", "ltr"] as const satisfies readonly SiteDirection[];
+const heroMediaTypes = ["image", "video_url"] as const satisfies readonly HeroMediaType[];
+const heroLayouts = ["split", "background", "centered"] as const satisfies readonly HeroLayoutPreset[];
+const themePresets = ["classic_red", "black_gold", "coffee", "fresh", "minimal"] as const satisfies readonly ThemePreset[];
 
 const modeLabels: Record<OrderMode | ReservationMode, string> = {
   whatsapp: "واتساب",
@@ -74,27 +100,42 @@ const modeLabels: Record<OrderMode | ReservationMode, string> = {
   both: "واتساب + قاعدة البيانات",
 };
 
+const heroMediaTypeLabels: Record<HeroMediaType, string> = {
+  image: "صورة",
+  video_url: "رابط فيديو",
+};
+
+const heroLayoutLabels: Record<HeroLayoutPreset, string> = {
+  split: "نص وصورة",
+  background: "خلفية كبيرة",
+  centered: "مركزي",
+};
+
+const themePresetLabels: Record<ThemePreset, string> = {
+  classic_red: "مطعم كلاسيكي",
+  black_gold: "أسود وذهبي",
+  coffee: "قهوة دافئة",
+  fresh: "طازج",
+  minimal: "بسيط",
+};
+
 const sectionToggles = [
   { key: "showHero", label: "Hero" },
-  { key: "showTrustBadges", label: "شارات الثقة" },
-  { key: "showFeaturedDishes", label: "الأطباق المميزة" },
+  { key: "showFeatured", label: "الأطباق المميزة" },
   { key: "showOffers", label: "العروض" },
   { key: "showGallery", label: "المعرض" },
   { key: "showTestimonials", label: "آراء العملاء" },
-  { key: "showActionGrid", label: "الحجز والتواصل" },
+  { key: "showContact", label: "الحجز والتواصل" },
   { key: "showFaq", label: "الأسئلة الشائعة" },
-  { key: "showFooter", label: "الفوتر" },
 ] as const satisfies readonly { key: keyof Pick<
   SettingsFormValues,
   | "showHero"
-  | "showTrustBadges"
-  | "showFeaturedDishes"
+  | "showFeatured"
   | "showOffers"
   | "showGallery"
   | "showTestimonials"
-  | "showActionGrid"
+  | "showContact"
   | "showFaq"
-  | "showFooter"
 >; label: string }[];
 
 const emptySettingsFormValues: SettingsFormValues = {
@@ -122,13 +163,27 @@ const emptySettingsFormValues: SettingsFormValues = {
   direction: "rtl",
   orderMode: "whatsapp",
   reservationMode: "whatsapp",
+  heroTitle: defaultRestaurantConfig.hero.title,
+  heroSubtitle: defaultRestaurantConfig.hero.subtitle,
+  primaryCtaText: defaultRestaurantConfig.hero.primaryCtaText,
+  secondaryCtaText: defaultRestaurantConfig.hero.secondaryCtaText,
+  heroMediaType: "image",
+  heroVideoUrl: "",
+  heroLayout: defaultRestaurantConfig.hero.layout ?? "split",
+  themePreset: defaultRestaurantConfig.settings.themePreset ?? "classic_red",
+  featuredSectionTitle: defaultRestaurantConfig.ui.sectionTitles.featuredDishes,
+  offersSectionTitle: defaultRestaurantConfig.ui.sectionTitles.offers,
+  gallerySectionTitle: defaultRestaurantConfig.ui.sectionTitles.gallery,
+  faqSectionTitle: defaultRestaurantConfig.ui.sectionTitles.faq,
   showHero: defaultRestaurantConfig.settings.sections.hero,
   showTrustBadges: defaultRestaurantConfig.settings.sections.trustBadges,
+  showFeatured: defaultRestaurantConfig.settings.sections.featuredDishes,
   showFeaturedDishes: defaultRestaurantConfig.settings.sections.featuredDishes,
   showOffers: defaultRestaurantConfig.settings.sections.offers,
   showGallery: defaultRestaurantConfig.settings.sections.gallery,
   showTestimonials: defaultRestaurantConfig.settings.sections.testimonials,
   showActionGrid: defaultRestaurantConfig.settings.sections.actionGrid,
+  showContact: defaultRestaurantConfig.settings.sections.actionGrid,
   showFaq: defaultRestaurantConfig.settings.sections.faq,
   showFooter: defaultRestaurantConfig.settings.sections.footer,
 };
@@ -159,7 +214,7 @@ const getSettingsFormValues = (restaurant: Restaurant | null, settings: SiteSett
     logoFileId,
     logoPreviewUrl: getStoredFileUrl(logoFileId),
     heroImageFileId,
-    heroImageUrl: restaurant?.heroImageUrl ?? emptySettingsFormValues.heroImageUrl,
+    heroImageUrl: restaurant?.heroImageUrl ?? settings?.heroImageUrl ?? emptySettingsFormValues.heroImageUrl,
     heroPreviewUrl: getStoredFileUrl(heroImageFileId),
     phone: restaurant?.phone ?? emptySettingsFormValues.phone,
     whatsappNumber: restaurant?.whatsappNumber ?? emptySettingsFormValues.whatsappNumber,
@@ -176,13 +231,27 @@ const getSettingsFormValues = (restaurant: Restaurant | null, settings: SiteSett
     direction: settings?.direction ?? emptySettingsFormValues.direction,
     orderMode: settings?.orderMode ?? emptySettingsFormValues.orderMode,
     reservationMode: settings?.reservationMode ?? emptySettingsFormValues.reservationMode,
+    heroTitle: settings?.heroTitle ?? emptySettingsFormValues.heroTitle,
+    heroSubtitle: settings?.heroSubtitle ?? restaurant?.description ?? emptySettingsFormValues.heroSubtitle,
+    primaryCtaText: settings?.primaryCtaText ?? emptySettingsFormValues.primaryCtaText,
+    secondaryCtaText: settings?.secondaryCtaText ?? emptySettingsFormValues.secondaryCtaText,
+    heroMediaType: settings?.heroMediaType ?? emptySettingsFormValues.heroMediaType,
+    heroVideoUrl: settings?.heroVideoUrl ?? emptySettingsFormValues.heroVideoUrl,
+    heroLayout: settings?.heroLayout ?? emptySettingsFormValues.heroLayout,
+    themePreset: settings?.themePreset ?? emptySettingsFormValues.themePreset,
+    featuredSectionTitle: settings?.featuredSectionTitle ?? emptySettingsFormValues.featuredSectionTitle,
+    offersSectionTitle: settings?.offersSectionTitle ?? emptySettingsFormValues.offersSectionTitle,
+    gallerySectionTitle: settings?.gallerySectionTitle ?? emptySettingsFormValues.gallerySectionTitle,
+    faqSectionTitle: settings?.faqSectionTitle ?? emptySettingsFormValues.faqSectionTitle,
     showHero: settings?.showHero ?? emptySettingsFormValues.showHero,
     showTrustBadges: settings?.showTrustBadges ?? emptySettingsFormValues.showTrustBadges,
+    showFeatured: settings?.showFeatured ?? settings?.showFeaturedDishes ?? emptySettingsFormValues.showFeatured,
     showFeaturedDishes: settings?.showFeaturedDishes ?? emptySettingsFormValues.showFeaturedDishes,
     showOffers: settings?.showOffers ?? emptySettingsFormValues.showOffers,
     showGallery: settings?.showGallery ?? emptySettingsFormValues.showGallery,
     showTestimonials: settings?.showTestimonials ?? emptySettingsFormValues.showTestimonials,
     showActionGrid: settings?.showActionGrid ?? emptySettingsFormValues.showActionGrid,
+    showContact: settings?.showContact ?? settings?.showActionGrid ?? emptySettingsFormValues.showContact,
     showFaq: settings?.showFaq ?? emptySettingsFormValues.showFaq,
     showFooter: settings?.showFooter ?? emptySettingsFormValues.showFooter,
   };
@@ -218,15 +287,33 @@ const advancedSettingKeys = [
   "direction",
   "orderMode",
   "reservationMode",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const proHomepageSettingKeys = [
+  "primaryCtaText",
+  "secondaryCtaText",
+  "featuredSectionTitle",
+  "offersSectionTitle",
+  "gallerySectionTitle",
+  "faqSectionTitle",
   "showHero",
-  "showTrustBadges",
+  "showFeatured",
   "showFeaturedDishes",
   "showOffers",
   "showGallery",
   "showTestimonials",
+  "showContact",
   "showActionGrid",
   "showFaq",
+  "showTrustBadges",
   "showFooter",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const advancedHomepageSettingKeys = [
+  "heroMediaType",
+  "heroVideoUrl",
+  "heroLayout",
+  "themePreset",
 ] as const satisfies readonly (keyof SettingsFormValues)[];
 
 const hasChangedFields = (
@@ -281,6 +368,22 @@ const validateSettingsForm = (
     if (!reservationModes.includes(values.reservationMode)) {
       errors.reservationMode = "وضع الحجز غير صالح";
     }
+
+    if (!heroMediaTypes.includes(values.heroMediaType)) {
+      errors.heroMediaType = "نوع الوسيط غير صالح";
+    }
+
+    if (values.heroVideoUrl.trim() && !isAcceptableUrl(values.heroVideoUrl.trim())) {
+      errors.heroVideoUrl = "رابط الفيديو يجب أن يكون URL صالحًا";
+    }
+
+    if (!heroLayouts.includes(values.heroLayout)) {
+      errors.heroLayout = "تخطيط الواجهة غير صالح";
+    }
+
+    if (!themePresets.includes(values.themePreset)) {
+      errors.themePreset = "نمط التصميم غير صالح";
+    }
   }
 
   return errors;
@@ -316,16 +419,57 @@ const toSiteSettingsInput = (values: SettingsFormValues): SiteSettingsMutationIn
   direction: values.direction,
   orderMode: values.orderMode,
   reservationMode: values.reservationMode,
+  heroTitle: values.heroTitle.trim() || undefined,
+  heroSubtitle: values.heroSubtitle.trim() || undefined,
+  primaryCtaText: values.primaryCtaText.trim() || undefined,
+  secondaryCtaText: values.secondaryCtaText.trim() || undefined,
+  heroMediaType: values.heroMediaType,
+  heroImageUrl: values.heroImageUrl.trim() || undefined,
+  heroVideoUrl: values.heroVideoUrl.trim() || undefined,
+  heroLayout: values.heroLayout,
+  themePreset: values.themePreset,
+  featuredSectionTitle: values.featuredSectionTitle.trim() || undefined,
+  offersSectionTitle: values.offersSectionTitle.trim() || undefined,
+  gallerySectionTitle: values.gallerySectionTitle.trim() || undefined,
+  faqSectionTitle: values.faqSectionTitle.trim() || undefined,
   showHero: values.showHero,
   showTrustBadges: values.showTrustBadges,
-  showFeaturedDishes: values.showFeaturedDishes,
+  showFeatured: values.showFeatured,
+  showFeaturedDishes: values.showFeatured,
   showOffers: values.showOffers,
   showGallery: values.showGallery,
   showTestimonials: values.showTestimonials,
-  showActionGrid: values.showActionGrid,
+  showActionGrid: values.showContact,
+  showContact: values.showContact,
   showFaq: values.showFaq,
   showFooter: values.showFooter,
 });
+
+const mergeAllowedSettingsValues = (
+  values: SettingsFormValues,
+  persistedValues: SettingsFormValues,
+  options: { canSaveBrand: boolean; canSaveAdvancedTheme: boolean },
+): SettingsFormValues => {
+  const nextValues = { ...persistedValues };
+
+  nextValues.heroTitle = values.heroTitle;
+  nextValues.heroSubtitle = values.heroSubtitle;
+
+  if (options.canSaveBrand) {
+    for (const key of proHomepageSettingKeys) {
+      nextValues[key] = values[key] as never;
+    }
+    nextValues.heroImageUrl = values.heroImageUrl;
+  }
+
+  if (options.canSaveAdvancedTheme) {
+    for (const key of [...advancedSettingKeys, ...advancedHomepageSettingKeys] as const) {
+      nextValues[key] = values[key] as never;
+    }
+  }
+
+  return nextValues;
+};
 
 const getErrorMessage = (error: unknown) => {
   if (error instanceof RestaurantRepositoryError || error instanceof SettingsRepositoryError) {
@@ -420,7 +564,15 @@ export default function AdminSettings() {
       return;
     }
 
-    if (!canSaveAdvancedTheme && hasChangedFields(advancedSettingKeys, formValues, persistedValues)) {
+    if (!canSaveBrand && hasChangedFields(proHomepageSettingKeys, formValues, persistedValues)) {
+      setPageError("لا يمكن حفظ تخصيصات الصفحة الرئيسية المتقدمة لأن الميزة غير مفعلة.");
+      return;
+    }
+
+    if (
+      !canSaveAdvancedTheme &&
+      hasChangedFields([...advancedSettingKeys, ...advancedHomepageSettingKeys], formValues, persistedValues)
+    ) {
       setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
@@ -429,14 +581,9 @@ export default function AdminSettings() {
 
     try {
       const savedRestaurant = await updateRestaurantContact(activeRestaurantId, toRestaurantContactInput(formValues, persistedValues, canSaveBrand));
-      const savedSettings = canSaveAdvancedTheme ? await upsertSiteSettings(activeRestaurantId, toSiteSettingsInput(formValues)) : null;
-      const nextValues = savedSettings
-        ? getSettingsFormValues(savedRestaurant, savedSettings)
-        : {
-            ...persistedValues,
-            ...getSettingsFormValues(savedRestaurant, null),
-            ...Object.fromEntries(advancedSettingKeys.map((key) => [key, persistedValues[key]])),
-          };
+      const allowedSettingsValues = mergeAllowedSettingsValues(formValues, persistedValues, { canSaveAdvancedTheme, canSaveBrand });
+      const savedSettings = await upsertSiteSettings(activeRestaurantId, toSiteSettingsInput(allowedSettingsValues));
+      const nextValues = getSettingsFormValues(savedRestaurant, savedSettings);
 
       setFormValues(nextValues);
       setPersistedValues(nextValues);
@@ -603,6 +750,137 @@ export default function AdminSettings() {
             </div>
           </AdminCard>
 
+          <AdminCard className="admin-settings-section">
+            <div className="admin-settings-section__header">
+              <Settings size={20} aria-hidden="true" />
+              <div>
+                <h3>تخصيص الصفحة الرئيسية</h3>
+                <p>النصوص والأزرار والأقسام الخاصة بواجهة المطعم العامة.</p>
+              </div>
+            </div>
+
+            <div className="admin-form-grid">
+              <label className="admin-form-grid__wide">
+                <span>Hero title</span>
+                <input value={formValues.heroTitle} onChange={(event) => updateFormValue("heroTitle", event.target.value)} />
+              </label>
+              <label className="admin-form-grid__wide">
+                <span>Hero subtitle</span>
+                <textarea value={formValues.heroSubtitle} onChange={(event) => updateFormValue("heroSubtitle", event.target.value)} rows={3} />
+              </label>
+              <label>
+                <span>Primary CTA text</span>
+                <input value={formValues.primaryCtaText} onChange={(event) => updateFormValue("primaryCtaText", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
+                <span>Secondary CTA text</span>
+                <input value={formValues.secondaryCtaText} onChange={(event) => updateFormValue("secondaryCtaText", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
+                <span>Hero image URL</span>
+                <input
+                  value={formValues.heroImageUrl}
+                  onChange={(event) => updateFormValue("heroImageUrl", event.target.value)}
+                  aria-invalid={Boolean(formErrors.heroImageUrl)}
+                  disabled={!canSaveBrand}
+                  inputMode="url"
+                  placeholder="https://example.com/hero.jpg"
+                />
+                {renderFieldError("heroImageUrl")}
+              </label>
+              <label>
+                <span>Hero media type</span>
+                <select
+                  value={formValues.heroMediaType}
+                  onChange={(event) => updateFormValue("heroMediaType", event.target.value as HeroMediaType)}
+                  aria-invalid={Boolean(formErrors.heroMediaType)}
+                  disabled={!canSaveAdvancedTheme}
+                >
+                  {heroMediaTypes.map((type) => (
+                    <option value={type} key={type}>
+                      {heroMediaTypeLabels[type]}
+                    </option>
+                  ))}
+                </select>
+                {renderFieldError("heroMediaType")}
+              </label>
+              <label className="admin-form-grid__wide">
+                <span>Hero video URL</span>
+                <input
+                  value={formValues.heroVideoUrl}
+                  onChange={(event) => updateFormValue("heroVideoUrl", event.target.value)}
+                  aria-invalid={Boolean(formErrors.heroVideoUrl)}
+                  disabled={!canSaveAdvancedTheme}
+                  inputMode="url"
+                  placeholder="https://example.com/hero.mp4"
+                />
+                {renderFieldError("heroVideoUrl")}
+              </label>
+              <label>
+                <span>Hero layout</span>
+                <select
+                  value={formValues.heroLayout}
+                  onChange={(event) => updateFormValue("heroLayout", event.target.value as HeroLayoutPreset)}
+                  aria-invalid={Boolean(formErrors.heroLayout)}
+                  disabled={!canSaveAdvancedTheme}
+                >
+                  {heroLayouts.map((layout) => (
+                    <option value={layout} key={layout}>
+                      {heroLayoutLabels[layout]}
+                    </option>
+                  ))}
+                </select>
+                {renderFieldError("heroLayout")}
+              </label>
+              <label>
+                <span>Theme preset</span>
+                <select
+                  value={formValues.themePreset}
+                  onChange={(event) => updateFormValue("themePreset", event.target.value as ThemePreset)}
+                  aria-invalid={Boolean(formErrors.themePreset)}
+                  disabled={!canSaveAdvancedTheme}
+                >
+                  {themePresets.map((preset) => (
+                    <option value={preset} key={preset}>
+                      {themePresetLabels[preset]}
+                    </option>
+                  ))}
+                </select>
+                {renderFieldError("themePreset")}
+              </label>
+              <label>
+                <span>عنوان الأطباق المميزة</span>
+                <input value={formValues.featuredSectionTitle} onChange={(event) => updateFormValue("featuredSectionTitle", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
+                <span>عنوان العروض</span>
+                <input value={formValues.offersSectionTitle} onChange={(event) => updateFormValue("offersSectionTitle", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
+                <span>عنوان المعرض</span>
+                <input value={formValues.gallerySectionTitle} onChange={(event) => updateFormValue("gallerySectionTitle", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
+                <span>عنوان FAQ</span>
+                <input value={formValues.faqSectionTitle} onChange={(event) => updateFormValue("faqSectionTitle", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+            </div>
+
+            <div className="admin-toggle-grid admin-toggle-grid--compact">
+              {sectionToggles.map((item) => (
+                <label className="admin-toggle-row" key={item.key}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formValues[item.key])}
+                    onChange={(event) => updateFormValue(item.key, event.target.checked)}
+                    disabled={!canSaveBrand}
+                  />
+                  <span>{item.label}</span>
+                </label>
+              ))}
+            </div>
+          </AdminCard>
+
           {canSaveBrand ? (
             <>
               <AdminCard className="admin-settings-section">
@@ -660,18 +938,6 @@ export default function AdminSettings() {
                       disabled={isSaving || !activeRestaurantId}
                     />
                   </div>
-
-                  <label>
-                    <span>رابط صورة الواجهة اليدوي</span>
-                    <input
-                      value={formValues.heroImageUrl}
-                      onChange={(event) => updateFormValue("heroImageUrl", event.target.value)}
-                      aria-invalid={Boolean(formErrors.heroImageUrl)}
-                      inputMode="url"
-                      placeholder="https://example.com/hero.jpg"
-                    />
-                    {renderFieldError("heroImageUrl")}
-                  </label>
 
                   <div className="admin-form-grid__wide">
                     <span className="admin-field-label">صورة الواجهة الرئيسية</span>
@@ -765,28 +1031,6 @@ export default function AdminSettings() {
                     </select>
                     {renderFieldError("reservationMode")}
                   </label>
-                </div>
-              </AdminCard>
-
-              <AdminCard className="admin-settings-section">
-                <div className="admin-settings-section__header">
-                  <Settings size={20} aria-hidden="true" />
-                  <div>
-                    <h3>إظهار وإخفاء الأقسام</h3>
-                    <p>تحكم في الأقسام التي تظهر في الموقع العام.</p>
-                  </div>
-                </div>
-                <div className="admin-toggle-grid">
-                  {sectionToggles.map((item) => (
-                    <label className="admin-toggle-row" key={item.key}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(formValues[item.key])}
-                        onChange={(event) => updateFormValue(item.key, event.target.checked)}
-                      />
-                      <span>{item.label}</span>
-                    </label>
-                  ))}
                 </div>
               </AdminCard>
             </>

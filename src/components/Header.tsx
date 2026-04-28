@@ -1,19 +1,19 @@
 import { useEffect, useState } from "react";
-import { Menu, PencilLine, ShoppingCart, UtensilsCrossed, X } from "lucide-react";
+import { Menu, ShoppingCart, UtensilsCrossed, X } from "lucide-react";
 import type { NavLink, RestaurantConfig } from "../data/restaurantConfig";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 interface HeaderProps {
   config: RestaurantConfig;
   cartCount: number;
   onCartOpen: () => void;
-  onTemplateOpen: () => void;
 }
 
 const scrollToTarget = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
-export default function Header({ config, cartCount, onCartOpen, onTemplateOpen }: HeaderProps) {
+export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTarget, setActiveTarget] = useState(config.navigation[0]?.targetId ?? "home");
   const [logoImageFailed, setLogoImageFailed] = useState(false);
@@ -96,13 +96,10 @@ export default function Header({ config, cartCount, onCartOpen, onTemplateOpen }
         </nav>
 
         <div className="site-header__actions">
+          <LanguageSwitcher className="language-switcher--public" />
           <button className="cart-trigger" type="button" onClick={onCartOpen} aria-label={config.ui.cartButtonLabel}>
             <ShoppingCart size={19} />
             <span>{cartCount}</span>
-          </button>
-          <button className="pill-button pill-button--red site-header__template" type="button" onClick={onTemplateOpen}>
-            <PencilLine size={18} />
-            {config.ui.templateButton}
           </button>
         </div>
       </div>

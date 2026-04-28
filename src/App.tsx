@@ -33,6 +33,7 @@ import TrustBadges from "./components/TrustBadges";
 import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
+import { useI18n } from "./lib/i18n/I18nContext";
 import { getSiteDataBySlug } from "./services/siteDataService";
 import type { RestaurantStatus } from "./types/platform";
 import {
@@ -90,7 +91,7 @@ type PublicSiteMessagePageProps = {
 
 function PublicSiteMessagePage({ body, eyebrow, isLoading = false, style, title }: PublicSiteMessagePageProps) {
   return (
-    <main className="public-status-page" dir="rtl" style={style}>
+    <main className="public-status-page" style={style}>
       <section className="public-status-card" role={isLoading ? "status" : "alert"} aria-busy={isLoading}>
         {eyebrow ? <span>{eyebrow}</span> : null}
         <h1>{title}</h1>
@@ -101,10 +102,11 @@ function PublicSiteMessagePage({ body, eyebrow, isLoading = false, style, title 
 }
 
 function PublicSiteAvailabilityPage({ restaurantName, status, style }: PublicSiteStatusPageProps) {
+  const { t } = useI18n();
   const titleByStatus: Record<Exclude<RestaurantStatus, "active">, string> = {
-    draft: "هذا الموقع قيد التجهيز.",
-    suspended: "هذا الموقع غير متاح مؤقتًا.",
-    cancelled: "هذا الموقع غير متاح.",
+    draft: t("siteDraft"),
+    suspended: t("siteSuspended"),
+    cancelled: t("siteCancelled"),
   };
 
   return status === "active" ? null : (
@@ -148,6 +150,7 @@ type LandingPageProps = {
 };
 
 function LandingPage({ slug }: LandingPageProps) {
+  const { t } = useI18n();
   const [config, setConfig] = useState(restaurantConfig);
   const [publicStatus, setPublicStatus] = useState<RestaurantStatus>("active");
   const [restaurantSlug, setRestaurantSlug] = useState("");
@@ -158,7 +161,6 @@ function LandingPage({ slug }: LandingPageProps) {
   const { toasts, showToast, dismissToast } = useToast();
   const [cartOpen, setCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
-  const [templateOpen, setTemplateOpen] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
 
   useEffect(() => {
@@ -194,11 +196,6 @@ function LandingPage({ slug }: LandingPageProps) {
     };
   }, [slug]);
 
-  useEffect(() => {
-    document.documentElement.lang = config.settings.language || "ar";
-    document.documentElement.dir = config.settings.direction || "rtl";
-  }, [config.settings.direction, config.settings.language]);
-
   const sectionByTargetId: Record<string, keyof typeof sections> = {
     home: "hero",
     menu: "featuredDishes",
@@ -229,7 +226,7 @@ function LandingPage({ slug }: LandingPageProps) {
   }
 
   if (isNotFound) {
-    return <PublicSiteMessagePage title="لم يتم العثور على هذا الموقع." style={themeStyle} />;
+    return <PublicSiteMessagePage title={t("notFound")} style={themeStyle} />;
   }
 
   if (publicStatus !== "active") {
@@ -403,13 +400,14 @@ function LandingPage({ slug }: LandingPageProps) {
     );
   };
 
+  const themePreset = config.settings.themePreset || "classic_red";
+
   return (
-    <div className="app" style={themeStyle}>
+    <div className={`app app--theme-${themePreset}`} style={themeStyle}>
       <Header
         config={navigationConfig}
         cartCount={getCartQuantity(cart.items)}
         onCartOpen={() => setCartOpen(true)}
-        onTemplateOpen={() => setTemplateOpen(true)}
       />
 
       <main>
@@ -467,23 +465,6 @@ function LandingPage({ slug }: LandingPageProps) {
         onRemove={handleRemoveCartItem}
         onCheckout={handleCheckout}
       />
-
-      <Modal
-        isOpen={templateOpen}
-        onClose={() => setTemplateOpen(false)}
-        title={config.ui.editableTemplateModal.title}
-        closeLabel={config.ui.close}
-      >
-        <div className="template-modal">
-          <p>{config.ui.editableTemplateModal.text}</p>
-          <ul>
-            {config.ui.editableTemplateModal.points.map((point) => (
-              <li key={point}>{point}</li>
-            ))}
-          </ul>
-          <code>src/data/restaurantConfig.ts</code>
-        </div>
-      </Modal>
 
       <Modal
         isOpen={Boolean(selectedGalleryImage)}

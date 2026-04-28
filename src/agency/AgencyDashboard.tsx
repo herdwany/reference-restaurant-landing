@@ -19,7 +19,9 @@ import AdminEmptyState from "../admin/components/AdminEmptyState";
 import AdminErrorState from "../admin/components/AdminErrorState";
 import AdminFormModal from "../admin/components/AdminFormModal";
 import AdminLoadingState from "../admin/components/AdminLoadingState";
+import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../lib/i18n/I18nContext";
 import { clientPlans, getDefaultSupportLevelForPlan, planDefinitions } from "../lib/plans";
 import { ADMIN_APPWRITE_REQUIRED_MESSAGE } from "../services/authService";
 import {
@@ -189,10 +191,11 @@ const emptyCreateClientFormValues: CreateClientFormValues = {
 };
 
 function AgencyStatusMessage({ action, body, isLoading = false, title }: AgencyStatusMessageProps) {
+  const { direction } = useI18n();
   const Icon = isLoading ? Loader2 : AlertTriangle;
 
   return (
-    <main className="agency-shell agency-shell--centered" dir="rtl">
+    <main className={`agency-shell agency-shell--centered dir-${direction}`} dir={direction}>
       <section className="admin-status-card agency-status-card" role={isLoading ? undefined : "alert"} aria-busy={isLoading}>
         <Icon className={isLoading ? "admin-spin" : undefined} aria-hidden="true" />
         <h1>{title}</h1>
@@ -416,6 +419,7 @@ const getDomainErrorMessage = (error: unknown) => {
 };
 
 export default function AgencyDashboard() {
+  const { direction, t } = useI18n();
   const { isAgencyAdmin, isAuthConfigured, isAuthenticated, isLoading: isAuthLoading, role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -772,23 +776,24 @@ export default function AgencyDashboard() {
   };
 
   return (
-    <main className="agency-shell" dir="rtl">
+    <main className={`agency-shell dir-${direction}`} dir={direction}>
       <header className="agency-header">
         <div>
           <span>
             <ShieldCheck size={18} aria-hidden="true" />
             Pixel One Visuals
           </span>
-          <h1>لوحة الوكالة</h1>
+          <h1>{t("agencyDashboard")}</h1>
           <p>إدارة مواقع العملاء والمطاعم المرتبطة بـ Pixel One.</p>
         </div>
         <div className="agency-header__actions">
           <button className="admin-icon-link" type="button" onClick={openCreateClientModal}>
             <UserPlus size={17} aria-hidden="true" />
-            <span>إضافة عميل</span>
+            <span>{t("addClient")}</span>
           </button>
+          <LanguageSwitcher className="language-switcher--agency" />
           <Link className="admin-icon-link" to="/admin">
-            لوحة العميل
+            {t("openClientDashboard")}
           </Link>
           {selectedRestaurant ? (
             <button className="admin-icon-link" type="button" onClick={clearSelectedRestaurant}>

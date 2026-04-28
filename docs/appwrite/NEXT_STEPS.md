@@ -435,3 +435,22 @@ Security constraints:
 - Added `docs/sales/PRICING_NOTES_MOROCCO.md`.
 - Phase 10 is sales and operations documentation only.
 - No React UI, Appwrite schema, Functions, billing, payment, viaSocket, subdomain resolver, or custom domain resolver changes were added.
+
+## Phase 10A - Completed
+
+- Added global i18n foundation for Arabic, French, and English.
+- Added RTL/LTR direction switching through `I18nProvider`.
+- Added language switcher foundation for public, admin, and agency surfaces.
+- Added initial UI dictionary coverage for public status labels, admin navigation labels, and agency dashboard labels.
+- Added homepage customization foundation in `site_settings`: hero copy, CTA text, hero image/video URL, media type, layout preset, theme preset, section titles, and section visibility.
+- `/admin/settings` applies feature gating for homepage customization: Starter basic hero text, Pro brand/homepage controls, Premium/Managed advanced theme/layout/video controls, agency admin bypass.
+- Public site uses customization values with safe fallbacks and keeps `/r/:slug`, orders, reservations, Functions, and feature gates unchanged.
+- Removed visitor-facing template/badge wording from the public site.
+- No drag/drop builder, content translation table, full content translation manager, payment, viaSocket, subdomain/custom domain resolver, or non-food verticals were added.
+
+## Upcoming Phase 10 Work
+
+- Phase 10B: Full homepage customization polish.
+- Phase 10C: Content translations for dishes/offers/faqs.
+- Phase 10D: Admin/agency translation coverage.
+- Phase 10E: Theme/layout preset refinement.

@@ -16,6 +16,8 @@ export type {
   FeatureFlagKey,
   FeatureFlags,
   GalleryItem,
+  HeroLayoutPreset,
+  HeroMediaType,
   Offer,
   Order,
   OrderItem,
@@ -32,5 +34,6 @@ export type {
   SiteSettings,
   SupportLevel,
   Testimonial,
+  ThemePreset,
   UserRole,
 } from "./platform";

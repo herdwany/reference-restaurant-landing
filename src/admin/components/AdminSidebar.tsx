@@ -2,6 +2,7 @@ import { LogOut, X } from "lucide-react";
 import { useState } from "react";
 import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import { adminFeatureIcons } from "../adminFeatureIcons";
 import { adminFooterFeatures, adminMainFeatures } from "../adminFeatures";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
@@ -12,6 +13,7 @@ type AdminSidebarProps = {
 };
 
 export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
+  const { t } = useI18n();
   const { logout } = useAuth();
   const { canAccessFeature, clientHasFeature, role } = useActiveRestaurantScope();
   const navigate = useNavigate();
@@ -26,6 +28,18 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       setIsLoggingOut(false);
       navigate("/admin/login", { replace: true });
     }
+  };
+
+  const getFeatureLabel = (featureId: string, fallback: string) => {
+    if (featureId === "overview") return t("dashboard");
+    if (featureId === "dishes") return t("dishes");
+    if (featureId === "offers") return t("offers");
+    if (featureId === "orders") return t("orders");
+    if (featureId === "reservations") return t("reservations");
+    if (featureId === "settings") return t("settings");
+    if (featureId === "gallery") return t("galleryManager");
+    if (featureId === "activity") return t("activity");
+    return fallback;
   };
 
   return (
@@ -63,8 +77,8 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   disabled
                 >
                   <Icon size={19} aria-hidden="true" />
-                  <span>{feature.label}</span>
-                  <small>{feature.status === "coming_soon" ? "قريبًا" : "ترقية"}</small>
+                  <span>{getFeatureLabel(feature.id, feature.label)}</span>
+                  <small>{feature.status === "coming_soon" ? "قريبًا" : t("upgradeRequired")}</small>
                 </button>
               );
             }
@@ -72,7 +86,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             return (
               <NavLink className="admin-sidebar__link" to={feature.path} end={feature.path === "/admin"} onClick={onClose} key={feature.id}>
                 <Icon size={19} aria-hidden="true" />
-                <span>{feature.label}</span>
+                <span>{getFeatureLabel(feature.id, feature.label)}</span>
                 {showAgencyClientBadge ? <small>غير مفعلة</small> : null}
                 {!hasPlanAccess && feature.allowWhenFeatureDisabled ? <small>ترقية</small> : null}
               </NavLink>
@@ -87,7 +101,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             return (
               <Link className="admin-sidebar__link" to={feature.path} onClick={onClose} key={feature.id}>
                 <Icon size={19} aria-hidden="true" />
-                <span>{feature.label}</span>
+                <span>{getFeatureLabel(feature.id, feature.label)}</span>
               </Link>
             );
           })}

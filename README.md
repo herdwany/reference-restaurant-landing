@@ -1,6 +1,6 @@
-# قالب مطعم عربي React + TypeScript
+# منصة مواقع مطاعم Pixel One Visuals
 
-قالب صفحة هبوط عربية RTL للمطاعم والكافيهات والمطابخ السحابية، مبني لزيادة الطلبات والحجوزات والتواصل عبر واتساب.
+منصة SaaS مُدارة للمطاعم والكافيهات والمطابخ السحابية، مبنية لعرض المنيو والعروض واستقبال الطلبات والحجوزات والتواصل عبر واتساب.
 
 ## التشغيل
 
@@ -410,4 +410,15 @@ Security constraints:
 - Added client data checklist, support policy, and Morocco pricing notes.
 - No React UI, Appwrite schema, Functions, billing, payment, viaSocket, subdomain resolver, or custom domain resolver changes were added.
 
-Next planned phase: Phase 10B - First client demo PDF/one-page proposal.
+## Phase 10A - Multilingual + Homepage Customization Foundation
+
+- Added global i18n foundation for `ar`, `fr`, and `en`.
+- Arabic uses RTL, while French and English use LTR across public, `/admin`, and `/agency`.
+- Added a language switcher foundation to the public header, admin topbar, and agency header.
+- Added homepage customization fields for hero copy, CTA text, media type, image/video URLs, section titles, section visibility, theme preset, and hero layout preset.
+- `/admin/settings` now exposes homepage customization with plan-aware gating: Starter basic hero text, Pro brand/homepage controls, Premium/Managed advanced theme/layout/video controls, and agency admin bypass.
+- Public pages use the saved homepage customization with safe fallbacks.
+- Removed public template/badge wording from the visitor-facing site.
+- No drag/drop builder, content translation manager, payment, viaSocket, domain resolver, or non-food business verticals were added.
+
+Next planned phase: Phase 10B - Full homepage customization polish.

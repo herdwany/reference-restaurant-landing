@@ -87,6 +87,15 @@ const getStoredAssetUrl = (fileId: string | undefined) => {
 
 const resolveImageUrl = (...candidates: (string | undefined)[]) => candidates.find(isAcceptableImageUrl);
 
+const heroLayouts = new Set(["split", "background", "centered"]);
+const themePresets = new Set(["classic_red", "black_gold", "coffee", "fresh", "minimal"]);
+
+const getHeroLayout = (value: string | undefined) =>
+  heroLayouts.has(value || "") ? (value as RestaurantConfig["hero"]["layout"]) : "split";
+
+const getThemePreset = (value: string | undefined) =>
+  themePresets.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["themePreset"]>) : "classic_red";
+
 const mapDishes = (dishes: AppwriteDish[], base: RestaurantConfig): ConfigDish[] =>
   dishes.map((dish, index) => {
     const fallback = base.dishes[index % base.dishes.length];
@@ -189,6 +198,7 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
       ...base.settings,
       orderMode: "both",
       reservationMode: "both",
+      themePreset: base.settings.themePreset ?? "classic_red",
     };
   }
 
@@ -199,20 +209,61 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
     direction: settings.direction || base.settings.direction,
     orderMode: settings.orderMode || base.settings.orderMode,
     reservationMode: settings.reservationMode || base.settings.reservationMode,
+    themePreset: getThemePreset(settings.themePreset),
     sections: {
       ...base.settings.sections,
       hero: settings.showHero,
       trustBadges: settings.showTrustBadges,
-      featuredDishes: settings.showFeaturedDishes,
+      featuredDishes: settings.showFeatured ?? settings.showFeaturedDishes,
       offers: settings.showOffers,
       gallery: settings.showGallery,
       testimonials: settings.showTestimonials,
-      actionGrid: settings.showActionGrid,
+      actionGrid: settings.showContact ?? settings.showActionGrid,
       faq: settings.showFaq,
       footer: settings.showFooter,
     },
   };
 };
+
+const mergeHero = (
+  restaurant: Restaurant,
+  settings: SiteSettings | null,
+  base: RestaurantConfig,
+): RestaurantConfig["hero"] => {
+  const videoUrl = isAcceptableImageUrl(settings?.heroVideoUrl) ? settings?.heroVideoUrl : "";
+  const mediaType = settings?.heroMediaType === "video_url" && videoUrl ? "video_url" : "image";
+
+  return {
+    ...base.hero,
+    title: settings?.heroTitle?.trim() || base.hero.title,
+    subtitle: settings?.heroSubtitle?.trim() || restaurant.description || base.hero.subtitle,
+    primaryCtaText: settings?.primaryCtaText?.trim() || base.hero.primaryCtaText,
+    secondaryCtaText: settings?.secondaryCtaText?.trim() || base.hero.secondaryCtaText,
+    image: resolveImageUrl(settings?.heroImageUrl, getRestaurantHeroImage(restaurant), base.hero.image) || base.hero.image,
+    mediaType,
+    videoUrl,
+    layout: getHeroLayout(settings?.heroLayout),
+  };
+};
+
+const mergeUi = (
+  restaurant: Restaurant,
+  settings: SiteSettings | null,
+  base: RestaurantConfig,
+): RestaurantConfig["ui"] => ({
+  ...base.ui,
+  sectionTitles: {
+    ...base.ui.sectionTitles,
+    featuredDishes: settings?.featuredSectionTitle?.trim() || base.ui.sectionTitles.featuredDishes,
+    offers: settings?.offersSectionTitle?.trim() || base.ui.sectionTitles.offers,
+    gallery: settings?.gallerySectionTitle?.trim() || base.ui.sectionTitles.gallery,
+    faq: settings?.faqSectionTitle?.trim() || base.ui.sectionTitles.faq,
+  },
+  footer: {
+    ...base.ui.footer,
+    description: restaurant.description || base.ui.footer.description,
+  },
+});
 
 const getSettledValue = <Value,>(result: PromiseSettledResult<Value>, fallback: Value) =>
   result.status === "fulfilled" ? result.value : fallback;
@@ -253,11 +304,7 @@ export async function getSiteDataBySlug(slug?: string): Promise<SiteDataResult> 
           ...defaultRestaurantConfig,
           restaurant: mergedRestaurant,
           brand: mergeBrand(restaurant, defaultRestaurantConfig),
-          hero: {
-            ...defaultRestaurantConfig.hero,
-            subtitle: restaurant.description || defaultRestaurantConfig.hero.subtitle,
-            image: getRestaurantHeroImage(restaurant) || defaultRestaurantConfig.hero.image,
-          },
+          hero: mergeHero(restaurant, null, defaultRestaurantConfig),
         },
         source: "appwrite",
         isFallback: false,
@@ -285,7 +332,6 @@ export async function getSiteDataBySlug(slug?: string): Promise<SiteDataResult> 
     const hasAppwriteFaqs = faqs.length > 0;
     const hasAppwriteGalleryItems = galleryItems.length > 0;
     const mergedSettings = mergeSettings(siteSettings, defaultRestaurantConfig);
-    const heroImage = getRestaurantHeroImage(restaurant) || defaultRestaurantConfig.hero.image;
     const activeMergedRestaurant = {
       ...mergeRestaurant(restaurant, defaultRestaurantConfig),
       currency: mergedSettings.currency || defaultRestaurantConfig.restaurant.currency,
@@ -297,18 +343,8 @@ export async function getSiteDataBySlug(slug?: string): Promise<SiteDataResult> 
         restaurant: activeMergedRestaurant,
         brand: mergeBrand(restaurant, defaultRestaurantConfig),
         settings: mergedSettings,
-        hero: {
-          ...defaultRestaurantConfig.hero,
-          subtitle: restaurant.description || defaultRestaurantConfig.hero.subtitle,
-          image: heroImage,
-        },
-        ui: {
-          ...defaultRestaurantConfig.ui,
-          footer: {
-            ...defaultRestaurantConfig.ui.footer,
-            description: restaurant.description || defaultRestaurantConfig.ui.footer.description,
-          },
-        },
+        hero: mergeHero(restaurant, siteSettings, defaultRestaurantConfig),
+        ui: mergeUi(restaurant, siteSettings, defaultRestaurantConfig),
         dishes: hasAppwriteDishes ? mapDishes(dishes, defaultRestaurantConfig) : defaultRestaurantConfig.dishes,
         offers: hasAppwriteOffers ? mapOffers(offers, defaultRestaurantConfig) : defaultRestaurantConfig.offers,
         faqs: hasAppwriteFaqs ? mapFaqs(faqs) : defaultRestaurantConfig.faqs,

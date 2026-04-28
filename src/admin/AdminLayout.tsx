@@ -4,16 +4,18 @@ import AdminErrorState from "./components/AdminErrorState";
 import AdminSidebar from "./components/AdminSidebar";
 import AdminTopbar from "./components/AdminTopbar";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../lib/i18n/I18nContext";
 import { useActiveRestaurantScope } from "./hooks/useActiveRestaurantScope";
 
 export default function AdminLayout() {
+  const { direction } = useI18n();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { isAgencyAdmin } = useAuth();
   const { activeRestaurantId, scopeError } = useActiveRestaurantScope();
   const shouldBlockForAgencySelection = isAgencyAdmin && !activeRestaurantId;
 
   return (
-    <div className="admin-shell" dir="rtl">
+    <div className={`admin-shell dir-${direction}`} dir={direction}>
       <AdminSidebar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="admin-main">
         <AdminTopbar onMenuClick={() => setIsSidebarOpen(true)} />

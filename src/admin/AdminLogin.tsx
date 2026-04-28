@@ -2,6 +2,7 @@ import { ArrowRight, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../lib/i18n/I18nContext";
 import { APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE, AuthServiceError } from "../services/authService";
 
 type FieldErrors = {
@@ -28,6 +29,7 @@ const getLoginErrorMessage = (error: unknown) => {
 };
 
 export default function AdminLogin() {
+  const { direction } = useI18n();
   const { errorMessage, isAuthConfigured, isAuthenticated, isLoading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -84,7 +86,7 @@ export default function AdminLogin() {
   };
 
   return (
-    <main className="admin-login-page" dir="rtl">
+    <main className={`admin-login-page dir-${direction}`} dir={direction}>
       <section className="admin-login-card" aria-busy={isSubmitting}>
         <div className="admin-login-card__icon">
           <ShieldCheck size={30} aria-hidden="true" />

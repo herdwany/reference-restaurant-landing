@@ -22,13 +22,15 @@ const benefitIcons: Record<Benefit["icon"], typeof Star> = {
 export default function Hero({ config, onOrderClick, onWhatsappClick }: HeroProps) {
   const fallbackHeroImage = defaultRestaurantConfig.hero.image;
   const [heroImageSrc, setHeroImageSrc] = useState(config.hero.image || fallbackHeroImage);
+  const heroLayout = config.hero.layout || "split";
+  const canShowHeroVideo = config.hero.mediaType === "video_url" && Boolean(config.hero.videoUrl);
 
   useEffect(() => {
     setHeroImageSrc(config.hero.image || fallbackHeroImage);
   }, [config.hero.image, fallbackHeroImage]);
 
   return (
-    <section className="hero" id="home">
+    <section className={`hero hero--layout-${heroLayout}`} id="home">
       <div className="hero__pattern" aria-hidden="true" />
       <div className="container hero__grid">
         <div className="hero__copy">
@@ -64,8 +66,10 @@ export default function Hero({ config, onOrderClick, onWhatsappClick }: HeroProp
         </div>
 
         <div className="hero__visual">
-          <div className="hero__image-wrap">
-            {heroImageSrc ? (
+          <div className={`hero__image-wrap${canShowHeroVideo ? " hero__image-wrap--video" : ""}`}>
+            {canShowHeroVideo ? (
+              <video src={config.hero.videoUrl} poster={heroImageSrc || fallbackHeroImage} autoPlay muted loop playsInline />
+            ) : heroImageSrc ? (
               <img
                 src={heroImageSrc}
                 alt={config.hero.title}

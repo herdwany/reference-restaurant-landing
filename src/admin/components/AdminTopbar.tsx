@@ -1,7 +1,9 @@
 import { Building2, Eye, Menu } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { clearAgencySelectedRestaurant } from "../../agency/agencySelection";
+import LanguageSwitcher from "../../components/LanguageSwitcher";
 import { useAuth } from "../../context/AuthContext";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import { getAdminFeatureForPath } from "../adminFeatures";
 import { getRoleLabel } from "../adminLabels";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
@@ -11,11 +13,30 @@ type AdminTopbarProps = {
 };
 
 export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
+  const { t } = useI18n();
   const { currentUser, isAgencyAdmin, profile, role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const { activeRestaurantId, activeRestaurantName, activeRestaurantSlug } = useActiveRestaurantScope();
   const activeFeature = getAdminFeatureForPath(location.pathname);
+  const activeFeatureLabel =
+    activeFeature.id === "overview"
+      ? t("dashboard")
+      : activeFeature.id === "dishes"
+        ? t("dishes")
+        : activeFeature.id === "offers"
+          ? t("offers")
+          : activeFeature.id === "orders"
+            ? t("orders")
+            : activeFeature.id === "reservations"
+              ? t("reservations")
+              : activeFeature.id === "settings"
+                ? t("settings")
+                : activeFeature.id === "gallery"
+                  ? t("galleryManager")
+                  : activeFeature.id === "activity"
+                    ? t("activity")
+                    : activeFeature.label;
   const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
   const roleLabel = getRoleLabel(role);
   const showAgencyMode = isAgencyAdmin && Boolean(activeRestaurantId);
@@ -32,8 +53,8 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
           <Menu size={21} aria-hidden="true" />
         </button>
         <div>
-          <span>لوحة التحكم</span>
-          <h1>{activeFeature.label}</h1>
+          <span>{t("dashboard")}</span>
+          <h1>{activeFeatureLabel}</h1>
         </div>
       </div>
 
@@ -55,6 +76,7 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
             <span>لوحة الوكالة</span>
           </Link>
         ) : null}
+        <LanguageSwitcher className="language-switcher--admin" />
         <Link className="admin-icon-link" to="/" aria-label="معاينة الموقع">
           <Eye size={19} aria-hidden="true" />
           <span>معاينة الموقع</span>

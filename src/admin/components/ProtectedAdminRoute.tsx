@@ -2,6 +2,7 @@ import { AlertTriangle, Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { ADMIN_APPWRITE_REQUIRED_MESSAGE } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
+import { useI18n } from "../../lib/i18n/I18nContext";
 
 type AdminStatusMessageProps = {
   title: string;
@@ -10,10 +11,11 @@ type AdminStatusMessageProps = {
 };
 
 function AdminStatusMessage({ title, body, isLoading = false }: AdminStatusMessageProps) {
+  const { direction } = useI18n();
   const Icon = isLoading ? Loader2 : AlertTriangle;
 
   return (
-    <main className="admin-standalone" dir="rtl">
+    <main className={`admin-standalone dir-${direction}`} dir={direction}>
       <section className="admin-status-card" role={isLoading ? undefined : "alert"} aria-busy={isLoading}>
         <Icon className={isLoading ? "admin-spin" : undefined} aria-hidden="true" />
         <h1>{title}</h1>

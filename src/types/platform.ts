@@ -24,6 +24,9 @@ export type ColorTheme = "orange" | "red" | "gold";
 export type SiteDirection = "rtl" | "ltr";
 export type OrderMode = "whatsapp" | "database" | "both";
 export type ReservationMode = "whatsapp" | "database" | "both";
+export type HeroMediaType = "image" | "video_url";
+export type HeroLayoutPreset = "split" | "background" | "centered";
+export type ThemePreset = "classic_red" | "black_gold" | "coffee" | "fresh" | "minimal";
 export type AuditEntityType =
   | "dish"
   | "offer"
@@ -189,13 +192,28 @@ export interface SiteSettings extends BaseModel {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  primaryCtaText?: string;
+  secondaryCtaText?: string;
+  heroMediaType?: HeroMediaType;
+  heroImageUrl?: string;
+  heroVideoUrl?: string;
+  heroLayout?: HeroLayoutPreset;
+  themePreset?: ThemePreset;
+  featuredSectionTitle?: string;
+  offersSectionTitle?: string;
+  gallerySectionTitle?: string;
+  faqSectionTitle?: string;
   showHero: boolean;
+  showFeatured?: boolean;
   showTrustBadges: boolean;
   showFeaturedDishes: boolean;
   showOffers: boolean;
   showGallery: boolean;
   showTestimonials: boolean;
   showActionGrid: boolean;
+  showContact?: boolean;
   showFaq: boolean;
   showFooter: boolean;
 }

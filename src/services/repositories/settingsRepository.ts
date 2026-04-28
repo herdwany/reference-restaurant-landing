@@ -1,7 +1,15 @@
 import { AppwriteException, ID, Query, type Models } from "appwrite";
 import { databases } from "../../lib/appwriteClient";
 import { DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
-import type { OrderMode, ReservationMode, SiteDirection, SiteSettings } from "../../types/platform";
+import type {
+  HeroLayoutPreset,
+  HeroMediaType,
+  OrderMode,
+  ReservationMode,
+  SiteDirection,
+  SiteSettings,
+  ThemePreset,
+} from "../../types/platform";
 
 type SettingsRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED" | "WRITE_FAILED";
 
@@ -23,13 +31,28 @@ interface SiteSettingsRow extends Models.Row {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  heroTitle?: string | null;
+  heroSubtitle?: string | null;
+  primaryCtaText?: string | null;
+  secondaryCtaText?: string | null;
+  heroMediaType?: HeroMediaType | null;
+  heroImageUrl?: string | null;
+  heroVideoUrl?: string | null;
+  heroLayout?: HeroLayoutPreset | null;
+  themePreset?: ThemePreset | null;
+  featuredSectionTitle?: string | null;
+  offersSectionTitle?: string | null;
+  gallerySectionTitle?: string | null;
+  faqSectionTitle?: string | null;
   showHero: boolean;
+  showFeatured?: boolean | null;
   showTrustBadges: boolean;
   showFeaturedDishes: boolean;
   showOffers: boolean;
   showGallery: boolean;
   showTestimonials: boolean;
   showActionGrid: boolean;
+  showContact?: boolean | null;
   showFaq: boolean;
   showFooter: boolean;
 }
@@ -40,13 +63,28 @@ export type SiteSettingsMutationInput = {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  heroTitle?: string;
+  heroSubtitle?: string;
+  primaryCtaText?: string;
+  secondaryCtaText?: string;
+  heroMediaType?: HeroMediaType;
+  heroImageUrl?: string;
+  heroVideoUrl?: string;
+  heroLayout?: HeroLayoutPreset;
+  themePreset?: ThemePreset;
+  featuredSectionTitle?: string;
+  offersSectionTitle?: string;
+  gallerySectionTitle?: string;
+  faqSectionTitle?: string;
   showHero: boolean;
+  showFeatured?: boolean;
   showTrustBadges: boolean;
   showFeaturedDishes: boolean;
   showOffers: boolean;
   showGallery: boolean;
   showTestimonials: boolean;
   showActionGrid: boolean;
+  showContact?: boolean;
   showFaq: boolean;
   showFooter: boolean;
 };
@@ -67,13 +105,28 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   direction: row.direction,
   orderMode: row.orderMode,
   reservationMode: row.reservationMode,
+  heroTitle: row.heroTitle ?? undefined,
+  heroSubtitle: row.heroSubtitle ?? undefined,
+  primaryCtaText: row.primaryCtaText ?? undefined,
+  secondaryCtaText: row.secondaryCtaText ?? undefined,
+  heroMediaType: row.heroMediaType ?? undefined,
+  heroImageUrl: row.heroImageUrl ?? undefined,
+  heroVideoUrl: row.heroVideoUrl ?? undefined,
+  heroLayout: row.heroLayout ?? undefined,
+  themePreset: row.themePreset ?? undefined,
+  featuredSectionTitle: row.featuredSectionTitle ?? undefined,
+  offersSectionTitle: row.offersSectionTitle ?? undefined,
+  gallerySectionTitle: row.gallerySectionTitle ?? undefined,
+  faqSectionTitle: row.faqSectionTitle ?? undefined,
   showHero: row.showHero,
+  showFeatured: row.showFeatured ?? undefined,
   showTrustBadges: row.showTrustBadges,
   showFeaturedDishes: row.showFeaturedDishes,
   showOffers: row.showOffers,
   showGallery: row.showGallery,
   showTestimonials: row.showTestimonials,
   showActionGrid: row.showActionGrid,
+  showContact: row.showContact ?? undefined,
   showFaq: row.showFaq,
   showFooter: row.showFooter,
 });
@@ -84,13 +137,28 @@ const toSiteSettingsRowData = (input: SiteSettingsMutationInput): SiteSettingsRo
   direction: input.direction,
   orderMode: input.orderMode,
   reservationMode: input.reservationMode,
+  heroTitle: input.heroTitle?.trim() || undefined,
+  heroSubtitle: input.heroSubtitle?.trim() || undefined,
+  primaryCtaText: input.primaryCtaText?.trim() || undefined,
+  secondaryCtaText: input.secondaryCtaText?.trim() || undefined,
+  heroMediaType: input.heroMediaType || "image",
+  heroImageUrl: input.heroImageUrl?.trim() || undefined,
+  heroVideoUrl: input.heroVideoUrl?.trim() || undefined,
+  heroLayout: input.heroLayout || "split",
+  themePreset: input.themePreset || "classic_red",
+  featuredSectionTitle: input.featuredSectionTitle?.trim() || undefined,
+  offersSectionTitle: input.offersSectionTitle?.trim() || undefined,
+  gallerySectionTitle: input.gallerySectionTitle?.trim() || undefined,
+  faqSectionTitle: input.faqSectionTitle?.trim() || undefined,
   showHero: input.showHero,
+  showFeatured: input.showFeatured ?? input.showFeaturedDishes,
   showTrustBadges: input.showTrustBadges,
   showFeaturedDishes: input.showFeaturedDishes,
   showOffers: input.showOffers,
   showGallery: input.showGallery,
   showTestimonials: input.showTestimonials,
   showActionGrid: input.showActionGrid,
+  showContact: input.showContact ?? input.showActionGrid,
   showFaq: input.showFaq,
   showFooter: input.showFooter,
 });

@@ -142,12 +142,27 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `direction`: string, غالباً `rtl`
 - `orderMode`: enum `whatsapp | database | both`
 - `reservationMode`: enum `whatsapp | database | both`
+- `heroTitle`: text optional
+- `heroSubtitle`: text optional
+- `primaryCtaText`: string optional
+- `secondaryCtaText`: string optional
+- `heroMediaType`: enum `image | video_url`, optional default `image`
+- `heroImageUrl`: string optional
+- `heroVideoUrl`: string optional
+- `heroLayout`: enum `split | background | centered`, optional default `split`
+- `themePreset`: enum `classic_red | black_gold | coffee | fresh | minimal`, optional default `classic_red`
+- `featuredSectionTitle`: string optional
+- `offersSectionTitle`: string optional
+- `gallerySectionTitle`: string optional
+- `faqSectionTitle`: string optional
 - `showHero`: boolean
 - `showTrustBadges`: boolean
+- `showFeatured`: boolean optional, mirrors featured dishes visibility for new homepage customization UI
 - `showFeaturedDishes`: boolean
 - `showOffers`: boolean
 - `showGallery`: boolean
 - `showTestimonials`: boolean
+- `showContact`: boolean optional, mirrors booking/contact visibility for new homepage customization UI
 - `showActionGrid`: boolean
 - `showFaq`: boolean
 - `showFooter`: boolean

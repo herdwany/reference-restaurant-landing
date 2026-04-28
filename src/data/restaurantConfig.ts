@@ -52,6 +52,9 @@ export interface HeroContent {
   primaryCtaText: string;
   secondaryCtaText: string;
   image: string;
+  mediaType?: "image" | "video_url";
+  videoUrl?: string;
+  layout?: "split" | "background" | "centered";
   imageBadge: string;
 }
 
@@ -184,6 +187,7 @@ export interface RestaurantConfig {
     direction: "rtl" | "ltr";
     orderMode: "whatsapp" | "database" | "both";
     reservationMode: "whatsapp" | "database" | "both";
+    themePreset?: "classic_red" | "black_gold" | "coffee" | "fresh" | "minimal";
     sections: SectionVisibilitySettings;
   };
   restaurant: RestaurantInfo;
@@ -201,7 +205,6 @@ export interface RestaurantConfig {
   paymentMethods: PaymentMethod[];
   galleryImages: GalleryImage[];
   ui: {
-    templateButton: string;
     cartButtonLabel: string;
     orderNow: string;
     addToCart: string;
@@ -260,11 +263,6 @@ export interface RestaurantConfig {
       copyrightPrefix: string;
       copyrightYear: string;
     };
-    editableTemplateModal: {
-      title: string;
-      text: string;
-      points: string[];
-    };
     toasts: {
       added: string;
       removed: string;
@@ -286,6 +284,7 @@ export const restaurantConfig: RestaurantConfig = {
     direction: "rtl",
     orderMode: "whatsapp",
     reservationMode: "whatsapp",
+    themePreset: "classic_red",
     sections: {
       hero: true,
       trustBadges: true,
@@ -340,6 +339,9 @@ export const restaurantConfig: RestaurantConfig = {
     primaryCtaText: "اطلب الآن",
     secondaryCtaText: "تواصل عبر واتساب",
     image: foodImage("photo-1565299624946-b28f40a0ae38", 1000, 900),
+    mediaType: "image",
+    videoUrl: "",
+    layout: "split",
     imageBadge: "تواصل يومياً",
   },
   quickBenefits: [
@@ -694,7 +696,6 @@ export const restaurantConfig: RestaurantConfig = {
     },
   ],
   ui: {
-    templateButton: "قالب قابل للتخصيص",
     cartButtonLabel: "السلة",
     orderNow: "اطلب الآن",
     addToCart: "أضف للسلة",
@@ -744,7 +745,7 @@ export const restaurantConfig: RestaurantConfig = {
       customerLocationHint: "يرجى إرسال موقعك بعد فتح واتساب لإكمال الطلب.",
     },
     footer: {
-      description: "قالب مطعم عربي فاخر يساعدك على عرض الأطباق والعروض واستقبال الطلبات والحجوزات بسرعة.",
+      description: "موقع مطعم احترافي يساعد الزبائن على استكشاف الأطباق والعروض وإرسال الطلبات والحجوزات بسرعة.",
       contactTitle: "معلومات التواصل",
       quickLinksTitle: "روابط سريعة",
       socialTitle: "تابعنا",
@@ -752,16 +753,6 @@ export const restaurantConfig: RestaurantConfig = {
       terms: "الشروط والأحكام",
       copyrightPrefix: "© جميع الحقوق محفوظة",
       copyrightYear: "2025",
-    },
-    editableTemplateModal: {
-      title: "كيف تعدل القالب؟",
-      text: "كل محتوى الصفحة متصل بملف بيانات مركزي واحد، لذلك يمكنك تغيير المطعم بالكامل دون تعديل المكونات.",
-      points: [
-        "غيّر الاسم والشعار والألوان من restaurantConfig.ts.",
-        "أضف أو احذف الأطباق والعروض من المصفوفات مباشرة.",
-        "حدّث رقم واتساب وروابط السوشيال والموقع من نفس الملف.",
-        "تحكّم في إظهار أو إخفاء الأقسام من settings.sections.",
-      ],
     },
     toasts: {
       added: "تمت إضافة الطبق إلى السلة",
