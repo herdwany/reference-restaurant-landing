@@ -338,7 +338,6 @@ Security constraints:
 
 ## Future Phase 9 Work
 
-- Phase 9H: Backup/export client data.
 - Phase 9I: Production deployment setup.
 - Phase 9J: Subdomain resolver after hosting decision.
 - Phase 9K: Custom domain resolver after DNS strategy.
@@ -391,9 +390,22 @@ Security constraints:
 - Documented that subdomain/custom domain metadata exists in `/agency`, but real routing is not active.
 - No subdomain resolver, custom domain resolver, DNS automation, payment, billing, Appwrite schema change, or Function change was added.
 
+## Phase 9H - Completed
+
+- Added `scripts/exportClientData.mjs`.
+- Added `npm run export:client -- --slug demo-restaurant`.
+- Added `npm run export:client -- --restaurantId <rowId>`.
+- The export script reads `.env.setup` and uses `node-appwrite` locally.
+- The export script is read-only: no create, update, delete, upload, restore, or Storage download.
+- Export output is written to `exports/{slug-or-restaurantId}/{timestamp}/`.
+- Exported JSON files cover one restaurant and related rows from `site_settings`, `dishes`, `offers`, `faqs`, `gallery_items`, `orders`, `order_items`, `reservations`, `audit_logs`, and `profiles`.
+- `order_items` export supports restaurantId first, then orderId fallback for schema compatibility.
+- Added `docs/appwrite/BACKUP_EXPORT.md`.
+- Added `exports/` to `.gitignore`.
+- Restore/import, scheduled backups, cloud upload, React UI, agency dashboard button, Appwrite schema changes, and Function changes were not added.
+
 ## Upcoming Production Phases
 
-- Phase 9H: Backup/export client data.
 - Phase 9I: Production deployment setup.
 - Phase 9J: Subdomain resolver after hosting decision.
 - Phase 9K: Custom domain resolver after DNS strategy.

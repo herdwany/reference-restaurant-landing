@@ -334,7 +334,7 @@ Security constraints:
 - الموقع العام يعرض رسائل `draft/suspended/cancelled` بدل الموقع النشط عند تعطيل العميل.
 - Phase 9D لا يحتوي payment gateway، ولا invoices، ولا billing provider، ولا subscriptions حقيقية، ولا viaSocket، ولا impersonation، ولا domain routing.
 - سلوك `owner` و`staff` بقي عبر `profile.restaurantId`.
-- الخطوة التالية المقترحة: Phase 9H - Backup/export client data.
+- الخطوة التالية المقترحة: Phase 9I - Production deployment setup.
 
 ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، و`updateRestaurantAgencyControls` مسار MVP من الواجهة يجب نقله لاحقًا إلى Appwrite Function تتحقق من `agency_admin`. Feature flags ليست حماية نهائية للبيانات الحساسة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.
 
@@ -376,4 +376,14 @@ Security constraints:
 - Added a domain roadmap that keeps `/r/:slug` as the working URL while subdomain/custom domain routing remains future work.
 - No DNS automation, subdomain resolver, custom domain resolver, billing, payment, Appwrite schema change, or Function change was added.
 
-Next planned phase: Phase 9H - Backup/export client data.
+## Phase 9H - Backup / Export Client Data
+
+- Added local read-only export script: `npm run export:client -- --slug demo-restaurant`.
+- Export can also run by restaurant row ID: `npm run export:client -- --restaurantId <rowId>`.
+- The script reads `.env.setup`, uses `node-appwrite` Server SDK locally, and does not use any `VITE_*` environment variables.
+- Export files are written to `exports/{slug-or-restaurantId}/{timestamp}/`.
+- Exported tables include restaurant, settings, dishes, offers, FAQs, gallery, orders, order items, reservations, audit logs, and profiles scoped to the restaurant.
+- `exports/` is ignored by Git because it can contain sensitive customer data.
+- Restore/import, scheduled backups, cloud upload, React UI, agency export button, Storage asset downloads, schema changes, and Function changes were not added.
+
+Next planned phase: Phase 9I - Production deployment setup.
