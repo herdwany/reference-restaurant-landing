@@ -14,6 +14,8 @@ export type RestaurantStatus = "draft" | "active" | "suspended" | "cancelled";
 export type ClientPlan = "starter" | "pro" | "premium" | "managed";
 export type BillingStatus = "trial" | "active" | "overdue" | "cancelled";
 export type SupportLevel = "basic" | "standard" | "priority" | "managed";
+export type DomainType = "pixelone_path" | "subdomain" | "custom_domain";
+export type DomainStatus = "not_configured" | "pending_dns" | "pending_verification" | "active" | "failed";
 export type FeatureFlagKey = keyof FeatureFlags;
 export type OrderStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
 export type ReservationStatus = "new" | "confirmed" | "cancelled" | "completed";
@@ -97,6 +99,13 @@ export interface Restaurant extends BaseModel {
   mapImageUrl?: string;
   workingHours: string;
   domain?: string;
+  domainType: DomainType;
+  subdomain?: string;
+  customDomain?: string;
+  domainStatus: DomainStatus;
+  domainNotes?: string;
+  domainVerifiedAt?: string;
+  dnsTarget?: string;
 }
 
 export interface Profile extends BaseModel {

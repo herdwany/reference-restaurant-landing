@@ -5,6 +5,8 @@ import type {
   BillingStatus,
   BusinessType,
   ClientPlan,
+  DomainStatus,
+  DomainType,
   FeatureFlags,
   Restaurant,
   RestaurantStatus,
@@ -56,6 +58,13 @@ interface RestaurantRow extends Models.Row {
   mapImageUrl?: string | null;
   workingHours: string;
   domain?: string | null;
+  domainType?: DomainType | null;
+  subdomain?: string | null;
+  customDomain?: string | null;
+  domainStatus?: DomainStatus | null;
+  domainNotes?: string | null;
+  domainVerifiedAt?: string | null;
+  dnsTarget?: string | null;
 }
 
 export type RestaurantContactInput = {
@@ -95,6 +104,16 @@ export type RestaurantAgencyControlsInput = {
   trialEndsAt?: string | null;
 };
 
+export type RestaurantDomainSettingsInput = {
+  customDomain?: string | null;
+  dnsTarget?: string | null;
+  domainNotes?: string | null;
+  domainStatus: DomainStatus;
+  domainType: DomainType;
+  domainVerifiedAt?: string | null;
+  subdomain?: string | null;
+};
+
 type RestaurantContactRowData = {
   name: string;
   nameAr: string;
@@ -124,10 +143,22 @@ type RestaurantAgencyControlsRowData = {
   trialEndsAt?: string;
 };
 
+type RestaurantDomainSettingsRowData = {
+  customDomain: string | null;
+  dnsTarget: string | null;
+  domainNotes: string | null;
+  domainStatus: DomainStatus;
+  domainType: DomainType;
+  domainVerifiedAt: string | null;
+  subdomain: string | null;
+};
+
 const clientPlans = ["starter", "pro", "premium", "managed"] as const satisfies readonly ClientPlan[];
 const billingStatuses = ["trial", "active", "overdue", "cancelled"] as const satisfies readonly BillingStatus[];
 const restaurantStatuses = ["draft", "active", "suspended", "cancelled"] as const satisfies readonly RestaurantStatus[];
 const supportLevels = ["basic", "standard", "priority", "managed"] as const satisfies readonly SupportLevel[];
+const domainTypes = ["pixelone_path", "subdomain", "custom_domain"] as const satisfies readonly DomainType[];
+const domainStatuses = ["not_configured", "pending_dns", "pending_verification", "active", "failed"] as const satisfies readonly DomainStatus[];
 
 const isKnownClientPlan = (value: unknown): value is ClientPlan =>
   typeof value === "string" && clientPlans.includes(value as ClientPlan);
@@ -140,6 +171,12 @@ const isKnownRestaurantStatus = (value: unknown): value is RestaurantStatus =>
 
 const isKnownSupportLevel = (value: unknown): value is SupportLevel =>
   typeof value === "string" && supportLevels.includes(value as SupportLevel);
+
+const isKnownDomainType = (value: unknown): value is DomainType =>
+  typeof value === "string" && domainTypes.includes(value as DomainType);
+
+const isKnownDomainStatus = (value: unknown): value is DomainStatus =>
+  typeof value === "string" && domainStatuses.includes(value as DomainStatus);
 
 const normalizeEnumText = (value: string) => value.trim().toLowerCase();
 
@@ -199,6 +236,13 @@ const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   mapImageUrl: row.mapImageUrl ?? undefined,
   workingHours: row.workingHours,
   domain: row.domain ?? undefined,
+  domainType: isKnownDomainType(row.domainType) ? row.domainType : "pixelone_path",
+  subdomain: row.subdomain ?? undefined,
+  customDomain: row.customDomain ?? undefined,
+  domainStatus: isKnownDomainStatus(row.domainStatus) ? row.domainStatus : "not_configured",
+  domainNotes: row.domainNotes ?? undefined,
+  domainVerifiedAt: row.domainVerifiedAt ?? undefined,
+  dnsTarget: row.dnsTarget ?? undefined,
 });
 
 const optionalText = (value: string | undefined) => {
@@ -227,6 +271,63 @@ const toRestaurantContactRowData = (input: RestaurantContactInput): RestaurantCo
     secondaryColor: input.secondaryColor.trim(),
     accentColor: input.accentColor.trim(),
     successColor: input.successColor.trim(),
+  };
+};
+
+const normalizeSubdomain = (value: string | null | undefined) => value?.trim().toLowerCase() ?? "";
+
+const normalizeCustomDomain = (value: string | null | undefined) =>
+  value?.trim().toLowerCase().replace(/\.$/, "") ?? "";
+
+const isValidSubdomain = (value: string) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+
+const isValidCustomDomain = (value: string) => {
+  if (!value || /\s/.test(value) || /^https?:\/\//i.test(value) || /[/:?#]/.test(value)) {
+    return false;
+  }
+
+  return /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(value);
+};
+
+const toRestaurantDomainSettingsRowData = (input: RestaurantDomainSettingsInput): RestaurantDomainSettingsRowData => {
+  const domainType = normalizeEnumText(input.domainType) as DomainType;
+  const domainStatus = normalizeEnumText(input.domainStatus) as DomainStatus;
+  const subdomain = normalizeSubdomain(input.subdomain);
+  const customDomain = normalizeCustomDomain(input.customDomain);
+  const domainVerifiedAt = normalizeOptionalDatetime(input.domainVerifiedAt);
+
+  if (!isKnownDomainType(domainType)) {
+    throw new RestaurantRepositoryError("نوع الدومين غير صالح.", "INVALID_INPUT");
+  }
+
+  if (!isKnownDomainStatus(domainStatus)) {
+    throw new RestaurantRepositoryError("حالة الدومين غير صالحة.", "INVALID_INPUT");
+  }
+
+  if (domainType === "subdomain" && !subdomain) {
+    throw new RestaurantRepositoryError("Subdomain مطلوب لهذا الخيار.", "INVALID_INPUT");
+  }
+
+  if (subdomain && !isValidSubdomain(subdomain)) {
+    throw new RestaurantRepositoryError("استخدم أحرفًا إنجليزية صغيرة وأرقامًا وشرطات فقط في subdomain.", "INVALID_INPUT");
+  }
+
+  if (domainType === "custom_domain" && !customDomain) {
+    throw new RestaurantRepositoryError("Custom domain مطلوب لهذا الخيار.", "INVALID_INPUT");
+  }
+
+  if (customDomain && !isValidCustomDomain(customDomain)) {
+    throw new RestaurantRepositoryError("اكتب الدومين بدون http:// أو https:// وبدون مسافات، مثل www.example.com.", "INVALID_INPUT");
+  }
+
+  return {
+    domainType,
+    subdomain: subdomain || null,
+    customDomain: customDomain || null,
+    domainStatus,
+    domainNotes: optionalText(input.domainNotes ?? undefined),
+    domainVerifiedAt: domainVerifiedAt ?? null,
+    dnsTarget: optionalText(input.dnsTarget ?? undefined),
   };
 };
 
@@ -370,6 +471,33 @@ export async function updateRestaurantAgencyControls(
       tableId: TABLES.restaurants,
       rowId: restaurantId,
       data: toRestaurantAgencyControlsRowData(input),
+    });
+
+    return mapRestaurant(row);
+  } catch (error) {
+    if (error instanceof RestaurantRepositoryError) {
+      throw error;
+    }
+
+    throw new RestaurantRepositoryError(getWriteErrorMessage(error), "WRITE_FAILED", error);
+  }
+}
+
+// TODO Phase 9F hardening: this MVP update runs from the React Client SDK for agency_admin only.
+// Move domain metadata updates to an Appwrite Function that verifies agency_admin before production.
+export async function updateRestaurantDomainSettings(
+  restaurantId: string,
+  input: RestaurantDomainSettingsInput,
+): Promise<Restaurant> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  try {
+    const row = await databases.updateRow<RestaurantRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.restaurants,
+      rowId: restaurantId,
+      data: toRestaurantDomainSettingsRowData(input),
     });
 
     return mapRestaurant(row);

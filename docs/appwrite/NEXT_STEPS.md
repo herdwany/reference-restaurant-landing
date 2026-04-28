@@ -338,7 +338,7 @@ Security constraints:
 
 ## Future Phase 9 Work
 
-- Phase 9F: Subdomain / Custom Domain Management.
+- Phase 9G: Subdomain/custom domain resolver when hosting strategy is confirmed.
 - Create client repair flow for incomplete default settings, if needed.
 - ربط Teams والصلاحيات والاشتراكات.
 - تقوية restaurant list/manage عبر Function أو backend rules.
@@ -365,7 +365,17 @@ Security constraints:
 - Public `draft`, `suspended`, and `cancelled` statuses block the full site and show visitor-safe messages.
 - Custom domains, subdomains, DNS management, billing, payment, and viaSocket were not implemented.
 
-## Phase 9F - Next
+## Phase 9F - Completed
 
-- Subdomain / Custom Domain Management.
-- Domain verification and DNS guidance should be designed separately from Phase 9E.
+- `/agency` can manage domain metadata for each restaurant.
+- `domainType`: `pixelone_path`, `subdomain`, `custom_domain`.
+- `domainStatus`: `not_configured`, `pending_dns`, `pending_verification`, `active`, `failed`.
+- Agency preview remains `/r/:slug`; subdomain/custom domain links are displayed as planned metadata only.
+- Added general non-final DNS guidance in the agency modal.
+- No DNS automation, domain purchasing, payment, invoices, viaSocket, subdomain routing, or custom domain routing was added.
+- Commercial note: `/r/:slug` or future platform subdomain can be treated as the included platform link. Custom domains may require purchase/renewal by the client or a separate managed service, and domain cost is not pure agency profit.
+
+## Phase 9G - Next
+
+- Subdomain/custom domain resolver when hosting strategy is confirmed.
+- Confirm hosting, wildcard domain, CNAME target, verification flow, and unique-domain migration before activating real domain routing.

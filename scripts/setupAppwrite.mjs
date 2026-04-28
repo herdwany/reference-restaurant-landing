@@ -130,6 +130,13 @@ const tables = [
       varchar("mapImageUrl", 1000),
       varchar("workingHours", 255),
       varchar("domain", 255),
+      varchar("domainType", 50, false, "pixelone_path"),
+      varchar("subdomain", 120),
+      varchar("customDomain", 255),
+      varchar("domainStatus", 50, false, "not_configured"),
+      text("domainNotes"),
+      datetime("domainVerifiedAt"),
+      varchar("dnsTarget", 255),
     ],
     indexes: [
       uniqueIndex("restaurants_slug_unique", ["slug"]),
@@ -634,6 +641,9 @@ async function seedDemoRestaurant() {
       whatsappNumber: "",
       address: "",
       workingHours: "",
+      domainType: "pixelone_path",
+      domainStatus: "not_configured",
+      dnsTarget: "pixelonevisuals.tech",
     },
   });
 

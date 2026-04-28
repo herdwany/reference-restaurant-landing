@@ -279,6 +279,9 @@ const createRestaurant = async (tablesDb, input, ownerUserId, agencyUserId, rest
     trialEndsAt: input.trialEndsAt,
     supportLevel: input.supportLevel,
     notes: input.notes,
+    domainType: "pixelone_path",
+    domainStatus: "not_configured",
+    dnsTarget: "pixelonevisuals.tech",
   };
 
   try {

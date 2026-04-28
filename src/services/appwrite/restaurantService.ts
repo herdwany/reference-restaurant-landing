@@ -1,7 +1,16 @@
 import { Query } from "appwrite";
 import type { Models } from "appwrite";
 import { TABLES } from "../../lib/appwriteIds";
-import type { BillingStatus, BusinessType, ClientPlan, Restaurant, RestaurantStatus, SupportLevel } from "../../types/appwriteModels";
+import type {
+  BillingStatus,
+  BusinessType,
+  ClientPlan,
+  DomainStatus,
+  DomainType,
+  Restaurant,
+  RestaurantStatus,
+  SupportLevel,
+} from "../../types/appwriteModels";
 import { getFirstRow } from "./readRows";
 
 interface RestaurantRow extends Models.Row {
@@ -34,6 +43,13 @@ interface RestaurantRow extends Models.Row {
   mapImageUrl?: string | null;
   workingHours: string;
   domain?: string | null;
+  domainType?: DomainType | null;
+  subdomain?: string | null;
+  customDomain?: string | null;
+  domainStatus?: DomainStatus | null;
+  domainNotes?: string | null;
+  domainVerifiedAt?: string | null;
+  dnsTarget?: string | null;
 }
 
 const mapRestaurant = (row: RestaurantRow): Restaurant => ({
@@ -69,6 +85,13 @@ const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   mapImageUrl: row.mapImageUrl ?? undefined,
   workingHours: row.workingHours,
   domain: row.domain ?? undefined,
+  domainType: row.domainType ?? "pixelone_path",
+  subdomain: row.subdomain ?? undefined,
+  customDomain: row.customDomain ?? undefined,
+  domainStatus: row.domainStatus ?? "not_configured",
+  domainNotes: row.domainNotes ?? undefined,
+  domainVerifiedAt: row.domainVerifiedAt ?? undefined,
+  dnsTarget: row.dnsTarget ?? undefined,
 });
 
 export async function getRestaurantBySlug(slug: string): Promise<Restaurant | null> {

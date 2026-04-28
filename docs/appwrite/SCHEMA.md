@@ -41,10 +41,19 @@
 - `mapImageUrl`: url optional
 - `workingHours`: string
 - `domain`: string optional
+- `domainType`: enum/string `pixelone_path | subdomain | custom_domain`, optional/default `pixelone_path`
+- `subdomain`: string optional
+- `customDomain`: string optional
+- `domainStatus`: enum/string `not_configured | pending_dns | pending_verification | active | failed`, optional/default `not_configured`
+- `domainNotes`: text optional
+- `domainVerifiedAt`: datetime optional
+- `dnsTarget`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
 
 ملاحظة Phase 9D: لم تتم إضافة عمود `features` مخصص في TablesDB. الـ Feature Flags الحالية مشتقة من `plan` داخل التطبيق، ويمكن إضافة overrides لاحقًا عبر Function/Schema مستقلة إذا احتجنا تخصيصًا لكل عميل.
+
+Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing path until subdomain/custom domain resolver work is planned and deployed. TODO: add safe unique indexes on `subdomain` and `customDomain` after production migration rules are confirmed.
 
 ## profiles
 

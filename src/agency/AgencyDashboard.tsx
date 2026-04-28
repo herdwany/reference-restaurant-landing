@@ -2,6 +2,7 @@ import {
   AlertTriangle,
   Building2,
   ExternalLink,
+  Globe2,
   Loader2,
   RefreshCw,
   Search,
@@ -32,8 +33,18 @@ import {
   getRestaurantStatsForAgency,
   getRestaurantsForAgency,
   updateRestaurantAgencyControls,
+  updateRestaurantDomainSettings,
 } from "../services/repositories/restaurantRepository";
-import type { BillingStatus, BusinessType, ClientPlan, Restaurant, RestaurantStatus, SupportLevel } from "../types/platform";
+import type {
+  BillingStatus,
+  BusinessType,
+  ClientPlan,
+  DomainStatus,
+  DomainType,
+  Restaurant,
+  RestaurantStatus,
+  SupportLevel,
+} from "../types/platform";
 import {
   clearAgencySelectedRestaurant,
   getAgencySelectedRestaurant,
@@ -59,6 +70,16 @@ type AgencyControlsFormValues = {
   supportLevel: SupportLevel;
   trialEndsAt: string;
 };
+type AgencyDomainFormValues = {
+  customDomain: string;
+  dnsTarget: string;
+  domainNotes: string;
+  domainStatus: DomainStatus;
+  domainType: DomainType;
+  domainVerifiedAt: string;
+  subdomain: string;
+};
+type AgencyDomainFormErrors = Partial<Record<keyof AgencyDomainFormValues, string>>;
 
 type CreateClientFormValues = {
   businessType: OnboardingBusinessType;
@@ -82,6 +103,9 @@ const onboardingStatuses = ["draft", "active"] as const satisfies readonly Onboa
 const onboardingPlans = clientPlans;
 const billingStatuses = ["trial", "active", "overdue", "cancelled"] as const satisfies readonly BillingStatus[];
 const supportLevels = ["basic", "standard", "priority", "managed"] as const satisfies readonly SupportLevel[];
+const domainTypes = ["pixelone_path", "subdomain", "custom_domain"] as const satisfies readonly DomainType[];
+const domainStatuses = ["not_configured", "pending_dns", "pending_verification", "active", "failed"] as const satisfies readonly DomainStatus[];
+const pixelOneSubdomainBase = "pixelonevisuals.tech";
 
 const statusLabels: Record<StatusFilter, string> = {
   active: "نشط",
@@ -110,6 +134,20 @@ const supportLevelLabels: Record<SupportLevel, string> = {
   standard: "قياسي",
   priority: "أولوية",
   managed: "مُدار",
+};
+
+const domainTypeLabels: Record<DomainType, string> = {
+  pixelone_path: "رابط المنصة",
+  subdomain: "Subdomain",
+  custom_domain: "Custom domain",
+};
+
+const domainStatusLabels: Record<DomainStatus, string> = {
+  not_configured: "غير مضبوط",
+  pending_dns: "بانتظار DNS",
+  pending_verification: "بانتظار التحقق",
+  active: "نشط",
+  failed: "فشل",
 };
 
 const businessTypeLabels: Record<BusinessType, string> = {
@@ -228,6 +266,31 @@ const getAgencyControlsFormValues = (restaurant: Restaurant): AgencyControlsForm
   trialEndsAt: toDateTimeInputValue(restaurant.trialEndsAt),
 });
 
+const getAgencyDomainFormValues = (restaurant: Restaurant): AgencyDomainFormValues => ({
+  customDomain: restaurant.customDomain || restaurant.domain || "",
+  dnsTarget: restaurant.dnsTarget || pixelOneSubdomainBase,
+  domainNotes: restaurant.domainNotes || "",
+  domainStatus: restaurant.domainStatus || "not_configured",
+  domainType: restaurant.domainType || "pixelone_path",
+  domainVerifiedAt: toDateTimeInputValue(restaurant.domainVerifiedAt),
+  subdomain: restaurant.subdomain || "",
+});
+
+const getPublicPreviewPath = (restaurant: Pick<Restaurant, "slug">) =>
+  restaurant.slug ? `/r/${restaurant.slug}` : "غير متوفر";
+
+const getPlannedDomainPreview = (values: AgencyDomainFormValues, slug: string) => {
+  if (values.domainType === "subdomain") {
+    return `${values.subdomain.trim().toLowerCase() || "client"}.${pixelOneSubdomainBase}`;
+  }
+
+  if (values.domainType === "custom_domain") {
+    return values.customDomain.trim().toLowerCase() || "www.clientdomain.ma";
+  }
+
+  return slug ? `/r/${slug}` : "/r/:slug";
+};
+
 const matchesSearch = (restaurant: Restaurant, query: string) => {
   const normalizedQuery = query.trim().toLowerCase();
 
@@ -243,6 +306,13 @@ const matchesSearch = (restaurant: Restaurant, query: string) => {
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const isValidSlug = (value: string) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
 const isValidOptionalPhone = (value: string) => !value.trim() || /^\+?[0-9\s().-]{6,50}$/.test(value.trim());
+const isValidSubdomain = (value: string) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
+const isValidCustomDomain = (value: string) =>
+  Boolean(value.trim()) &&
+  !/\s/.test(value) &&
+  !/^https?:\/\//i.test(value) &&
+  !/[/:?#]/.test(value) &&
+  /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i.test(value);
 
 const normalizeSlugInput = (value: string) =>
   value
@@ -301,12 +371,48 @@ const validateCreateClientForm = (values: CreateClientFormValues): CreateClientF
   return errors;
 };
 
+const validateDomainForm = (values: AgencyDomainFormValues): AgencyDomainFormErrors => {
+  const errors: AgencyDomainFormErrors = {};
+  const subdomain = values.subdomain.trim().toLowerCase();
+  const customDomain = values.customDomain.trim().toLowerCase().replace(/\.$/, "");
+
+  if (!domainTypes.includes(values.domainType)) {
+    errors.domainType = "نوع الدومين غير صالح";
+  }
+
+  if (!domainStatuses.includes(values.domainStatus)) {
+    errors.domainStatus = "حالة الدومين غير صالحة";
+  }
+
+  if (values.domainType === "subdomain" && !subdomain) {
+    errors.subdomain = "Subdomain مطلوب";
+  } else if (subdomain && !isValidSubdomain(subdomain)) {
+    errors.subdomain = "استخدم حروفًا إنجليزية صغيرة وأرقامًا وشرطات فقط";
+  }
+
+  if (values.domainType === "custom_domain" && !customDomain) {
+    errors.customDomain = "Custom domain مطلوب";
+  } else if (customDomain && !isValidCustomDomain(customDomain)) {
+    errors.customDomain = "اكتب الدومين بدون http:// أو https:// وبدون مسافات";
+  }
+
+  return errors;
+};
+
 const getControlsErrorMessage = (error: unknown) => {
   if (error instanceof RestaurantRepositoryError) {
     return error.message;
   }
 
   return "تعذر تحديث الباقة. تحقق من الصلاحيات أو الاتصال.";
+};
+
+const getDomainErrorMessage = (error: unknown) => {
+  if (error instanceof RestaurantRepositoryError) {
+    return error.message;
+  }
+
+  return "تعذر تحديث إعدادات الدومين. تحقق من البيانات أو صلاحيات Appwrite.";
 };
 
 export default function AgencyDashboard() {
@@ -330,6 +436,12 @@ export default function AgencyDashboard() {
   const [controlsError, setControlsError] = useState<string | null>(null);
   const [controlsSuccess, setControlsSuccess] = useState<string | null>(null);
   const [isSavingControls, setIsSavingControls] = useState(false);
+  const [domainRestaurant, setDomainRestaurant] = useState<Restaurant | null>(null);
+  const [domainValues, setDomainValues] = useState<AgencyDomainFormValues | null>(null);
+  const [domainErrors, setDomainErrors] = useState<AgencyDomainFormErrors>({});
+  const [domainError, setDomainError] = useState<string | null>(null);
+  const [domainSuccess, setDomainSuccess] = useState<string | null>(null);
+  const [isSavingDomain, setIsSavingDomain] = useState(false);
 
   const loadRestaurants = useCallback(async () => {
     setIsLoading(true);
@@ -429,6 +541,33 @@ export default function AgencyDashboard() {
     setControlsError(null);
   };
 
+  const openDomainModal = (restaurant: Restaurant) => {
+    setDomainRestaurant(restaurant);
+    setDomainValues(getAgencyDomainFormValues(restaurant));
+    setDomainErrors({});
+    setDomainError(null);
+  };
+
+  const closeDomainModal = () => {
+    if (isSavingDomain) {
+      return;
+    }
+
+    setDomainRestaurant(null);
+    setDomainValues(null);
+    setDomainErrors({});
+    setDomainError(null);
+  };
+
+  const updateDomainValue = <Key extends keyof AgencyDomainFormValues>(
+    key: Key,
+    value: AgencyDomainFormValues[Key],
+  ) => {
+    setDomainValues((current) => (current ? { ...current, [key]: value } : current));
+    setDomainErrors((current) => ({ ...current, [key]: undefined }));
+    setDomainError(null);
+  };
+
   const updateControlsValue = <Key extends keyof AgencyControlsFormValues>(
     key: Key,
     value: AgencyControlsFormValues[Key],
@@ -491,6 +630,56 @@ export default function AgencyDashboard() {
       setControlsError(getControlsErrorMessage(error));
     } finally {
       setIsSavingControls(false);
+    }
+  };
+
+  const handleDomainSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!domainRestaurant || !domainValues) {
+      return;
+    }
+
+    const normalizedValues: AgencyDomainFormValues = {
+      ...domainValues,
+      customDomain: domainValues.customDomain.trim().toLowerCase().replace(/\.$/, ""),
+      dnsTarget: domainValues.dnsTarget.trim(),
+      domainNotes: domainValues.domainNotes.trim(),
+      subdomain: domainValues.subdomain.trim().toLowerCase(),
+    };
+    const nextErrors = validateDomainForm(normalizedValues);
+    setDomainValues(normalizedValues);
+    setDomainErrors(nextErrors);
+
+    if (Object.keys(nextErrors).length > 0) {
+      return;
+    }
+
+    setIsSavingDomain(true);
+    setDomainError(null);
+    setDomainSuccess(null);
+
+    try {
+      const updatedRestaurant = await updateRestaurantDomainSettings(domainRestaurant.id, {
+        customDomain: normalizedValues.customDomain || null,
+        dnsTarget: normalizedValues.dnsTarget || null,
+        domainNotes: normalizedValues.domainNotes || null,
+        domainStatus: normalizedValues.domainStatus,
+        domainType: normalizedValues.domainType,
+        domainVerifiedAt: fromDateTimeInputValue(normalizedValues.domainVerifiedAt) ?? null,
+        subdomain: normalizedValues.subdomain || null,
+      });
+
+      setRestaurants((current) =>
+        current.map((restaurant) => (restaurant.id === updatedRestaurant.id ? updatedRestaurant : restaurant)),
+      );
+      setDomainSuccess("تم تحديث إعدادات الدومين بنجاح.");
+      setDomainRestaurant(null);
+      setDomainValues(null);
+    } catch (error) {
+      setDomainError(getDomainErrorMessage(error));
+    } finally {
+      setIsSavingDomain(false);
     }
   };
 
@@ -651,6 +840,7 @@ export default function AgencyDashboard() {
 
       {createClientSuccess ? <div className="admin-feedback admin-feedback--success">{createClientSuccess}</div> : null}
       {controlsSuccess ? <div className="admin-feedback admin-feedback--success">{controlsSuccess}</div> : null}
+      {domainSuccess ? <div className="admin-feedback admin-feedback--success">{domainSuccess}</div> : null}
 
       <section className="agency-toolbar" aria-label="بحث وتصفية المواقع">
         <label className="agency-search">
@@ -753,6 +943,22 @@ export default function AgencyDashboard() {
                     <span>تاريخ الإنشاء</span>
                     <strong>{formatDate(restaurant.createdAt)}</strong>
                   </div>
+                  <div>
+                    <span>الرابط الحالي</span>
+                    <strong dir="ltr">{getPublicPreviewPath(restaurant)}</strong>
+                  </div>
+                  <div>
+                    <span>نوع الدومين</span>
+                    <strong>{domainTypeLabels[restaurant.domainType]}</strong>
+                  </div>
+                  <div>
+                    <span>حالة الدومين</span>
+                    <strong>{domainStatusLabels[restaurant.domainStatus]}</strong>
+                  </div>
+                  <div>
+                    <span>الرابط المخطط</span>
+                    <strong dir="ltr">{getPlannedDomainPreview(getAgencyDomainFormValues(restaurant), restaurant.slug)}</strong>
+                  </div>
                 </div>
 
                 <div className="agency-restaurant-card__actions">
@@ -783,6 +989,13 @@ export default function AgencyDashboard() {
                     onClick={() => openControlsModal(restaurant)}
                   >
                     إدارة الباقة
+                  </AdminActionButton>
+                  <AdminActionButton
+                    variant="secondary"
+                    icon={<Globe2 size={17} aria-hidden="true" />}
+                    onClick={() => openDomainModal(restaurant)}
+                  >
+                    إدارة الدومين
                   </AdminActionButton>
                 </div>
               </article>
@@ -951,6 +1164,145 @@ export default function AgencyDashboard() {
             </AdminActionButton>
           </div>
         </form>
+      </AdminFormModal>
+
+      <AdminFormModal
+        isOpen={Boolean(domainRestaurant && domainValues)}
+        title="إدارة الدومين"
+        description={
+          domainRestaurant
+            ? `إدارة بيانات رابط ${domainRestaurant.nameAr || domainRestaurant.name}. هذه المرحلة لا تفعل DNS أو routing حقيقي.`
+            : "إدارة بيانات رابط العميل."
+        }
+        onClose={closeDomainModal}
+        size="lg"
+      >
+        {domainValues && domainRestaurant ? (
+          <form className="admin-dish-form" onSubmit={handleDomainSubmit} noValidate>
+            {domainError ? <div className="admin-feedback admin-feedback--error">{domainError}</div> : null}
+
+            <div className="admin-form-grid">
+              <label>
+                <span>نوع الرابط</span>
+                <select
+                  value={domainValues.domainType}
+                  onChange={(event) => updateDomainValue("domainType", event.target.value as DomainType)}
+                  aria-invalid={Boolean(domainErrors.domainType)}
+                >
+                  {domainTypes.map((type) => (
+                    <option value={type} key={type}>
+                      {domainTypeLabels[type]}
+                    </option>
+                  ))}
+                </select>
+                {domainErrors.domainType ? <small>{domainErrors.domainType}</small> : null}
+              </label>
+
+              <label>
+                <span>حالة الدومين</span>
+                <select
+                  value={domainValues.domainStatus}
+                  onChange={(event) => updateDomainValue("domainStatus", event.target.value as DomainStatus)}
+                  aria-invalid={Boolean(domainErrors.domainStatus)}
+                >
+                  {domainStatuses.map((status) => (
+                    <option value={status} key={status}>
+                      {domainStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+                {domainErrors.domainStatus ? <small>{domainErrors.domainStatus}</small> : null}
+              </label>
+
+              <label>
+                <span>Subdomain</span>
+                <input
+                  value={domainValues.subdomain}
+                  onChange={(event) => updateDomainValue("subdomain", event.target.value.trim().toLowerCase())}
+                  aria-invalid={Boolean(domainErrors.subdomain)}
+                  dir="ltr"
+                  placeholder="pizza-rabat"
+                />
+                {domainErrors.subdomain ? <small>{domainErrors.subdomain}</small> : null}
+              </label>
+
+              <label>
+                <span>Custom domain</span>
+                <input
+                  value={domainValues.customDomain}
+                  onChange={(event) => updateDomainValue("customDomain", event.target.value.trim().toLowerCase())}
+                  aria-invalid={Boolean(domainErrors.customDomain)}
+                  dir="ltr"
+                  placeholder="www.pizzarabat.ma"
+                />
+                {domainErrors.customDomain ? <small>{domainErrors.customDomain}</small> : null}
+              </label>
+
+              <label>
+                <span>DNS target</span>
+                <input
+                  value={domainValues.dnsTarget}
+                  onChange={(event) => updateDomainValue("dnsTarget", event.target.value)}
+                  dir="ltr"
+                  placeholder="سيتم تحديده بعد اختيار الاستضافة النهائية"
+                />
+              </label>
+
+              <label>
+                <span>وقت التحقق</span>
+                <input
+                  type="datetime-local"
+                  value={domainValues.domainVerifiedAt}
+                  onChange={(event) => updateDomainValue("domainVerifiedAt", event.target.value)}
+                />
+              </label>
+
+              <label className="admin-form-grid__wide">
+                <span>ملاحظات داخلية</span>
+                <textarea
+                  value={domainValues.domainNotes}
+                  onChange={(event) => updateDomainValue("domainNotes", event.target.value)}
+                  rows={3}
+                />
+              </label>
+
+              <div className="agency-plan-summary admin-form-grid__wide">
+                <span>معاينة الرابط</span>
+                <strong dir="ltr">{getPlannedDomainPreview(domainValues, domainRestaurant.slug)}</strong>
+                <p>
+                  المعاينة الأساسية الآمنة ما زالت تفتح {getPublicPreviewPath(domainRestaurant)} إلى حين تفعيل resolver للدومينات.
+                </p>
+              </div>
+
+              <div className="agency-plan-summary admin-form-grid__wide">
+                <span>تعليمات مبدئية</span>
+                {domainValues.domainType === "subdomain" ? (
+                  <p>
+                    هذا الخيار يحتاج لاحقًا إعداد wildcard domain مثل *.pixelonevisuals.tech. حاليًا الرابط الرسمي المتاح هو{" "}
+                    {getPublicPreviewPath(domainRestaurant)}.
+                  </p>
+                ) : null}
+                {domainValues.domainType === "custom_domain" ? (
+                  <p>
+                    يتطلب هذا الخيار إعداد DNS لدى مزود الدومين. أضف CNAME من www إلى target الذي سنحدده بعد تثبيت الاستضافة، أو اتبع تعليمات منصة الاستضافة عند التفعيل.
+                  </p>
+                ) : null}
+                {domainValues.domainType === "pixelone_path" ? (
+                  <p>هذا هو الرابط المجاني الحالي داخل المنصة ولا يحتاج إعداد DNS.</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="admin-dish-form__actions">
+              <AdminActionButton variant="ghost" onClick={closeDomainModal} disabled={isSavingDomain}>
+                إلغاء
+              </AdminActionButton>
+              <AdminActionButton variant="primary" type="submit" disabled={isSavingDomain}>
+                {isSavingDomain ? "جارٍ الحفظ..." : "حفظ إعدادات الدومين"}
+              </AdminActionButton>
+            </div>
+          </form>
+        ) : null}
       </AdminFormModal>
 
       <AdminFormModal

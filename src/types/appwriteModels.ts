@@ -10,6 +10,8 @@ export type {
   ClientPlan,
   ColorTheme,
   Dish,
+  DomainStatus,
+  DomainType,
   FAQItem,
   FeatureFlagKey,
   FeatureFlags,
