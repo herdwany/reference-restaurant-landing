@@ -400,4 +400,14 @@ Security constraints:
 - Added `npm run build:production` as a production build alias.
 - No routing, schema, Function logic, repositories, feature gates, billing, payment, viaSocket, subdomain resolver, or custom domain resolver was added.
 
-Next planned phase: Phase 9J - Subdomain resolver after hosting decision.
+## Phase 10 - First Client Sales Package
+
+- Added `docs/sales/` with sales and onboarding material for the first local restaurant client.
+- Added offer packages for Starter, Pro, Premium, and Managed.
+- Added client-facing included/not-included scope notes.
+- Added first-client onboarding checklist and demo script.
+- Added outreach messages in simple Arabic and light Moroccan Darija.
+- Added client data checklist, support policy, and Morocco pricing notes.
+- No React UI, Appwrite schema, Functions, billing, payment, viaSocket, subdomain resolver, or custom domain resolver changes were added.
+
+Next planned phase: Phase 10B - First client demo PDF/one-page proposal.

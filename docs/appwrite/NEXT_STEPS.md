@@ -421,3 +421,17 @@ Security constraints:
 
 - Phase 9J: Subdomain resolver after hosting decision.
 - Phase 9K: Custom domain resolver after DNS strategy.
+
+## Phase 10 - Completed
+
+- Added `docs/sales/OFFER_PACKAGES.md`.
+- Added `docs/sales/WHAT_IS_INCLUDED.md`.
+- Added `docs/sales/WHAT_IS_NOT_INCLUDED.md`.
+- Added `docs/sales/FIRST_CLIENT_ONBOARDING.md`.
+- Added `docs/sales/DEMO_SCRIPT.md`.
+- Added `docs/sales/OUTREACH_MESSAGES.md`.
+- Added `docs/sales/CLIENT_DATA_CHECKLIST.md`.
+- Added `docs/sales/SUPPORT_POLICY.md`.
+- Added `docs/sales/PRICING_NOTES_MOROCCO.md`.
+- Phase 10 is sales and operations documentation only.
+- No React UI, Appwrite schema, Functions, billing, payment, viaSocket, subdomain resolver, or custom domain resolver changes were added.
