@@ -10,6 +10,7 @@ import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
 import { useAuth } from "../../context/AuthContext";
 import { defaultRestaurantConfig } from "../../data/restaurantConfig";
+import { canCurrentUserBypassFeatureGate } from "../../lib/featureAccess";
 import {
   RestaurantRepositoryError,
   getRestaurantById,
@@ -199,7 +200,45 @@ const isAcceptableUrl = (value: string) => {
 const isAcceptableEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const isHexColor = (value: string) => /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);
 
-const validateSettingsForm = (values: SettingsFormValues): SettingsFormErrors => {
+const brandSettingKeys = [
+  "logoFileId",
+  "logoPreviewUrl",
+  "heroImageFileId",
+  "heroImageUrl",
+  "heroPreviewUrl",
+  "primaryColor",
+  "secondaryColor",
+  "accentColor",
+  "successColor",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const advancedSettingKeys = [
+  "currency",
+  "language",
+  "direction",
+  "orderMode",
+  "reservationMode",
+  "showHero",
+  "showTrustBadges",
+  "showFeaturedDishes",
+  "showOffers",
+  "showGallery",
+  "showTestimonials",
+  "showActionGrid",
+  "showFaq",
+  "showFooter",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const hasChangedFields = (
+  keys: readonly (keyof SettingsFormValues)[],
+  current: SettingsFormValues,
+  persisted: SettingsFormValues,
+) => keys.some((key) => current[key] !== persisted[key]);
+
+const validateSettingsForm = (
+  values: SettingsFormValues,
+  options: { canSaveAdvancedTheme: boolean; canSaveBrand: boolean },
+): SettingsFormErrors => {
   const errors: SettingsFormErrors = {};
 
   if (!values.name.trim() && !values.nameAr.trim()) {
@@ -218,49 +257,57 @@ const validateSettingsForm = (values: SettingsFormValues): SettingsFormErrors =>
     errors.mapsUrl = "رابط الخريطة يجب أن يكون URL صالحًا";
   }
 
-  if (values.heroImageUrl.trim() && !isAcceptableUrl(values.heroImageUrl.trim())) {
+  if (options.canSaveBrand && values.heroImageUrl.trim() && !isAcceptableUrl(values.heroImageUrl.trim())) {
     errors.heroImageUrl = "رابط صورة الواجهة يجب أن يكون URL صالحًا";
   }
 
-  for (const colorKey of ["primaryColor", "secondaryColor", "accentColor", "successColor"] as const) {
-    if (values[colorKey].trim() && !isHexColor(values[colorKey].trim())) {
-      errors[colorKey] = "اللون يجب أن يكون hex مثل #E51B2B";
+  if (options.canSaveBrand) {
+    for (const colorKey of ["primaryColor", "secondaryColor", "accentColor", "successColor"] as const) {
+      if (values[colorKey].trim() && !isHexColor(values[colorKey].trim())) {
+        errors[colorKey] = "اللون يجب أن يكون hex مثل #E51B2B";
+      }
     }
   }
 
-  if (!directions.includes(values.direction)) {
-    errors.direction = "اتجاه الموقع يجب أن يكون rtl أو ltr";
-  }
+  if (options.canSaveAdvancedTheme) {
+    if (!directions.includes(values.direction)) {
+      errors.direction = "اتجاه الموقع يجب أن يكون rtl أو ltr";
+    }
 
-  if (!orderModes.includes(values.orderMode)) {
-    errors.orderMode = "وضع الطلب غير صالح";
-  }
+    if (!orderModes.includes(values.orderMode)) {
+      errors.orderMode = "وضع الطلب غير صالح";
+    }
 
-  if (!reservationModes.includes(values.reservationMode)) {
-    errors.reservationMode = "وضع الحجز غير صالح";
+    if (!reservationModes.includes(values.reservationMode)) {
+      errors.reservationMode = "وضع الحجز غير صالح";
+    }
   }
 
   return errors;
 };
 
-const toRestaurantContactInput = (values: SettingsFormValues): RestaurantContactInput => ({
+const toRestaurantContactInput = (
+  values: SettingsFormValues,
+  persistedValues: SettingsFormValues,
+  canSaveBrand: boolean,
+): RestaurantContactInput => ({
   name: values.name.trim(),
   nameAr: values.nameAr.trim(),
   tagline: values.tagline.trim(),
   description: values.description.trim(),
-  logoFileId: values.logoFileId.trim() || undefined,
-  heroImageFileId: values.heroImageFileId.trim() || undefined,
-  heroImageUrl: values.heroImageUrl.trim() || undefined,
+  logoFileId: (canSaveBrand ? values.logoFileId : persistedValues.logoFileId).trim() || undefined,
+  heroImageFileId: (canSaveBrand ? values.heroImageFileId : persistedValues.heroImageFileId).trim() || undefined,
+  heroImageUrl: (canSaveBrand ? values.heroImageUrl : persistedValues.heroImageUrl).trim() || undefined,
   phone: values.phone.trim(),
   whatsappNumber: values.whatsappNumber.trim(),
   email: values.email.trim() || undefined,
   address: values.address.trim(),
   mapsUrl: values.mapsUrl.trim() || undefined,
   workingHours: values.workingHours.trim(),
-  primaryColor: values.primaryColor.trim(),
-  secondaryColor: values.secondaryColor.trim(),
-  accentColor: values.accentColor.trim(),
-  successColor: values.successColor.trim(),
+  primaryColor: (canSaveBrand ? values.primaryColor : persistedValues.primaryColor).trim(),
+  secondaryColor: (canSaveBrand ? values.secondaryColor : persistedValues.secondaryColor).trim(),
+  accentColor: (canSaveBrand ? values.accentColor : persistedValues.accentColor).trim(),
+  successColor: (canSaveBrand ? values.successColor : persistedValues.successColor).trim(),
 });
 
 const toSiteSettingsInput = (values: SettingsFormValues): SiteSettingsMutationInput => ({
@@ -295,13 +342,20 @@ export default function AdminSettings() {
     activeRestaurantName,
     canAccessFeature,
     canManageRestaurantContent,
+    clientHasFeature,
+    role,
     scopeError,
   } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const { refreshProfile } = useAuth();
-  const canCustomizeBrand = canAccessFeature("canCustomizeBrand");
-  const canUseAdvancedTheme = canAccessFeature("canUseAdvancedTheme");
-  const [formValues, setFormValues] = useState<SettingsFormValues>(getSettingsFormValues(activeRestaurant, null));
+  const isAgencyAdminBypass = canCurrentUserBypassFeatureGate(role);
+  const canSaveBrand = canAccessFeature("canCustomizeBrand") || isAgencyAdminBypass;
+  const canSaveAdvancedTheme = canAccessFeature("canUseAdvancedTheme") || isAgencyAdminBypass;
+  const clientCanCustomizeBrand = clientHasFeature("canCustomizeBrand");
+  const clientCanUseAdvancedTheme = clientHasFeature("canUseAdvancedTheme");
+  const initialSettingsFormValues = getSettingsFormValues(activeRestaurant, null);
+  const [formValues, setFormValues] = useState<SettingsFormValues>(initialSettingsFormValues);
+  const [persistedValues, setPersistedValues] = useState<SettingsFormValues>(initialSettingsFormValues);
   const [formErrors, setFormErrors] = useState<SettingsFormErrors>({});
   const [pageError, setPageError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -318,7 +372,9 @@ export default function AdminSettings() {
 
     try {
       const [restaurant, settings] = await Promise.all([getRestaurantById(activeRestaurantId), getSiteSettings(activeRestaurantId)]);
-      setFormValues(getSettingsFormValues(restaurant ?? activeRestaurant, settings));
+      const nextValues = getSettingsFormValues(restaurant ?? activeRestaurant, settings);
+      setFormValues(nextValues);
+      setPersistedValues(nextValues);
     } catch (error) {
       setPageError(getErrorMessage(error));
     } finally {
@@ -328,7 +384,9 @@ export default function AdminSettings() {
 
   useEffect(() => {
     if (!canManageRestaurantContent || !activeRestaurantId) {
-      setFormValues(getSettingsFormValues(activeRestaurant, null));
+      const nextValues = getSettingsFormValues(activeRestaurant, null);
+      setFormValues(nextValues);
+      setPersistedValues(nextValues);
       return;
     }
 
@@ -345,7 +403,7 @@ export default function AdminSettings() {
     setPageError(null);
     setSuccessMessage(null);
 
-    const nextErrors = validateSettingsForm(formValues);
+    const nextErrors = validateSettingsForm(formValues, { canSaveAdvancedTheme, canSaveBrand });
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -357,31 +415,49 @@ export default function AdminSettings() {
       return;
     }
 
+    if (!canSaveBrand && hasChangedFields(brandSettingKeys, formValues, persistedValues)) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      return;
+    }
+
+    if (!canSaveAdvancedTheme && hasChangedFields(advancedSettingKeys, formValues, persistedValues)) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      return;
+    }
+
     setIsSaving(true);
 
     try {
-      const [savedRestaurant, savedSettings] = await Promise.all([
-        updateRestaurantContact(activeRestaurantId, toRestaurantContactInput(formValues)),
-        upsertSiteSettings(activeRestaurantId, toSiteSettingsInput(formValues)),
-      ]);
+      const savedRestaurant = await updateRestaurantContact(activeRestaurantId, toRestaurantContactInput(formValues, persistedValues, canSaveBrand));
+      const savedSettings = canSaveAdvancedTheme ? await upsertSiteSettings(activeRestaurantId, toSiteSettingsInput(formValues)) : null;
+      const nextValues = savedSettings
+        ? getSettingsFormValues(savedRestaurant, savedSettings)
+        : {
+            ...persistedValues,
+            ...getSettingsFormValues(savedRestaurant, null),
+            ...Object.fromEntries(advancedSettingKeys.map((key) => [key, persistedValues[key]])),
+          };
 
-      setFormValues(getSettingsFormValues(savedRestaurant, savedSettings));
+      setFormValues(nextValues);
+      setPersistedValues(nextValues);
       logAction({
         action: "contact_update",
         entityType: "settings",
         entityId: savedRestaurant.id,
         metadata: { name: savedRestaurant.nameAr || savedRestaurant.name },
       });
-      logAction({
-        action: "settings_update",
-        entityType: "settings",
-        entityId: savedSettings.id,
-        metadata: {
-          direction: savedSettings.direction,
-          orderMode: savedSettings.orderMode,
-          reservationMode: savedSettings.reservationMode,
-        },
-      });
+      if (savedSettings) {
+        logAction({
+          action: "settings_update",
+          entityType: "settings",
+          entityId: savedSettings.id,
+          metadata: {
+            direction: savedSettings.direction,
+            orderMode: savedSettings.orderMode,
+            reservationMode: savedSettings.reservationMode,
+          },
+        });
+      }
       setSuccessMessage("تم حفظ الإعدادات بنجاح");
       void refreshProfile();
     } catch (error) {
@@ -432,9 +508,14 @@ export default function AdminSettings() {
         <form className="admin-settings-form" onSubmit={handleSubmit} noValidate>
           {successMessage ? <div className="admin-feedback admin-feedback--success">{successMessage}</div> : null}
           {pageError ? <div className="admin-feedback admin-feedback--error">{pageError}</div> : null}
-          {!canCustomizeBrand ? (
+          {!canSaveBrand ? (
             <div className="admin-feedback admin-feedback--error">
-              هذه الميزة غير متاحة في باقتك الحالية. يمكنك تعديل الأساسيات فقط. تواصل مع Pixel One لتفعيل تخصيص الهوية.
+              تخصيص الهوية غير متاح في باقتك الحالية. يمكنك تعديل الأساسيات فقط. تواصل مع Pixel One لتفعيل هذه الميزة.
+            </div>
+          ) : null}
+          {isAgencyAdminBypass && (!clientCanCustomizeBrand || !clientCanUseAdvancedTheme) ? (
+            <div className="admin-feedback admin-feedback--success">
+              وضع الوكالة مفعّل: يمكنك تعديل الإعدادات، مع أن بعض ميزات التخصيص غير مفعلة في باقة العميل.
             </div>
           ) : null}
 
@@ -522,7 +603,7 @@ export default function AdminSettings() {
             </div>
           </AdminCard>
 
-          {canCustomizeBrand ? (
+          {canSaveBrand ? (
             <>
               <AdminCard className="admin-settings-section">
                 <div className="admin-settings-section__header">
@@ -612,88 +693,118 @@ export default function AdminSettings() {
                 </div>
               </AdminCard>
             </>
-          ) : null}
-
-          <AdminCard className="admin-settings-section">
-            <div className="admin-settings-section__header">
-              <Settings size={20} aria-hidden="true" />
-              <div>
-                <h3>إعدادات الموقع</h3>
-                <p>العملة واللغة واتجاه الواجهة وأنماط الطلب والحجز.</p>
+          ) : (
+            <AdminCard className="admin-settings-section">
+              <div className="admin-settings-section__header">
+                <ImageIcon size={20} aria-hidden="true" />
+                <div>
+                  <h3>الهوية</h3>
+                  <p>الألوان والشعار وصورة الواجهة الرئيسية.</p>
+                </div>
               </div>
-            </div>
-            <div className="admin-form-grid">
-              <label>
-                <span>العملة</span>
-                <input value={formValues.currency} onChange={(event) => updateFormValue("currency", event.target.value)} placeholder="د.م" />
-              </label>
-              <label>
-                <span>اللغة</span>
-                <input value={formValues.language} onChange={(event) => updateFormValue("language", event.target.value)} placeholder="ar" />
-              </label>
-              <label>
-                <span>اتجاه الموقع</span>
-                <select value={formValues.direction} onChange={(event) => updateFormValue("direction", event.target.value as SiteDirection)} aria-invalid={Boolean(formErrors.direction)}>
-                  {directions.map((direction) => (
-                    <option value={direction} key={direction}>
-                      {direction}
-                    </option>
-                  ))}
-                </select>
-                {renderFieldError("direction")}
-              </label>
-              <label>
-                <span>وضع الطلب</span>
-                <select value={formValues.orderMode} onChange={(event) => updateFormValue("orderMode", event.target.value as OrderMode)} aria-invalid={Boolean(formErrors.orderMode)}>
-                  {orderModes.map((mode) => (
-                    <option value={mode} key={mode}>
-                      {modeLabels[mode]}
-                    </option>
-                  ))}
-                </select>
-                {renderFieldError("orderMode")}
-              </label>
-              <label>
-                <span>وضع الحجز</span>
-                <select
-                  value={formValues.reservationMode}
-                  onChange={(event) => updateFormValue("reservationMode", event.target.value as ReservationMode)}
-                  aria-invalid={Boolean(formErrors.reservationMode)}
-                >
-                  {reservationModes.map((mode) => (
-                    <option value={mode} key={mode}>
-                      {modeLabels[mode]}
-                    </option>
-                  ))}
-                </select>
-                {renderFieldError("reservationMode")}
-              </label>
-            </div>
-          </AdminCard>
+              <AdminErrorState
+                title="تخصيص الهوية غير متاح في باقتك الحالية."
+                message="تواصل مع Pixel One لتفعيل هذه الميزة."
+              />
+            </AdminCard>
+          )}
 
-          {canUseAdvancedTheme ? (
-          <AdminCard className="admin-settings-section">
-            <div className="admin-settings-section__header">
-              <Settings size={20} aria-hidden="true" />
-              <div>
-                <h3>إظهار وإخفاء الأقسام</h3>
-                <p>تحكم في الأقسام التي تظهر في الموقع العام.</p>
+          {canSaveAdvancedTheme ? (
+            <>
+              <AdminCard className="admin-settings-section">
+                <div className="admin-settings-section__header">
+                  <Settings size={20} aria-hidden="true" />
+                  <div>
+                    <h3>إعدادات الموقع</h3>
+                    <p>العملة واللغة واتجاه الواجهة وأنماط الطلب والحجز.</p>
+                  </div>
+                </div>
+                <div className="admin-form-grid">
+                  <label>
+                    <span>العملة</span>
+                    <input value={formValues.currency} onChange={(event) => updateFormValue("currency", event.target.value)} placeholder="د.م" />
+                  </label>
+                  <label>
+                    <span>اللغة</span>
+                    <input value={formValues.language} onChange={(event) => updateFormValue("language", event.target.value)} placeholder="ar" />
+                  </label>
+                  <label>
+                    <span>اتجاه الموقع</span>
+                    <select value={formValues.direction} onChange={(event) => updateFormValue("direction", event.target.value as SiteDirection)} aria-invalid={Boolean(formErrors.direction)}>
+                      {directions.map((direction) => (
+                        <option value={direction} key={direction}>
+                          {direction}
+                        </option>
+                      ))}
+                    </select>
+                    {renderFieldError("direction")}
+                  </label>
+                  <label>
+                    <span>وضع الطلب</span>
+                    <select value={formValues.orderMode} onChange={(event) => updateFormValue("orderMode", event.target.value as OrderMode)} aria-invalid={Boolean(formErrors.orderMode)}>
+                      {orderModes.map((mode) => (
+                        <option value={mode} key={mode}>
+                          {modeLabels[mode]}
+                        </option>
+                      ))}
+                    </select>
+                    {renderFieldError("orderMode")}
+                  </label>
+                  <label>
+                    <span>وضع الحجز</span>
+                    <select
+                      value={formValues.reservationMode}
+                      onChange={(event) => updateFormValue("reservationMode", event.target.value as ReservationMode)}
+                      aria-invalid={Boolean(formErrors.reservationMode)}
+                    >
+                      {reservationModes.map((mode) => (
+                        <option value={mode} key={mode}>
+                          {modeLabels[mode]}
+                        </option>
+                      ))}
+                    </select>
+                    {renderFieldError("reservationMode")}
+                  </label>
+                </div>
+              </AdminCard>
+
+              <AdminCard className="admin-settings-section">
+                <div className="admin-settings-section__header">
+                  <Settings size={20} aria-hidden="true" />
+                  <div>
+                    <h3>إظهار وإخفاء الأقسام</h3>
+                    <p>تحكم في الأقسام التي تظهر في الموقع العام.</p>
+                  </div>
+                </div>
+                <div className="admin-toggle-grid">
+                  {sectionToggles.map((item) => (
+                    <label className="admin-toggle-row" key={item.key}>
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formValues[item.key])}
+                        onChange={(event) => updateFormValue(item.key, event.target.checked)}
+                      />
+                      <span>{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </AdminCard>
+            </>
+          ) : (
+            <AdminCard className="admin-settings-section">
+              <div className="admin-settings-section__header">
+                <Settings size={20} aria-hidden="true" />
+                <div>
+                  <h3>الإعدادات المتقدمة</h3>
+                  <p>أنماط الموقع وإظهار وإخفاء الأقسام.</p>
+                </div>
               </div>
-            </div>
-            <div className="admin-toggle-grid">
-              {sectionToggles.map((item) => (
-                <label className="admin-toggle-row" key={item.key}>
-                  <input
-                    type="checkbox"
-                    checked={Boolean(formValues[item.key])}
-                    onChange={(event) => updateFormValue(item.key, event.target.checked)}
-                  />
-                  <span>{item.label}</span>
-                </label>
-              ))}
-            </div>
-          </AdminCard>
-          ) : null}
+              <AdminErrorState
+                title="هذه الميزة غير متاحة في باقتك الحالية."
+                message="تواصل مع Pixel One لتفعيل هذه الميزة."
+              />
+            </AdminCard>
+          )}
 
           <div className="admin-settings-form__actions">
             <AdminActionButton variant="primary" type="submit" icon={<Save size={18} aria-hidden="true" />} disabled={isSaving}>

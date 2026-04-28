@@ -27,12 +27,14 @@ export const isRestaurantSuspended = (restaurant: Pick<Restaurant, "status"> | n
 export const isPublicRestaurantUnavailable = (status: RestaurantStatus | undefined) =>
   status === "draft" || status === "suspended" || status === "cancelled";
 
+export const canCurrentUserBypassFeatureGate = (role?: UserRole | null) => role === "agency_admin";
+
 export const canAccessAdminFeature = (
   restaurant: Pick<Restaurant, "features" | "plan" | "status"> | null | undefined,
   featureKey: FeatureFlagKey,
   role?: UserRole | null,
 ) => {
-  if (role === "agency_admin") {
+  if (canCurrentUserBypassFeatureGate(role)) {
     return true;
   }
 

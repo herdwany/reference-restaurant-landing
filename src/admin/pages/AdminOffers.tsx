@@ -218,7 +218,7 @@ export default function AdminOffers() {
   const activeCount = useMemo(() => offers.filter((offer) => offer.isActive).length, [offers]);
 
   const loadOffers = useCallback(async () => {
-    if (!activeRestaurantId) {
+    if (!canUseOffers || !activeRestaurantId) {
       return;
     }
 
@@ -233,7 +233,7 @@ export default function AdminOffers() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, canUseOffers]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseOffers || !activeRestaurantId) {
@@ -245,6 +245,11 @@ export default function AdminOffers() {
   }, [activeRestaurantId, canManageRestaurantContent, canUseOffers, loadOffers]);
 
   const openCreateModal = () => {
+    if (!canUseOffers) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     setFormMode({ type: "create" });
     setFormValues(emptyOfferFormValues);
     setFormErrors({});
@@ -252,6 +257,11 @@ export default function AdminOffers() {
   };
 
   const openEditModal = (offer: Offer) => {
+    if (!canUseOffers) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     setFormMode({ type: "edit", offer });
     setFormValues(getOfferFormValues(offer));
     setFormErrors({});
@@ -282,6 +292,11 @@ export default function AdminOffers() {
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
+      return;
+    }
+
+    if (!canUseOffers) {
+      setFormError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
 
@@ -327,6 +342,11 @@ export default function AdminOffers() {
   };
 
   const handleToggleActive = async (offer: Offer) => {
+    if (!canUseOffers) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      return;
+    }
+
     if (!activeRestaurantId) {
       setPageError("تعذر تحديد المطعم الحالي.");
       return;
@@ -355,6 +375,11 @@ export default function AdminOffers() {
 
   const handleDeleteOffer = async () => {
     if (!pendingDeleteOffer) {
+      return;
+    }
+
+    if (!canUseOffers) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
 

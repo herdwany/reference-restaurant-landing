@@ -145,7 +145,7 @@ export default function AdminReservations() {
   }, [reservationDetails, reservations, selectedReservationId]);
 
   const loadReservations = useCallback(async () => {
-    if (!activeRestaurantId) {
+    if (!canUseReservations || !activeRestaurantId) {
       return;
     }
 
@@ -160,7 +160,7 @@ export default function AdminReservations() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, canUseReservations]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseReservations || !activeRestaurantId) {
@@ -174,6 +174,11 @@ export default function AdminReservations() {
   }, [activeRestaurantId, canManageRestaurantContent, canUseReservations, loadReservations]);
 
   const loadReservationDetails = async (reservation: Reservation) => {
+    if (!canUseReservations) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     if (!activeRestaurantId) {
       setPageError("تعذر تحديد المطعم الحالي.");
       return;
@@ -203,6 +208,11 @@ export default function AdminReservations() {
   };
 
   const handleStatusChange = async (reservation: Reservation, status: ReservationStatus) => {
+    if (!canUseReservations) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      return;
+    }
+
     if (reservation.status === status) {
       return;
     }

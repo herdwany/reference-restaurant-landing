@@ -1,6 +1,6 @@
 import { AppwriteException, Query, type Models } from "appwrite";
 import { databases } from "../../lib/appwriteClient";
-import { COLLECTIONS, DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
+import { COLLECTIONS, DATABASE_ID, TABLES, hasAppwriteDataConfig, isDevelopmentBuild } from "../../lib/appwriteIds";
 import type {
   BillingStatus,
   BusinessType,
@@ -115,6 +115,15 @@ type RestaurantContactRowData = {
   successColor: string;
 };
 
+type RestaurantAgencyControlsRowData = {
+  billingStatus: BillingStatus;
+  plan: ClientPlan;
+  status: RestaurantStatus;
+  subscriptionEndsAt?: string;
+  supportLevel: SupportLevel;
+  trialEndsAt?: string;
+};
+
 const clientPlans = ["starter", "pro", "premium", "managed"] as const satisfies readonly ClientPlan[];
 const billingStatuses = ["trial", "active", "overdue", "cancelled"] as const satisfies readonly BillingStatus[];
 const restaurantStatuses = ["draft", "active", "suspended", "cancelled"] as const satisfies readonly RestaurantStatus[];
@@ -131,6 +140,8 @@ const isKnownRestaurantStatus = (value: unknown): value is RestaurantStatus =>
 
 const isKnownSupportLevel = (value: unknown): value is SupportLevel =>
   typeof value === "string" && supportLevels.includes(value as SupportLevel);
+
+const normalizeEnumText = (value: string) => value.trim().toLowerCase();
 
 const parseRestaurantFeatures = (value: RestaurantRow["features"]): Partial<FeatureFlags> | undefined => {
   if (!value) {
@@ -235,11 +246,16 @@ const assertRestaurantId = (restaurantId: string) => {
 };
 
 const getWriteErrorMessage = (error: unknown) => {
+  const devDetails =
+    isDevelopmentBuild && error instanceof AppwriteException && error.message.trim()
+      ? ` تفاصيل Appwrite: ${error.message.trim()}`
+      : "";
+
   if (error instanceof AppwriteException && (error.code === 401 || error.code === 403)) {
-    return "تعذر حفظ بيانات المطعم. تحقق من تسجيل الدخول أو صلاحيات Appwrite.";
+    return `تعذر حفظ بيانات المطعم. تحقق من تسجيل الدخول أو صلاحيات Appwrite.${devDetails}`;
   }
 
-  return "تعذر حفظ بيانات المطعم. تحقق من الاتصال أو الصلاحيات.";
+  return `تعذر حفظ بيانات المطعم. تحقق من الاتصال أو الصلاحيات.${devDetails}`;
 };
 
 const getReadErrorMessage = (error: unknown) => {
@@ -297,29 +313,45 @@ export function getRestaurantStatsForAgency(restaurants: readonly Restaurant[]):
   );
 }
 
-const normalizeOptionalDatetime = (value: string | null | undefined) => {
+const normalizeOptionalDatetime = (value: string | null | undefined): string | undefined => {
   const trimmed = value?.trim();
-  return trimmed ? trimmed : null;
+  return trimmed ? trimmed : undefined;
 };
 
-const toRestaurantAgencyControlsRowData = (input: RestaurantAgencyControlsInput) => {
+const toRestaurantAgencyControlsRowData = (input: RestaurantAgencyControlsInput): RestaurantAgencyControlsRowData => {
+  const status = normalizeEnumText(input.status) as RestaurantStatus;
+  const plan = normalizeEnumText(input.plan) as ClientPlan;
+  const billingStatus = normalizeEnumText(input.billingStatus) as BillingStatus;
+  const supportLevel = normalizeEnumText(input.supportLevel) as SupportLevel;
+
   if (
-    !isKnownRestaurantStatus(input.status) ||
-    !isKnownClientPlan(input.plan) ||
-    !isKnownBillingStatus(input.billingStatus) ||
-    !isKnownSupportLevel(input.supportLevel)
+    !isKnownRestaurantStatus(status) ||
+    !isKnownClientPlan(plan) ||
+    !isKnownBillingStatus(billingStatus) ||
+    !isKnownSupportLevel(supportLevel)
   ) {
     throw new RestaurantRepositoryError("بيانات الباقة أو حالة المطعم غير صالحة.", "INVALID_INPUT");
   }
 
-  return {
-    status: input.status,
-    plan: input.plan,
-    billingStatus: input.billingStatus,
-    subscriptionEndsAt: normalizeOptionalDatetime(input.subscriptionEndsAt),
-    trialEndsAt: normalizeOptionalDatetime(input.trialEndsAt),
-    supportLevel: input.supportLevel,
+  const rowData: RestaurantAgencyControlsRowData = {
+    status,
+    plan,
+    billingStatus,
+    supportLevel,
   };
+
+  const subscriptionEndsAt = normalizeOptionalDatetime(input.subscriptionEndsAt);
+  const trialEndsAt = normalizeOptionalDatetime(input.trialEndsAt);
+
+  if (subscriptionEndsAt) {
+    rowData.subscriptionEndsAt = subscriptionEndsAt;
+  }
+
+  if (trialEndsAt) {
+    rowData.trialEndsAt = trialEndsAt;
+  }
+
+  return rowData;
 };
 
 // TODO Phase 9D hardening: this MVP update runs from the React Client SDK for agency_admin only.

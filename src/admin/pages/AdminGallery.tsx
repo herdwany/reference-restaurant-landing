@@ -143,7 +143,7 @@ export default function AdminGallery() {
   const visibleCount = useMemo(() => galleryItems.filter((item) => item.isVisible).length, [galleryItems]);
 
   const loadGalleryItems = useCallback(async () => {
-    if (!activeRestaurantId) {
+    if (!canUseGallery || !activeRestaurantId) {
       return;
     }
 
@@ -158,7 +158,7 @@ export default function AdminGallery() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, canUseGallery]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseGallery || !activeRestaurantId) {
@@ -170,6 +170,11 @@ export default function AdminGallery() {
   }, [activeRestaurantId, canManageRestaurantContent, canUseGallery, loadGalleryItems]);
 
   const openCreateModal = () => {
+    if (!canUseGallery) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     setFormMode({ type: "create" });
     setFormValues(emptyGalleryFormValues);
     setFormErrors({});
@@ -177,6 +182,11 @@ export default function AdminGallery() {
   };
 
   const openEditModal = (item: GalleryItem) => {
+    if (!canUseGallery) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     setFormMode({ type: "edit", item });
     setFormValues(getGalleryFormValues(item));
     setFormErrors({});
@@ -207,6 +217,11 @@ export default function AdminGallery() {
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
+      return;
+    }
+
+    if (!canUseGallery) {
+      setFormError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
 
@@ -252,6 +267,11 @@ export default function AdminGallery() {
   };
 
   const handleToggleVisibility = async (item: GalleryItem) => {
+    if (!canUseGallery) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      return;
+    }
+
     if (!activeRestaurantId) {
       setPageError("تعذر تحديد المطعم الحالي.");
       return;
@@ -280,6 +300,11 @@ export default function AdminGallery() {
 
   const handleDeleteGalleryItem = async () => {
     if (!pendingDeleteItem) {
+      return;
+    }
+
+    if (!canUseGallery) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
 

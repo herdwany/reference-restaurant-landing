@@ -213,11 +213,11 @@ const toDateTimeInputValue = (value: string | undefined) => {
 
 const fromDateTimeInputValue = (value: string) => {
   if (!value.trim()) {
-    return null;
+    return undefined;
   }
 
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 };
 
 const getAgencyControlsFormValues = (restaurant: Restaurant): AgencyControlsFormValues => ({
@@ -300,6 +300,14 @@ const validateCreateClientForm = (values: CreateClientFormValues): CreateClientF
   }
 
   return errors;
+};
+
+const getControlsErrorMessage = (error: unknown) => {
+  if (error instanceof RestaurantRepositoryError) {
+    return error.message;
+  }
+
+  return "تعذر تحديث الباقة. تحقق من الصلاحيات أو الاتصال.";
 };
 
 export default function AgencyDashboard() {
@@ -457,13 +465,15 @@ export default function AgencyDashboard() {
     setControlsSuccess(null);
 
     try {
+      const subscriptionEndsAt = fromDateTimeInputValue(controlsValues.subscriptionEndsAt);
+      const trialEndsAt = fromDateTimeInputValue(controlsValues.trialEndsAt);
       const updatedRestaurant = await updateRestaurantAgencyControls(controlsRestaurant.id, {
         billingStatus: controlsValues.billingStatus,
         plan: controlsValues.plan,
         status: controlsValues.status,
-        subscriptionEndsAt: fromDateTimeInputValue(controlsValues.subscriptionEndsAt),
         supportLevel: controlsValues.supportLevel,
-        trialEndsAt: fromDateTimeInputValue(controlsValues.trialEndsAt),
+        ...(subscriptionEndsAt ? { subscriptionEndsAt } : {}),
+        ...(trialEndsAt ? { trialEndsAt } : {}),
       });
 
       setRestaurants((current) =>
@@ -478,8 +488,8 @@ export default function AgencyDashboard() {
       setControlsSuccess("تم تحديث باقة العميل بنجاح.");
       setControlsRestaurant(null);
       setControlsValues(null);
-    } catch {
-      setControlsError("تعذر تحديث الباقة. تحقق من الصلاحيات أو الاتصال.");
+    } catch (error) {
+      setControlsError(getControlsErrorMessage(error));
     } finally {
       setIsSavingControls(false);
     }

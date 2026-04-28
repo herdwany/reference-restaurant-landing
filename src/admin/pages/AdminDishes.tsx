@@ -194,7 +194,7 @@ export default function AdminDishes() {
   const availableCount = useMemo(() => dishes.filter((dish) => dish.isAvailable).length, [dishes]);
 
   const loadDishes = useCallback(async () => {
-    if (!activeRestaurantId) {
+    if (!canUseDishes || !activeRestaurantId) {
       return;
     }
 
@@ -209,7 +209,7 @@ export default function AdminDishes() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, canUseDishes]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseDishes || !activeRestaurantId) {
@@ -221,6 +221,11 @@ export default function AdminDishes() {
   }, [activeRestaurantId, canManageRestaurantContent, canUseDishes, loadDishes]);
 
   const openCreateModal = () => {
+    if (!canUseDishes) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     setFormMode({ type: "create" });
     setFormValues(emptyDishFormValues);
     setFormErrors({});
@@ -228,6 +233,11 @@ export default function AdminDishes() {
   };
 
   const openEditModal = (dish: Dish) => {
+    if (!canUseDishes) {
+      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      return;
+    }
+
     setFormMode({ type: "edit", dish });
     setFormValues(getDishFormValues(dish));
     setFormErrors({});
@@ -258,6 +268,11 @@ export default function AdminDishes() {
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
+      return;
+    }
+
+    if (!canUseDishes) {
+      setFormError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
 
@@ -303,6 +318,11 @@ export default function AdminDishes() {
   };
 
   const handleToggleAvailability = async (dish: Dish) => {
+    if (!canUseDishes) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      return;
+    }
+
     if (!activeRestaurantId) {
       setPageError("تعذر تحديد المطعم الحالي.");
       return;
@@ -331,6 +351,11 @@ export default function AdminDishes() {
 
   const handleDeleteDish = async () => {
     if (!pendingDeleteDish) {
+      return;
+    }
+
+    if (!canUseDishes) {
+      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
     }
 

@@ -100,7 +100,7 @@ export default function AdminActivity() {
   const [pageError, setPageError] = useState<string | null>(null);
 
   const loadLogs = useCallback(async () => {
-    if (!activeRestaurantId) {
+    if (!canUseActivity || !activeRestaurantId) {
       return;
     }
 
@@ -115,7 +115,7 @@ export default function AdminActivity() {
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, canUseActivity]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseActivity || !activeRestaurantId) {
