@@ -1,7 +1,7 @@
 import { AppwriteException, Client, ID, Query, TablesDB, Users } from "node-appwrite";
 
 const MAX_TEXT_LENGTH = 500;
-const ALLOWED_BUSINESS_TYPES = ["restaurant", "cafe", "bakery", "cloud_kitchen", "other"];
+const ALLOWED_BUSINESS_TYPES = ["restaurant", "cafe", "bakery", "cloud_kitchen"];
 const ALLOWED_STATUSES = ["draft", "active"];
 const ALLOWED_PLANS = ["starter", "pro", "premium", "managed"];
 const ALLOWED_BILLING_STATUSES = ["trial", "active", "overdue", "cancelled"];
@@ -333,6 +333,13 @@ const createDefaultSiteSettings = async (tablesDb, restaurantId, settingsColumnK
     heroVideoUrl: "",
     heroLayout: "split",
     themePreset: "classic_red",
+    requireManualReservationConfirmation: true,
+    requireDepositForLargeGroups: false,
+    depositThresholdPeople: 8,
+    depositAmount: null,
+    depositPolicyText: "",
+    cancellationPolicyText: "",
+    maxPeoplePerReservation: null,
     showHero: true,
     showTrustBadges: true,
     showFeatured: true,

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { Client, ID, Query, TablesDB } from "node-appwrite";
 
 const MAX_TEXT_LENGTH = 500;
@@ -12,6 +13,7 @@ const config = {
   databaseId: env("APPWRITE_DATABASE_ID"),
   restaurantsTableId: env("APPWRITE_RESTAURANTS_TABLE_ID", "restaurants"),
   reservationsTableId: env("APPWRITE_RESERVATIONS_TABLE_ID", "reservations"),
+  siteSettingsTableId: env("APPWRITE_SITE_SETTINGS_TABLE_ID", "site_settings"),
 };
 
 class HttpError extends Error {
@@ -66,6 +68,8 @@ const createTablesDb = () => {
   const client = new Client().setEndpoint(config.endpoint).setProject(config.projectId).setKey(config.apiKey);
   return new TablesDB(client);
 };
+
+const generateTrackingCode = () => `RS-${randomBytes(3).toString("hex").toUpperCase()}`;
 
 const getRestaurant = async (tablesDb, input) => {
   const restaurantSlug = cleanText(input.restaurantSlug, 120);
@@ -165,11 +169,62 @@ const validateReservation = (input) => {
     reservationTime: assertTime(input.reservationTime),
     peopleCount,
     notes: cleanText(input.notes, 1000) || null,
+    policyAccepted: Boolean(input.policyAccepted),
   };
 };
 
-const createReservationRow = async (tablesDb, restaurant, reservation) => {
+const getReservationSettings = async (tablesDb, restaurantId) => {
+  try {
+    const response = await tablesDb.listRows({
+      databaseId: config.databaseId,
+      tableId: config.siteSettingsTableId,
+      queries: [Query.equal("restaurantId", restaurantId), Query.limit(1)],
+    });
+
+    return response.rows[0] ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const getReservationWorkflow = (settings, reservation) => {
+  const requireManualConfirmation = settings?.requireManualReservationConfirmation === true;
+  const requireDepositForLargeGroups = settings?.requireDepositForLargeGroups === true;
+  const threshold = Number(settings?.depositThresholdPeople);
+  const depositAmount = Number(settings?.depositAmount);
+  const needsDeposit =
+    requireDepositForLargeGroups &&
+    Number.isFinite(threshold) &&
+    threshold > 0 &&
+    reservation.peopleCount >= threshold;
+
+  if (needsDeposit) {
+    return {
+      status: "deposit_required",
+      depositStatus: "required",
+      depositAmount: Number.isFinite(depositAmount) && depositAmount > 0 ? depositAmount : null,
+    };
+  }
+
+  if (requireManualConfirmation) {
+    return {
+      status: "pending_confirmation",
+      depositStatus: "none",
+      depositAmount: null,
+    };
+  }
+
+  return {
+    status: "new",
+    depositStatus: "none",
+    depositAmount: null,
+  };
+};
+
+const createReservationRow = async (tablesDb, restaurant, reservation, settings) => {
   const createdAtText = new Date().toISOString();
+  const trackingCode = generateTrackingCode();
+  const workflow = getReservationWorkflow(settings, reservation);
 
   const row = await tablesDb.createRow({
     databaseId: config.databaseId,
@@ -177,23 +232,32 @@ const createReservationRow = async (tablesDb, restaurant, reservation) => {
     rowId: ID.unique(),
     data: {
       restaurantId: restaurant.$id,
+      trackingCode,
       customerName: reservation.customerName,
       customerPhone: reservation.customerPhone,
       reservationDate: reservation.reservationDate,
       reservationTime: reservation.reservationTime,
       peopleCount: reservation.peopleCount,
       notes: reservation.notes,
-      status: "new",
+      status: workflow.status,
+      depositStatus: workflow.depositStatus,
+      depositAmount: workflow.depositAmount,
+      depositNotes: null,
+      confirmationNotes: null,
+      policyAccepted: reservation.policyAccepted,
       createdAtText,
     },
   });
 
   return {
     reservationId: row.$id,
+    trackingCode: row.trackingCode ?? trackingCode,
     reservationDate: row.reservationDate,
     reservationTime: row.reservationTime,
     peopleCount: row.peopleCount,
     status: row.status,
+    depositStatus: row.depositStatus,
+    depositAmount: row.depositAmount,
     source: "website",
   };
 };
@@ -208,17 +272,21 @@ export default async ({ req, res, log, error }) => {
     const tablesDb = createTablesDb();
     const restaurant = await getRestaurant(tablesDb, input);
     const reservation = validateReservation(input);
-    const reservationSummary = await createReservationRow(tablesDb, restaurant, reservation);
+    const settings = await getReservationSettings(tablesDb, restaurant.$id);
+    const reservationSummary = await createReservationRow(tablesDb, restaurant, reservation, settings);
 
     log(`Created reservation ${reservationSummary.reservationId} for restaurant ${restaurant.$id}`);
 
     return json(res, {
       ok: true,
       reservationId: reservationSummary.reservationId,
+      trackingCode: reservationSummary.trackingCode,
       reservationDate: reservationSummary.reservationDate,
       reservationTime: reservationSummary.reservationTime,
       peopleCount: reservationSummary.peopleCount,
       status: reservationSummary.status,
+      depositStatus: reservationSummary.depositStatus,
+      depositAmount: reservationSummary.depositAmount,
       source: reservationSummary.source,
     });
   } catch (caughtError) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Menu, ShoppingCart, UtensilsCrossed, X } from "lucide-react";
 import type { NavLink, RestaurantConfig } from "../data/restaurantConfig";
+import { useI18n } from "../lib/i18n/I18nContext";
 import LanguageSwitcher from "./LanguageSwitcher";
 
 interface HeaderProps {
@@ -14,6 +15,7 @@ const scrollToTarget = (targetId: string) => {
 };
 
 export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
+  const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTarget, setActiveTarget] = useState(config.navigation[0]?.targetId ?? "home");
   const [logoImageFailed, setLogoImageFailed] = useState(false);
@@ -52,6 +54,21 @@ export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
     setMenuOpen(false);
   };
 
+  const getNavigationLabel = (link: NavLink) => {
+    const labels: Record<string, ReturnType<typeof t>> = {
+      home: t("home"),
+      menu: t("menu"),
+      offers: t("offers"),
+      about: t("about"),
+      gallery: t("gallery"),
+      testimonials: t("testimonials"),
+      contact: t("contact"),
+      faq: t("faq"),
+    };
+
+    return labels[link.targetId] || link.label;
+  };
+
   return (
     <header className="site-header">
       <div className="container site-header__inner">
@@ -59,7 +76,7 @@ export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
           className="icon-button site-header__hamburger"
           type="button"
           onClick={() => setMenuOpen((current) => !current)}
-          aria-label={menuOpen ? "إغلاق القائمة" : "فتح القائمة"}
+          aria-label={menuOpen ? t("closeMenu") : t("openMenu")}
           aria-expanded={menuOpen}
         >
           {menuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -79,7 +96,7 @@ export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
           </span>
         </button>
 
-        <nav className={`main-nav ${menuOpen ? "main-nav--open" : ""}`} aria-label="التنقل الرئيسي">
+        <nav className={`main-nav ${menuOpen ? "main-nav--open" : ""}`} aria-label={t("mainNavigation")}>
           {config.navigation.map((link) => (
             <button
               key={link.targetId}
@@ -87,7 +104,7 @@ export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
               type="button"
               onClick={() => handleNavClick(link)}
             >
-              {link.label}
+              {getNavigationLabel(link)}
             </button>
           ))}
           <button className="main-nav__mobile-order" type="button" onClick={() => handleNavClick({ label: "", targetId: "menu" })}>

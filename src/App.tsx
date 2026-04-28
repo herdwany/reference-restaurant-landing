@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useState } from "react";
+import { CSSProperties, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
@@ -30,10 +30,12 @@ import SectionTitle from "./components/SectionTitle";
 import Testimonials from "./components/Testimonials";
 import Toast from "./components/Toast";
 import TrustBadges from "./components/TrustBadges";
+import TrackingPage from "./components/TrackingPage";
 import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./lib/i18n/I18nContext";
+import { getLocalizedContent, getLocalizedField } from "./lib/i18n/localizedContent";
 import { getSiteDataBySlug } from "./services/siteDataService";
 import type { RestaurantStatus } from "./types/platform";
 import {
@@ -46,6 +48,46 @@ import { canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBui
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
 type ThemeStyle = CSSProperties & Record<string, string>;
+
+const themePresetColors = {
+  classic_red: null,
+  black_gold: {
+    primaryColor: "#161616",
+    secondaryColor: "#b88a2d",
+    accentColor: "#f4c76b",
+    successColor: "#16a34a",
+    darkColor: "#151515",
+    lightColor: "#faf7ef",
+    borderColor: "#e4d7bc",
+  },
+  coffee: {
+    primaryColor: "#7c3f24",
+    secondaryColor: "#b26a34",
+    accentColor: "#e7b76b",
+    successColor: "#15803d",
+    darkColor: "#24150f",
+    lightColor: "#fff7ed",
+    borderColor: "#ead8c5",
+  },
+  fresh: {
+    primaryColor: "#15803d",
+    secondaryColor: "#0f766e",
+    accentColor: "#facc15",
+    successColor: "#16a34a",
+    darkColor: "#10251b",
+    lightColor: "#f0fdf4",
+    borderColor: "#bbf7d0",
+  },
+  minimal: {
+    primaryColor: "#111827",
+    secondaryColor: "#6b7280",
+    accentColor: "#d97706",
+    successColor: "#16a34a",
+    darkColor: "#111827",
+    lightColor: "#f9fafb",
+    borderColor: "#e5e7eb",
+  },
+} as const;
 
 const scrollToSection = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -150,7 +192,7 @@ type LandingPageProps = {
 };
 
 function LandingPage({ slug }: LandingPageProps) {
-  const { t } = useI18n();
+  const { currentLanguage, t } = useI18n();
   const [config, setConfig] = useState(restaurantConfig);
   const [publicStatus, setPublicStatus] = useState<RestaurantStatus>("active");
   const [restaurantSlug, setRestaurantSlug] = useState("");
@@ -196,6 +238,69 @@ function LandingPage({ slug }: LandingPageProps) {
     };
   }, [slug]);
 
+  const localizedConfig = useMemo(() => {
+    const settingsTranslationEntity = {
+      translations: config.settings.translations,
+      heroTitle: config.hero.title,
+      heroSubtitle: config.hero.subtitle,
+      primaryCtaText: config.hero.primaryCtaText,
+      secondaryCtaText: config.hero.secondaryCtaText,
+      featuredSectionTitle: config.ui.sectionTitles.featuredDishes,
+      offersSectionTitle: config.ui.sectionTitles.offers,
+      testimonialsSectionTitle: config.ui.sectionTitles.testimonials,
+      contactSectionTitle: config.ui.sectionTitles.actionGrid,
+      gallerySectionTitle: config.ui.sectionTitles.gallery,
+      faqSectionTitle: config.ui.sectionTitles.faq,
+      depositPolicyText: config.settings.depositPolicyText ?? "",
+      cancellationPolicyText: config.settings.cancellationPolicyText ?? "",
+    };
+
+    return {
+      ...config,
+      settings: {
+        ...config.settings,
+        depositPolicyText: getLocalizedField(settingsTranslationEntity, "depositPolicyText", currentLanguage),
+        cancellationPolicyText: getLocalizedField(settingsTranslationEntity, "cancellationPolicyText", currentLanguage),
+      },
+      hero: {
+        ...config.hero,
+        title: getLocalizedField(settingsTranslationEntity, "heroTitle", currentLanguage),
+        subtitle: getLocalizedField(settingsTranslationEntity, "heroSubtitle", currentLanguage),
+        primaryCtaText: getLocalizedField(settingsTranslationEntity, "primaryCtaText", currentLanguage) || t("orderNow"),
+        secondaryCtaText: getLocalizedField(settingsTranslationEntity, "secondaryCtaText", currentLanguage) || t("whatsapp"),
+      },
+      ui: {
+        ...config.ui,
+        orderNow: t("orderNow"),
+        addToCart: t("addToCart"),
+        details: t("details"),
+        quantity: t("quantity"),
+        close: t("close"),
+        cartButtonLabel: t("cart"),
+        booking: {
+          ...config.ui.booking,
+          title: t("bookTable"),
+          submit: t("bookNow"),
+          whatsappSubmit: t("sendToWhatsapp"),
+          successTitle: t("reservationReceived"),
+          successText: t("reservationReceivedBody"),
+        },
+        sectionTitles: {
+          ...config.ui.sectionTitles,
+          featuredDishes: getLocalizedField(settingsTranslationEntity, "featuredSectionTitle", currentLanguage) || t("featuredDishes"),
+          offers: getLocalizedField(settingsTranslationEntity, "offersSectionTitle", currentLanguage) || t("todayOffers"),
+          testimonials: getLocalizedField(settingsTranslationEntity, "testimonialsSectionTitle", currentLanguage) || t("testimonials"),
+          actionGrid: getLocalizedField(settingsTranslationEntity, "contactSectionTitle", currentLanguage) || t("contact"),
+          gallery: getLocalizedField(settingsTranslationEntity, "gallerySectionTitle", currentLanguage) || t("gallery"),
+          faq: getLocalizedField(settingsTranslationEntity, "faqSectionTitle", currentLanguage) || t("faq"),
+        },
+      },
+      dishes: config.dishes.map((dish) => getLocalizedContent(dish, currentLanguage, ["name", "description"])),
+      offers: config.offers.map((offer) => getLocalizedContent(offer, currentLanguage, ["title", "description", "ctaText"])),
+      faqs: config.faqs.map((faq) => getLocalizedContent(faq, currentLanguage, ["question", "answer"])),
+    };
+  }, [config, currentLanguage, t]);
+
   const sectionByTargetId: Record<string, keyof typeof sections> = {
     home: "hero",
     menu: "featuredDishes",
@@ -208,21 +313,24 @@ function LandingPage({ slug }: LandingPageProps) {
     faq: "faq",
   };
   const visibleNavigation = config.navigation.filter((link) => sections[sectionByTargetId[link.targetId] ?? "hero"]);
-  const navigationConfig = { ...config, navigation: visibleNavigation };
+  const navigationConfig = { ...localizedConfig, navigation: visibleNavigation };
+  const themePreset = config.settings.themePreset || "classic_red";
+  const presetColors = themePresetColors[themePreset];
+  const activeBrand = presetColors ? { ...config.brand, ...presetColors } : config.brand;
 
   const themeStyle: ThemeStyle = {
-    "--color-primary": config.brand.primaryColor,
-    "--color-secondary": config.brand.secondaryColor,
-    "--color-accent": config.brand.accentColor,
-    "--color-success": config.brand.successColor,
-    "--color-dark": config.brand.darkColor,
-    "--color-light": config.brand.lightColor,
-    "--color-border": config.brand.borderColor,
-    "--radius-card": config.brand.borderRadius,
+    "--color-primary": activeBrand.primaryColor,
+    "--color-secondary": activeBrand.secondaryColor,
+    "--color-accent": activeBrand.accentColor,
+    "--color-success": activeBrand.successColor,
+    "--color-dark": activeBrand.darkColor,
+    "--color-light": activeBrand.lightColor,
+    "--color-border": activeBrand.borderColor,
+    "--radius-card": activeBrand.borderRadius,
   };
 
   if (isLoadingSite) {
-    return <PublicSiteMessagePage title="جاري تحميل الموقع..." style={themeStyle} isLoading />;
+    return <PublicSiteMessagePage title={t("loadingSite")} style={themeStyle} isLoading />;
   }
 
   if (isNotFound) {
@@ -353,8 +461,11 @@ function LandingPage({ slug }: LandingPageProps) {
         items: getCheckoutItems(),
       };
 
+      let createdTrackingCode = "";
+
       if (hasCreateOrderFunctionConfig) {
-        await createOrderViaFunction(baseOrderInput);
+        const createdOrder = await createOrderViaFunction(baseOrderInput);
+        createdTrackingCode = createdOrder.trackingCode;
       } else {
         if (!canUseDirectSensitiveTableFallback) {
           throw new OrdersRepositoryError("لا يمكن إنشاء الطلب مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
@@ -364,10 +475,11 @@ function LandingPage({ slug }: LandingPageProps) {
           console.warn("Using direct browser createOrder fallback. This path is for development/staging only.");
         }
 
-        await createAppwriteOrder(baseOrderInput);
+        const createdOrder = await createAppwriteOrder(baseOrderInput);
+        createdTrackingCode = createdOrder.order.trackingCode ?? "";
       }
 
-      showToast("تم حفظ الطلب بنجاح.", "success");
+      showToast(createdTrackingCode ? `تم حفظ الطلب بنجاح. رمز التتبع: ${createdTrackingCode}` : "تم حفظ الطلب بنجاح.", "success");
 
       if (orderMode === "both") {
         openWhatsappOrder(customer);
@@ -394,13 +506,11 @@ function LandingPage({ slug }: LandingPageProps) {
 
   const handleWhatsappClick = () => {
     window.open(
-      createWhatsappUrl(config.restaurant.whatsappNumber, config.ui.whatsappInquiryMessage),
+      createWhatsappUrl(config.restaurant.whatsappNumber, localizedConfig.ui.whatsappInquiryMessage),
       "_blank",
       "noopener,noreferrer",
     );
   };
-
-  const themePreset = config.settings.themePreset || "classic_red";
 
   return (
     <div className={`app app--theme-${themePreset}`} style={themeStyle}>
@@ -411,17 +521,17 @@ function LandingPage({ slug }: LandingPageProps) {
       />
 
       <main>
-        {sections.hero ? <Hero config={config} onOrderClick={handleHeroOrder} onWhatsappClick={handleWhatsappClick} /> : null}
-        {sections.trustBadges ? <TrustBadges config={config} /> : null}
-        {sections.featuredDishes ? <FeaturedDishes config={config} onAddToCart={addDishToCart} /> : null}
-        {sections.offers ? <Offers config={config} onAddToCart={addOfferToCart} /> : null}
+        {sections.hero ? <Hero config={localizedConfig} onOrderClick={handleHeroOrder} onWhatsappClick={handleWhatsappClick} /> : null}
+        {sections.trustBadges ? <TrustBadges config={localizedConfig} /> : null}
+        {sections.featuredDishes ? <FeaturedDishes config={localizedConfig} onAddToCart={addDishToCart} /> : null}
+        {sections.offers ? <Offers config={localizedConfig} onAddToCart={addOfferToCart} /> : null}
 
         {sections.gallery ? (
           <section className="section gallery-section" id="gallery">
             <div className="container">
-              <SectionTitle title={config.ui.sectionTitles.gallery} />
+              <SectionTitle title={localizedConfig.ui.sectionTitles.gallery} />
               <div className="gallery-grid">
-                {config.galleryImages.map((image, index) => (
+                {localizedConfig.galleryImages.map((image, index) => (
                   <PublicGalleryCard
                     fallbackImage={restaurantConfig.galleryImages[index % restaurantConfig.galleryImages.length]?.image || restaurantConfig.brand.heroImage}
                     image={image}
@@ -434,28 +544,28 @@ function LandingPage({ slug }: LandingPageProps) {
           </section>
         ) : null}
 
-        {sections.testimonials ? <Testimonials config={config} /> : null}
+        {sections.testimonials ? <Testimonials config={localizedConfig} /> : null}
 
         {sections.actionGrid ? (
           <section className="section action-grid-section" id="booking">
             <div className="container">
-              <SectionTitle title={config.ui.sectionTitles.actionGrid} />
+              <SectionTitle title={localizedConfig.ui.sectionTitles.actionGrid} />
               <div className="action-grid">
-                <BookingForm config={config} restaurantSlug={currentRestaurantSlug} onToast={showToast} />
-                <MenuPreview config={config} onAddToCart={addMenuItemToCart} />
-                <LocationCard config={config} onWhatsappClick={handleWhatsappClick} />
+                <BookingForm config={localizedConfig} restaurantSlug={currentRestaurantSlug} onToast={showToast} />
+                <MenuPreview config={localizedConfig} onAddToCart={addMenuItemToCart} />
+                <LocationCard config={localizedConfig} onWhatsappClick={handleWhatsappClick} />
               </div>
             </div>
           </section>
         ) : null}
 
-        {sections.faq ? <FAQ config={config} /> : null}
+        {sections.faq ? <FAQ config={localizedConfig} /> : null}
       </main>
 
       {sections.footer ? <Footer config={navigationConfig} /> : null}
 
       <CartDrawer
-        config={config}
+        config={localizedConfig}
         isCheckingOut={isCheckingOut}
         isOpen={cartOpen}
         items={cart.items}
@@ -471,7 +581,7 @@ function LandingPage({ slug }: LandingPageProps) {
         onClose={() => setSelectedGalleryImage(null)}
         title={selectedGalleryImage?.title}
         size="lg"
-        closeLabel={config.ui.close}
+        closeLabel={localizedConfig.ui.close}
       >
         {selectedGalleryImage ? (
           <img className="gallery-modal-image" src={selectedGalleryImage.image} alt={selectedGalleryImage.alt || selectedGalleryImage.title} />
@@ -488,11 +598,17 @@ function PublicRestaurantRoute() {
   return <LandingPage slug={slug} />;
 }
 
+function PublicTrackingRoute() {
+  const { slug } = useParams();
+  return <TrackingPage restaurantSlug={slug?.trim().toLowerCase() || "demo-restaurant"} />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/r/:slug/track" element={<PublicTrackingRoute />} />
         <Route path="/r/:slug" element={<PublicRestaurantRoute />} />
         <Route path="/admin/login" element={<AdminLoginRoute />} />
         <Route path="/agency" element={<AgencyRoute />} />

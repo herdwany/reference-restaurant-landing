@@ -20,6 +20,7 @@ interface FAQRow extends Models.Row {
   restaurantId: string;
   question: string;
   answer: string;
+  translations?: string | null;
   isVisible: boolean;
   sortOrder?: number | null;
 }
@@ -27,6 +28,7 @@ interface FAQRow extends Models.Row {
 export type FaqMutationInput = {
   question: string;
   answer: string;
+  translations?: string;
   isVisible: boolean;
   sortOrder?: number;
 };
@@ -34,6 +36,7 @@ export type FaqMutationInput = {
 type FaqRowData = {
   question: string;
   answer: string;
+  translations: string | null;
   isVisible: boolean;
   sortOrder: number | null;
 };
@@ -49,6 +52,7 @@ const mapFAQ = (row: FAQRow): FAQItem => ({
   updatedAt: row.$updatedAt,
   question: row.question,
   answer: row.answer,
+  translations: row.translations ?? undefined,
   isVisible: row.isVisible,
   sortOrder: row.sortOrder ?? 0,
 });
@@ -58,6 +62,7 @@ const optionalNumber = (value: number | undefined) => (typeof value === "number"
 const toFaqRowData = (input: FaqMutationInput): FaqRowData => ({
   question: input.question.trim(),
   answer: input.answer.trim(),
+  translations: input.translations?.trim() || null,
   isVisible: input.isVisible,
   sortOrder: optionalNumber(input.sortOrder),
 });

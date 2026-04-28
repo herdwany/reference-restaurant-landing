@@ -23,6 +23,7 @@ interface OfferRow extends Models.Row {
   restaurantId: string;
   title: string;
   description?: string | null;
+  translations?: string | null;
   price: number;
   oldPrice?: number | null;
   imageFileId?: string | null;
@@ -38,6 +39,7 @@ interface OfferRow extends Models.Row {
 export type OfferMutationInput = {
   title: string;
   description?: string;
+  translations?: string;
   price: number;
   oldPrice?: number;
   imageFileId?: string;
@@ -53,6 +55,7 @@ export type OfferMutationInput = {
 type OfferRowData = {
   title: string;
   description: string;
+  translations: string | null;
   price: number;
   oldPrice: number | null;
   imageFileId: string | null;
@@ -78,6 +81,7 @@ const mapOffer = (row: OfferRow): Offer => ({
   updatedAt: row.$updatedAt,
   title: row.title,
   description: row.description ?? "",
+  translations: row.translations ?? undefined,
   price: row.price,
   oldPrice: row.oldPrice ?? undefined,
   imageFileId: row.imageFileId ?? undefined,
@@ -101,6 +105,7 @@ const optionalDateTime = (value: string | undefined) => (value ? new Date(value)
 const toOfferRowData = (input: OfferMutationInput): OfferRowData => ({
   title: input.title.trim(),
   description: input.description?.trim() ?? "",
+  translations: optionalText(input.translations),
   price: input.price,
   oldPrice: optionalNumber(input.oldPrice),
   imageFileId: optionalText(input.imageFileId),

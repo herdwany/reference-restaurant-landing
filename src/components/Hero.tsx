@@ -22,11 +22,13 @@ const benefitIcons: Record<Benefit["icon"], typeof Star> = {
 export default function Hero({ config, onOrderClick, onWhatsappClick }: HeroProps) {
   const fallbackHeroImage = defaultRestaurantConfig.hero.image;
   const [heroImageSrc, setHeroImageSrc] = useState(config.hero.image || fallbackHeroImage);
+  const [videoFailed, setVideoFailed] = useState(false);
   const heroLayout = config.hero.layout || "split";
-  const canShowHeroVideo = config.hero.mediaType === "video_url" && Boolean(config.hero.videoUrl);
+  const canShowHeroVideo = config.hero.mediaType === "video_url" && Boolean(config.hero.videoUrl) && !videoFailed;
 
   useEffect(() => {
     setHeroImageSrc(config.hero.image || fallbackHeroImage);
+    setVideoFailed(false);
   }, [config.hero.image, fallbackHeroImage]);
 
   return (
@@ -68,7 +70,15 @@ export default function Hero({ config, onOrderClick, onWhatsappClick }: HeroProp
         <div className="hero__visual">
           <div className={`hero__image-wrap${canShowHeroVideo ? " hero__image-wrap--video" : ""}`}>
             {canShowHeroVideo ? (
-              <video src={config.hero.videoUrl} poster={heroImageSrc || fallbackHeroImage} autoPlay muted loop playsInline />
+              <video
+                src={config.hero.videoUrl}
+                poster={heroImageSrc || fallbackHeroImage}
+                autoPlay
+                muted
+                loop
+                playsInline
+                onError={() => setVideoFailed(true)}
+              />
             ) : heroImageSrc ? (
               <img
                 src={heroImageSrc}

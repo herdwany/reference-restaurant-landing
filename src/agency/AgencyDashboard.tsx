@@ -100,7 +100,7 @@ type CreateClientFormValues = {
 type CreateClientFormErrors = Partial<Record<keyof CreateClientFormValues, string>>;
 
 const statusFilters = ["all", "active", "draft", "suspended", "cancelled"] as const satisfies readonly StatusFilter[];
-const onboardingBusinessTypes = ["restaurant", "cafe", "bakery", "cloud_kitchen", "other"] as const satisfies readonly OnboardingBusinessType[];
+const onboardingBusinessTypes = ["restaurant", "cafe", "bakery", "cloud_kitchen"] as const satisfies readonly OnboardingBusinessType[];
 const onboardingStatuses = ["draft", "active"] as const satisfies readonly OnboardingStatus[];
 const onboardingPlans = clientPlans;
 const billingStatuses = ["trial", "active", "overdue", "cancelled"] as const satisfies readonly BillingStatus[];

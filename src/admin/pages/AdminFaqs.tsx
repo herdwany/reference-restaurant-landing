@@ -11,6 +11,7 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
   FaqRepositoryError,
   createFaq,
@@ -24,6 +25,10 @@ import type { FAQItem } from "../../types/platform";
 
 type FaqFormValues = {
   answer: string;
+  frQuestion: string;
+  frAnswer: string;
+  enQuestion: string;
+  enAnswer: string;
   isVisible: boolean;
   question: string;
   sortOrder: string;
@@ -34,6 +39,10 @@ type FaqFormMode = { type: "create" } | { type: "edit"; faq: FAQItem };
 
 const emptyFaqFormValues: FaqFormValues = {
   answer: "",
+  frQuestion: "",
+  frAnswer: "",
+  enQuestion: "",
+  enAnswer: "",
   isVisible: true,
   question: "",
   sortOrder: "",
@@ -47,8 +56,14 @@ const getFaqFormValues = (faq?: FAQItem): FaqFormValues => {
     return emptyFaqFormValues;
   }
 
+  const translations = parseTranslationString(faq.translations);
+
   return {
     answer: faq.answer,
+    frQuestion: String(translations.fr?.question ?? ""),
+    frAnswer: String(translations.fr?.answer ?? ""),
+    enQuestion: String(translations.en?.question ?? ""),
+    enAnswer: String(translations.en?.answer ?? ""),
     isVisible: faq.isVisible,
     question: faq.question,
     sortOrder: formatOptionalNumber(faq.sortOrder),
@@ -74,8 +89,20 @@ const validateFaqForm = (values: FaqFormValues): FaqFormErrors => {
   return errors;
 };
 
-const toFaqMutationInput = (values: FaqFormValues): FaqMutationInput => ({
+const toFaqMutationInput = (values: FaqFormValues, canSaveTranslations: boolean): FaqMutationInput => ({
   answer: values.answer.trim(),
+  translations: canSaveTranslations
+    ? stringifyTranslations({
+        fr: {
+          question: values.frQuestion,
+          answer: values.frAnswer,
+        },
+        en: {
+          question: values.enQuestion,
+          answer: values.enAnswer,
+        },
+      })
+    : undefined,
   isVisible: values.isVisible,
   question: values.question.trim(),
   sortOrder: parseOptionalNumber(values.sortOrder),
@@ -96,8 +123,9 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminFaqs() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canAccessFeature, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
+  const canSaveTranslations = canAccessFeature("canCustomizeBrand");
   const [faqs, setFaqs] = useState<FAQItem[]>([]);
   const [formMode, setFormMode] = useState<FaqFormMode | null>(null);
   const [formValues, setFormValues] = useState<FaqFormValues>(emptyFaqFormValues);
@@ -187,7 +215,10 @@ export default function AdminFaqs() {
     setIsSaving(true);
 
     try {
-      const input = toFaqMutationInput(formValues);
+      const input = toFaqMutationInput(formValues, canSaveTranslations);
+      if (!canSaveTranslations && formMode.type === "edit") {
+        input.translations = formMode.faq.translations;
+      }
       const savedFaq =
         formMode.type === "edit"
           ? await updateFaq(formMode.faq.id, input, activeRestaurantId)
@@ -410,6 +441,30 @@ export default function AdminFaqs() {
               />
               {formErrors.answer ? <small>{formErrors.answer}</small> : null}
             </label>
+
+            {canSaveTranslations ? (
+              <details className="admin-form-grid__wide admin-translation-panel">
+                <summary>ترجمات اختيارية</summary>
+                <div className="admin-form-grid">
+                  <label className="admin-form-grid__wide">
+                    <span>Fr question</span>
+                    <input value={formValues.frQuestion} onChange={(event) => updateFormValue("frQuestion", event.target.value)} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>Fr answer</span>
+                    <textarea value={formValues.frAnswer} onChange={(event) => updateFormValue("frAnswer", event.target.value)} rows={2} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>En question</span>
+                    <input value={formValues.enQuestion} onChange={(event) => updateFormValue("enQuestion", event.target.value)} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>En answer</span>
+                    <textarea value={formValues.enAnswer} onChange={(event) => updateFormValue("enAnswer", event.target.value)} rows={2} />
+                  </label>
+                </div>
+              </details>
+            ) : null}
 
             <label>
               <span>ترتيب الظهور</span>

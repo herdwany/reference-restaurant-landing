@@ -13,6 +13,7 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
   DishesRepositoryError,
   createDish,
@@ -34,6 +35,10 @@ type DishFormValues = {
   isAvailable: boolean;
   isPopular: boolean;
   name: string;
+  frName: string;
+  frDescription: string;
+  enName: string;
+  enDescription: string;
   oldPrice: string;
   price: string;
   rating: string;
@@ -55,6 +60,10 @@ const emptyDishFormValues: DishFormValues = {
   isAvailable: true,
   isPopular: false,
   name: "",
+  frName: "",
+  frDescription: "",
+  enName: "",
+  enDescription: "",
   oldPrice: "",
   price: "",
   rating: "",
@@ -70,6 +79,8 @@ const getDishFormValues = (dish?: Dish): DishFormValues => {
     return emptyDishFormValues;
   }
 
+  const translations = parseTranslationString(dish.translations);
+
   return {
     badge: dish.badge ?? "",
     category: dish.category,
@@ -80,6 +91,10 @@ const getDishFormValues = (dish?: Dish): DishFormValues => {
     isAvailable: dish.isAvailable,
     isPopular: dish.isPopular,
     name: dish.name,
+    frName: String(translations.fr?.name ?? ""),
+    frDescription: String(translations.fr?.description ?? ""),
+    enName: String(translations.en?.name ?? ""),
+    enDescription: String(translations.en?.description ?? ""),
     oldPrice: formatOptionalNumber(dish.oldPrice),
     price: String(dish.price),
     rating: formatOptionalNumber(dish.rating),
@@ -136,10 +151,22 @@ const validateDishForm = (values: DishFormValues): DishFormErrors => {
   return errors;
 };
 
-const toDishMutationInput = (values: DishFormValues): DishMutationInput => ({
+const toDishMutationInput = (values: DishFormValues, canSaveTranslations: boolean): DishMutationInput => ({
   badge: values.badge.trim() || undefined,
   category: values.category.trim(),
   description: values.description.trim(),
+  translations: canSaveTranslations
+    ? stringifyTranslations({
+        fr: {
+          name: values.frName,
+          description: values.frDescription,
+        },
+        en: {
+          name: values.enName,
+          description: values.enDescription,
+        },
+      })
+    : undefined,
   imageFileId: values.imageFileId.trim() || undefined,
   imageUrl: values.imageUrl.trim() || undefined,
   ingredients: values.ingredients
@@ -180,6 +207,7 @@ export default function AdminDishes() {
   } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const canUseDishes = canAccessFeature("canManageDishes");
+  const canSaveTranslations = canAccessFeature("canCustomizeBrand");
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [formMode, setFormMode] = useState<DishFormMode | null>(null);
   const [formValues, setFormValues] = useState<DishFormValues>(emptyDishFormValues);
@@ -284,7 +312,10 @@ export default function AdminDishes() {
     setIsSaving(true);
 
     try {
-      const input = toDishMutationInput(formValues);
+      const input = toDishMutationInput(formValues, canSaveTranslations);
+      if (!canSaveTranslations && formMode.type === "edit") {
+        input.translations = formMode.dish.translations;
+      }
       const savedDish =
         formMode.type === "edit"
           ? await updateDish(formMode.dish.id, input, activeRestaurantId)
@@ -643,6 +674,30 @@ export default function AdminDishes() {
               <span>الوصف</span>
               <textarea value={formValues.description} onChange={(event) => updateFormValue("description", event.target.value)} rows={3} />
             </label>
+
+            {canSaveTranslations ? (
+              <details className="admin-form-grid__wide admin-translation-panel">
+                <summary>ترجمات اختيارية</summary>
+                <div className="admin-form-grid">
+                  <label>
+                    <span>Fr name</span>
+                    <input value={formValues.frName} onChange={(event) => updateFormValue("frName", event.target.value)} />
+                  </label>
+                  <label>
+                    <span>En name</span>
+                    <input value={formValues.enName} onChange={(event) => updateFormValue("enName", event.target.value)} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>Fr description</span>
+                    <textarea value={formValues.frDescription} onChange={(event) => updateFormValue("frDescription", event.target.value)} rows={2} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>En description</span>
+                    <textarea value={formValues.enDescription} onChange={(event) => updateFormValue("enDescription", event.target.value)} rows={2} />
+                  </label>
+                </div>
+              </details>
+            ) : null}
 
             <label className="admin-form-grid__wide">
               <span>المكونات</span>

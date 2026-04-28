@@ -8,9 +8,10 @@ Use these settings when deploying production Functions:
 | --- | --- | --- | --- | --- |
 | `createOrder` | `functions/createOrder` | `src/main.js` | `npm install` | `Guests` or `Any` |
 | `createReservation` | `functions/createReservation` | `src/main.js` | `npm install` | `Guests` or `Any` |
+| `trackRequest` | `functions/trackRequest` | `src/main.js` | `npm install` | `Guests` or `Any` |
 | `createClient` | `functions/createClient` | `src/main.js` | `npm install` | `Users` only |
 
-`createOrder` and `createReservation` are public visitor entrypoints and must be paired with closed table permissions for `orders`, `order_items`, and `reservations`.
+`createOrder`, `createReservation`, and `trackRequest` are public visitor entrypoints and must be paired with closed table permissions for `orders`, `order_items`, and `reservations`.
 
 `createClient` is an authenticated agency operation. It verifies `agency_admin` server-side through `profiles`; never allow `Guests` or `Any` to execute it.
 
@@ -93,6 +94,7 @@ Expected response:
 {
   "ok": true,
   "orderId": "...",
+  "trackingCode": "PO-8F3K2A",
   "totalAmount": 90,
   "itemCount": 1,
   "status": "new",
@@ -152,6 +154,7 @@ APPWRITE_API_KEY=
 APPWRITE_DATABASE_ID=
 APPWRITE_RESERVATIONS_TABLE_ID=reservations
 APPWRITE_RESTAURANTS_TABLE_ID=restaurants
+APPWRITE_SITE_SETTINGS_TABLE_ID=site_settings
 ```
 
 Do not put `APPWRITE_API_KEY` in `.env.local`, `.env.example`, Vite variables, or React code.
@@ -207,13 +210,18 @@ Expected response:
 {
   "ok": true,
   "reservationId": "...",
+  "trackingCode": "RS-7A2K9B",
   "reservationDate": "2026-04-27",
   "reservationTime": "20:00",
   "peopleCount": 4,
-  "status": "new",
+  "status": "pending_confirmation",
+  "depositStatus": "none",
+  "depositAmount": null,
   "source": "website"
 }
 ```
+
+`createReservation` reads `site_settings` when available. It sets `pending_confirmation` for manual confirmation, or `deposit_required` plus `depositStatus=required` when the large-group deposit rules apply. No payment gateway is used; deposit tracking is manual only.
 
 ## createReservation Fallback Behavior
 
@@ -242,6 +250,7 @@ Production builds require Function IDs for database-backed public order and rese
 ```env
 VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID=
 VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID=
+VITE_APPWRITE_TRACK_REQUEST_FUNCTION_ID=
 ```
 
 If either ID is missing in production:
@@ -254,6 +263,60 @@ If either ID is missing in production:
 The old direct Client SDK create path remains only for development/staging testing.
 
 See `docs/appwrite/PRODUCTION_SECURITY_CHECKLIST.md` before removing public create permissions.
+
+## FINALIZATION_BATCH_1: trackRequest
+
+The public tracking page `/r/:slug/track` uses `trackRequest` so customers can track an order or reservation without creating an account and without public reads on sensitive tables.
+
+Function source:
+
+`functions/trackRequest`
+
+Runtime:
+
+- Node.js 20+
+- Root directory: `functions/trackRequest`
+- Entrypoint: `src/main.js`
+- Build command: `npm install`
+- Execute access: `Guests` or `Any`
+
+Environment variables:
+
+```env
+APPWRITE_ENDPOINT=https://<REGION>.cloud.appwrite.io/v1
+APPWRITE_PROJECT_ID=
+APPWRITE_API_KEY=
+APPWRITE_DATABASE_ID=
+APPWRITE_RESTAURANTS_TABLE_ID=restaurants
+APPWRITE_ORDERS_TABLE_ID=orders
+APPWRITE_ORDER_ITEMS_TABLE_ID=order_items
+APPWRITE_RESERVATIONS_TABLE_ID=reservations
+```
+
+Frontend public variable:
+
+```env
+VITE_APPWRITE_TRACK_REQUEST_FUNCTION_ID=
+```
+
+Payload:
+
+```json
+{
+  "restaurantSlug": "demo-restaurant",
+  "phone": "0612345678",
+  "trackingCode": "PO-8F3K2A",
+  "type": "order"
+}
+```
+
+`type` is optional. The Function resolves the active restaurant by slug, searches only inside that restaurant, compares normalized phone numbers, and returns a sanitized result. It does not return addresses, private notes, cross-restaurant data, or raw table rows.
+
+Security notes:
+
+- Keep public read disabled on `orders`, `order_items`, and `reservations`.
+- Keep `APPWRITE_API_KEY` only in Function env.
+- Add rate limiting or anti-spam controls before high-traffic production use.
 
 ## Phase 9C: createClient
 

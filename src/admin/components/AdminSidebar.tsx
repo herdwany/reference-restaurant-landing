@@ -45,7 +45,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   return (
     <>
       {isOpen ? (
-        <button className="admin-sidebar__overlay is-visible" type="button" aria-label="إغلاق القائمة" onClick={onClose} />
+        <button className="admin-sidebar__overlay is-visible" type="button" aria-label={t("closeMenu")} onClick={onClose} />
       ) : null}
 
       <aside className={`admin-sidebar${isOpen ? " is-open" : ""}`} aria-label="قائمة لوحة التحكم">
@@ -54,7 +54,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             <span>ر</span>
             <strong>لوحة المطعم</strong>
           </Link>
-          <button className="admin-sidebar__close" type="button" aria-label="إغلاق القائمة" onClick={onClose}>
+          <button className="admin-sidebar__close" type="button" aria-label={t("closeMenu")} onClick={onClose}>
             <X size={20} aria-hidden="true" />
           </button>
         </div>
@@ -107,7 +107,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
           })}
           <button className="admin-sidebar__link admin-sidebar__logout" type="button" onClick={handleLogout} disabled={isLoggingOut}>
             <LogOut size={19} aria-hidden="true" />
-            <span>{isLoggingOut ? "جارٍ الخروج..." : "تسجيل الخروج"}</span>
+            <span>{isLoggingOut ? t("loggedOut") : t("logout")}</span>
           </button>
         </div>
       </aside>

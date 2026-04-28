@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { Client, ID, Query, TablesDB } from "node-appwrite";
 
 const MAX_ITEMS = 50;
@@ -73,6 +74,8 @@ const createTablesDb = () => {
   const client = new Client().setEndpoint(config.endpoint).setProject(config.projectId).setKey(config.apiKey);
   return new TablesDB(client);
 };
+
+const generateTrackingCode = () => `PO-${randomBytes(3).toString("hex").toUpperCase()}`;
 
 const getRestaurant = async (tablesDb, input) => {
   const restaurantSlug = cleanText(input.restaurantSlug, 120);
@@ -241,6 +244,7 @@ const normalizeItems = async (tablesDb, restaurantId, inputItems) => {
 const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFee) => {
   const totalAmount = items.reduce((total, item) => total + item.subtotal, 0) + deliveryFee;
   const createdAtText = new Date().toISOString();
+  const trackingCode = generateTrackingCode();
 
   const order = await tablesDb.createRow({
     databaseId: config.databaseId,
@@ -248,6 +252,7 @@ const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFe
     rowId: ID.unique(),
     data: {
       restaurantId: restaurant.$id,
+      trackingCode,
       customerName: customer.customerName,
       customerPhone: customer.customerPhone,
       customerAddress: customer.customerAddress,
@@ -280,6 +285,7 @@ const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFe
 
   return {
     orderId: order.$id,
+    trackingCode: order.trackingCode ?? trackingCode,
     totalAmount,
     itemCount: orderItems.length,
     status: order.status,
@@ -306,6 +312,7 @@ export default async ({ req, res, log, error }) => {
     return json(res, {
       ok: true,
       orderId: orderSummary.orderId,
+      trackingCode: orderSummary.trackingCode,
       totalAmount: orderSummary.totalAmount,
       itemCount: orderSummary.itemCount,
       status: orderSummary.status,

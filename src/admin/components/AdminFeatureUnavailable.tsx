@@ -1,4 +1,5 @@
 import { LockKeyhole } from "lucide-react";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import AdminErrorState from "./AdminErrorState";
 
 type AdminFeatureUnavailableProps = {
@@ -6,10 +7,12 @@ type AdminFeatureUnavailableProps = {
 };
 
 export default function AdminFeatureUnavailable({ featureName }: AdminFeatureUnavailableProps) {
+  const { t } = useI18n();
+
   return (
     <AdminErrorState
-      title={`ميزة ${featureName} غير متاحة`}
-      message={`هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.`}
+      title={`${t("featureUnavailable")} ${featureName}`}
+      message={t("featureUnavailable")}
       action={<LockKeyhole size={18} aria-hidden="true" />}
     />
   );

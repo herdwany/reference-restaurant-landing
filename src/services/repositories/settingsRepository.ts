@@ -43,7 +43,17 @@ interface SiteSettingsRow extends Models.Row {
   featuredSectionTitle?: string | null;
   offersSectionTitle?: string | null;
   gallerySectionTitle?: string | null;
+  testimonialsSectionTitle?: string | null;
+  contactSectionTitle?: string | null;
   faqSectionTitle?: string | null;
+  translations?: string | null;
+  requireManualReservationConfirmation?: boolean | null;
+  requireDepositForLargeGroups?: boolean | null;
+  depositThresholdPeople?: number | null;
+  depositAmount?: number | null;
+  depositPolicyText?: string | null;
+  cancellationPolicyText?: string | null;
+  maxPeoplePerReservation?: number | null;
   showHero: boolean;
   showFeatured?: boolean | null;
   showTrustBadges: boolean;
@@ -75,7 +85,17 @@ export type SiteSettingsMutationInput = {
   featuredSectionTitle?: string;
   offersSectionTitle?: string;
   gallerySectionTitle?: string;
+  testimonialsSectionTitle?: string;
+  contactSectionTitle?: string;
   faqSectionTitle?: string;
+  translations?: string;
+  requireManualReservationConfirmation?: boolean;
+  requireDepositForLargeGroups?: boolean;
+  depositThresholdPeople?: number;
+  depositAmount?: number;
+  depositPolicyText?: string;
+  cancellationPolicyText?: string;
+  maxPeoplePerReservation?: number;
   showHero: boolean;
   showFeatured?: boolean;
   showTrustBadges: boolean;
@@ -117,7 +137,17 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   featuredSectionTitle: row.featuredSectionTitle ?? undefined,
   offersSectionTitle: row.offersSectionTitle ?? undefined,
   gallerySectionTitle: row.gallerySectionTitle ?? undefined,
+  testimonialsSectionTitle: row.testimonialsSectionTitle ?? undefined,
+  contactSectionTitle: row.contactSectionTitle ?? undefined,
   faqSectionTitle: row.faqSectionTitle ?? undefined,
+  translations: row.translations ?? undefined,
+  requireManualReservationConfirmation: row.requireManualReservationConfirmation ?? undefined,
+  requireDepositForLargeGroups: row.requireDepositForLargeGroups ?? undefined,
+  depositThresholdPeople: row.depositThresholdPeople ?? undefined,
+  depositAmount: row.depositAmount ?? undefined,
+  depositPolicyText: row.depositPolicyText ?? undefined,
+  cancellationPolicyText: row.cancellationPolicyText ?? undefined,
+  maxPeoplePerReservation: row.maxPeoplePerReservation ?? undefined,
   showHero: row.showHero,
   showFeatured: row.showFeatured ?? undefined,
   showTrustBadges: row.showTrustBadges,
@@ -149,7 +179,17 @@ const toSiteSettingsRowData = (input: SiteSettingsMutationInput): SiteSettingsRo
   featuredSectionTitle: input.featuredSectionTitle?.trim() || undefined,
   offersSectionTitle: input.offersSectionTitle?.trim() || undefined,
   gallerySectionTitle: input.gallerySectionTitle?.trim() || undefined,
+  testimonialsSectionTitle: input.testimonialsSectionTitle?.trim() || undefined,
+  contactSectionTitle: input.contactSectionTitle?.trim() || undefined,
   faqSectionTitle: input.faqSectionTitle?.trim() || undefined,
+  translations: input.translations?.trim() || undefined,
+  requireManualReservationConfirmation: Boolean(input.requireManualReservationConfirmation),
+  requireDepositForLargeGroups: Boolean(input.requireDepositForLargeGroups),
+  depositThresholdPeople: input.depositThresholdPeople,
+  depositAmount: input.depositAmount,
+  depositPolicyText: input.depositPolicyText?.trim() || undefined,
+  cancellationPolicyText: input.cancellationPolicyText?.trim() || undefined,
+  maxPeoplePerReservation: input.maxPeoplePerReservation,
   showHero: input.showHero,
   showFeatured: input.showFeatured ?? input.showFeaturedDishes,
   showTrustBadges: input.showTrustBadges,

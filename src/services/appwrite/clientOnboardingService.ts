@@ -4,7 +4,7 @@ import { functions } from "../../lib/appwriteClient";
 import { CREATE_CLIENT_FUNCTION_ID, hasCreateClientFunctionConfig } from "../../lib/appwriteIds";
 
 export type CreateClientInput = {
-  businessType: "restaurant" | "cafe" | "bakery" | "cloud_kitchen" | "other";
+  businessType: "restaurant" | "cafe" | "bakery" | "cloud_kitchen";
   notes?: string;
   ownerEmail: string;
   ownerName: string;

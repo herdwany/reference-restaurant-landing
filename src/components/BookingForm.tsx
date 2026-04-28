@@ -9,6 +9,7 @@ import {
   type CreateReservationInput,
 } from "../services/repositories/reservationsRepository";
 import { canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "../lib/appwriteIds";
+import { useI18n } from "../lib/i18n/I18nContext";
 import { createBookingMessage, createWhatsappUrl } from "../utils/formatters";
 import { hasValidationErrors, validateBookingForm } from "../utils/validators";
 import type { BookingErrors } from "../utils/validators";
@@ -27,6 +28,7 @@ const initialBooking: BookingFormData = {
   time: "",
   guests: "",
   notes: "",
+  policyAccepted: false,
 };
 
 const saveBooking = (booking: BookingFormData) => {
@@ -36,13 +38,14 @@ const saveBooking = (booking: BookingFormData) => {
 };
 
 export default function BookingForm({ config, restaurantSlug, onToast }: BookingFormProps) {
+  const { t } = useI18n();
   const [values, setValues] = useState(initialBooking);
   const [errors, setErrors] = useState<BookingErrors>({});
   const [lastBooking, setLastBooking] = useState<BookingFormData | null>(null);
   const [successOpen, setSuccessOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const updateField = (field: keyof BookingFormData, value: string) => {
+  const updateField = <Field extends keyof BookingFormData>(field: Field, value: BookingFormData[Field]) => {
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   };
@@ -59,11 +62,13 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     return true;
   };
 
-  const persistSuccessfulBooking = (booking: BookingFormData, options?: { resetValues?: boolean }) => {
+  const persistSuccessfulBooking = (booking: BookingFormData, options?: { resetValues?: boolean; showToast?: boolean }) => {
     saveBooking(booking);
     setLastBooking(booking);
     setSuccessOpen(true);
-    onToast(config.ui.toasts.bookingSuccess, "success");
+    if (options?.showToast !== false) {
+      onToast(config.ui.toasts.bookingSuccess, "success");
+    }
 
     if (options?.resetValues) {
       setValues(initialBooking);
@@ -95,6 +100,10 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     reservationTime: booking.time,
     peopleCount: Number(booking.guests),
     notes: booking.notes,
+    policyAccepted: Boolean(booking.policyAccepted),
+    status: needsDeposit ? "deposit_required" : config.settings.requireManualReservationConfirmation ? "pending_confirmation" : "new",
+    depositStatus: needsDeposit ? "required" : "none",
+    depositAmount: needsDeposit ? config.settings.depositAmount : undefined,
   });
 
   const submitBooking = async (event: FormEvent<HTMLFormElement>) => {
@@ -149,8 +158,11 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     try {
       const reservationInput = toReservationInput(booking);
 
+      let createdTrackingCode = "";
+
       if (hasCreateReservationFunctionConfig) {
-        await createReservationViaFunction(reservationInput);
+        const createdReservation = await createReservationViaFunction(reservationInput);
+        createdTrackingCode = createdReservation.trackingCode;
       } else {
         if (!canUseDirectSensitiveTableFallback) {
           throw new ReservationsRepositoryError("لا يمكن إنشاء الحجز مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
@@ -160,10 +172,17 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
           console.warn("Using direct browser createReservation fallback. This path is for development/staging only.");
         }
 
-        await createAppwriteReservation(reservationInput);
+        const createdReservation = await createAppwriteReservation(reservationInput);
+        createdTrackingCode = createdReservation.trackingCode ?? "";
       }
 
-      persistSuccessfulBooking(booking, { resetValues: reservationMode === "database" || reservationMode === "both" });
+      persistSuccessfulBooking(booking, {
+        resetValues: reservationMode === "database" || reservationMode === "both",
+        showToast: !createdTrackingCode,
+      });
+      if (createdTrackingCode) {
+        onToast(`${config.ui.toasts.bookingSuccess} ${t("trackingCode")}: ${createdTrackingCode}`, "success");
+      }
 
       if (reservationMode === "both") {
         openWhatsappBooking(booking);
@@ -193,6 +212,12 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
   };
 
   const minDate = new Date().toISOString().split("T")[0];
+  const guestsCount = Number(values.guests);
+  const needsDeposit =
+    Boolean(config.settings.requireDepositForLargeGroups) &&
+    Number.isFinite(guestsCount) &&
+    guestsCount >= (config.settings.depositThresholdPeople ?? Number.POSITIVE_INFINITY);
+  const showPolicies = Boolean(config.settings.depositPolicyText || config.settings.cancellationPolicyText);
 
   return (
     <article className="info-card booking-card">
@@ -272,6 +297,21 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
             rows={4}
           />
         </label>
+        {needsDeposit ? <div className="booking-policy booking-policy--notice">{t("depositMayBeRequired")}</div> : null}
+        {showPolicies ? (
+          <div className="booking-policy">
+            {config.settings.depositPolicyText ? <p>{config.settings.depositPolicyText}</p> : null}
+            {config.settings.cancellationPolicyText ? <p>{config.settings.cancellationPolicyText}</p> : null}
+            <label className="booking-policy__check">
+              <input
+                type="checkbox"
+                checked={Boolean(values.policyAccepted)}
+                onChange={(event) => updateField("policyAccepted", event.target.checked)}
+              />
+              <span>{t("policyAccepted")}</span>
+            </label>
+          </div>
+        ) : null}
         <button className="primary-button primary-button--wide" type="submit" disabled={isSubmitting}>
           {isSubmitting ? "جارٍ إرسال الحجز..." : config.ui.booking.submit}
         </button>

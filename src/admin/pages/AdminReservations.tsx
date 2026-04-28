@@ -11,6 +11,7 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import {
   ReservationsRepositoryError,
   getReservationById,
@@ -23,25 +24,43 @@ import { createWhatsappUrl } from "../../utils/formatters";
 type ReservationFilter = ReservationStatus | "all";
 type StatusTone = "success" | "warning" | "neutral" | "danger";
 
-const reservationStatuses = ["new", "confirmed", "completed", "cancelled"] as const satisfies readonly ReservationStatus[];
+const reservationStatuses = [
+  "new",
+  "pending_confirmation",
+  "confirmed",
+  "deposit_required",
+  "deposit_paid",
+  "seated",
+  "completed",
+  "no_show",
+  "cancelled",
+  "rejected",
+] as const satisfies readonly ReservationStatus[];
 
-const statusLabels: Record<ReservationStatus, string> = {
-  new: "جديد",
-  confirmed: "مؤكد",
-  completed: "مكتمل",
-  cancelled: "ملغي",
+const statusLabelKeys: Record<ReservationStatus, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+  new: "reservationStatusNew",
+  pending_confirmation: "reservationStatusPendingConfirmation",
+  confirmed: "reservationStatusConfirmed",
+  deposit_required: "reservationStatusDepositRequired",
+  deposit_paid: "reservationStatusDepositPaid",
+  seated: "reservationStatusSeated",
+  completed: "reservationStatusCompleted",
+  no_show: "reservationStatusNoShow",
+  cancelled: "reservationStatusCancelled",
+  rejected: "reservationStatusRejected",
 };
 
 const statusTones: Record<ReservationStatus, StatusTone> = {
   new: "neutral",
-  confirmed: "warning",
+  pending_confirmation: "warning",
+  confirmed: "success",
+  deposit_required: "warning",
+  deposit_paid: "success",
+  seated: "neutral",
   completed: "success",
+  no_show: "danger",
   cancelled: "danger",
-};
-
-const filterLabels: Record<ReservationFilter, string> = {
-  all: "الكل",
-  ...statusLabels,
+  rejected: "danger",
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -96,10 +115,12 @@ const formatReservationTime = (value: string) => {
 };
 
 export default function AdminReservations() {
+  const { t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
     activeRestaurantName,
+    activeRestaurantSlug,
     canAccessFeature,
     canManageRestaurantContent,
     scopeError,
@@ -121,7 +142,7 @@ export default function AdminReservations() {
       new: reservations.filter((reservation) => reservation.status === "new").length,
       confirmed: reservations.filter((reservation) => reservation.status === "confirmed").length,
       completed: reservations.filter((reservation) => reservation.status === "completed").length,
-      cancelled: reservations.filter((reservation) => reservation.status === "cancelled").length,
+      depositRequired: reservations.filter((reservation) => reservation.status === "deposit_required").length,
     }),
     [reservations],
   );
@@ -252,9 +273,16 @@ export default function AdminReservations() {
 
   const openWhatsappReply = (reservation: Reservation) => {
     const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
+    const trackUrl = activeRestaurantSlug ? `${window.location.origin}/r/${activeRestaurantSlug}/track` : "";
     const message = `مرحبًا ${reservation.customerName}، بخصوص حجزك في ${restaurantName} بتاريخ ${formatReservationDate(
       reservation.reservationDate,
-    )} الساعة ${formatReservationTime(reservation.reservationTime)}، حالة الحجز الآن: ${statusLabels[reservation.status]}.`;
+    )} الساعة ${formatReservationTime(reservation.reservationTime)}، حالة الحجز الآن: ${t(statusLabelKeys[reservation.status])}.${
+      reservation.trackingCode ? `\nرمز التتبع: ${reservation.trackingCode}` : ""
+    }${trackUrl ? `\nرابط التتبع: ${trackUrl}` : ""}${
+      reservation.depositStatus === "required" && reservation.depositAmount
+        ? `\nالعربون المطلوب: ${reservation.depositAmount} د.م.`
+        : ""
+    }`;
 
     window.open(createWhatsappUrl(reservation.customerPhone, message), "_blank", "noopener,noreferrer");
   };
@@ -275,10 +303,14 @@ export default function AdminReservations() {
           <span>{formatReservationId(reservation.id)}</span>
           <h3>{reservation.customerName}</h3>
         </div>
-        <AdminStatusBadge tone={statusTones[reservation.status]}>{statusLabels[reservation.status]}</AdminStatusBadge>
+        <AdminStatusBadge tone={statusTones[reservation.status]}>{t(statusLabelKeys[reservation.status])}</AdminStatusBadge>
       </div>
 
       <div className="admin-order-card__meta">
+        <div>
+          <span>{t("trackingCode")}</span>
+          <strong>{reservation.trackingCode || formatReservationId(reservation.id)}</strong>
+        </div>
         <div>
           <span>الهاتف</span>
           <strong>{reservation.customerPhone}</strong>
@@ -297,7 +329,14 @@ export default function AdminReservations() {
         </div>
         <div>
           <span>الحالة</span>
-          <strong>{statusLabels[reservation.status]}</strong>
+          <strong>{t(statusLabelKeys[reservation.status])}</strong>
+        </div>
+        <div>
+          <span>العربون</span>
+          <strong>
+            {reservation.depositStatus || "none"}
+            {reservation.depositAmount ? ` - ${reservation.depositAmount} د.م` : ""}
+          </strong>
         </div>
         <div>
           <span>تاريخ الإنشاء</span>
@@ -314,7 +353,7 @@ export default function AdminReservations() {
         >
           {reservationStatuses.map((status) => (
             <option value={status} key={status}>
-              {statusLabels[status]}
+              {t(statusLabelKeys[status])}
             </option>
           ))}
         </select>
@@ -424,8 +463,8 @@ export default function AdminReservations() {
               <strong>{stats.completed}</strong>
             </div>
             <div>
-              <span>ملغي</span>
-              <strong>{stats.cancelled}</strong>
+              <span>{t("reservationStatusDepositRequired")}</span>
+              <strong>{stats.depositRequired}</strong>
             </div>
           </div>
 
@@ -437,7 +476,7 @@ export default function AdminReservations() {
                 onClick={() => setStatusFilter(filter)}
                 key={filter}
               >
-                {filterLabels[filter]}
+                {filter === "all" ? t("all") : t(statusLabelKeys[filter])}
               </button>
             ))}
           </div>
@@ -483,8 +522,19 @@ export default function AdminReservations() {
               <div>
                 <span>الحالة</span>
                 <AdminStatusBadge tone={statusTones[reservationDetails.status]}>
-                  {statusLabels[reservationDetails.status]}
+                  {t(statusLabelKeys[reservationDetails.status])}
                 </AdminStatusBadge>
+              </div>
+              <div>
+                <span>{t("trackingCode")}</span>
+                <strong>{reservationDetails.trackingCode || formatReservationId(reservationDetails.id)}</strong>
+              </div>
+              <div>
+                <span>العربون</span>
+                <strong>
+                  {reservationDetails.depositStatus || "none"}
+                  {reservationDetails.depositAmount ? ` - ${reservationDetails.depositAmount} د.م` : ""}
+                </strong>
               </div>
             </div>
 
@@ -501,7 +551,7 @@ export default function AdminReservations() {
                   disabled={busyReservationId === reservationDetails.id}
                   key={status}
                 >
-                  {statusLabels[status]}
+                  {t(statusLabelKeys[status])}
                 </AdminActionButton>
               ))}
             </div>

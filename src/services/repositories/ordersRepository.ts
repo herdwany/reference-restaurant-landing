@@ -25,6 +25,7 @@ export class OrdersRepositoryError extends Error {
 
 interface OrderRow extends Models.Row {
   restaurantId: string;
+  trackingCode?: string | null;
   customerName: string;
   customerPhone: string;
   customerAddress?: string | null;
@@ -72,6 +73,7 @@ export type OrderWithItems = {
 export type CreateOrderFunctionResult = {
   itemCount: number;
   orderId: string;
+  trackingCode: string;
   source: OrderSource;
   status: OrderStatus;
   totalAmount: number;
@@ -79,6 +81,7 @@ export type CreateOrderFunctionResult = {
 
 type OrderRowData = {
   restaurantId: string;
+  trackingCode: string;
   customerName: string;
   customerPhone: string;
   customerAddress: string | null;
@@ -98,15 +101,34 @@ type OrderItemRowData = {
   subtotal: number;
 };
 
-const orderStatuses = ["new", "confirmed", "preparing", "ready", "delivered", "cancelled"] as const satisfies readonly OrderStatus[];
+const orderStatuses = [
+  "new",
+  "confirmed",
+  "preparing",
+  "ready",
+  "out_for_delivery",
+  "completed",
+  "cancelled",
+  "rejected",
+] as const satisfies readonly OrderStatus[];
 const orderSources = ["website", "whatsapp", "admin"] as const satisfies readonly OrderSource[];
 
-const isKnownOrderStatus = (value: string): value is OrderStatus => orderStatuses.includes(value as OrderStatus);
+const normalizeOrderStatus = (value: string): OrderStatus => {
+  if (value === "delivered") {
+    return "completed";
+  }
+
+  return orderStatuses.includes(value as OrderStatus) ? (value as OrderStatus) : "new";
+};
+
 const isKnownOrderSource = (value: string): value is OrderSource => orderSources.includes(value as OrderSource);
+
+const generateTrackingCode = () => `PO-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
 const mapOrder = (row: OrderRow): Order => ({
   id: row.$id,
   restaurantId: row.restaurantId,
+  trackingCode: row.trackingCode ?? undefined,
   createdAt: row.$createdAt,
   updatedAt: row.$updatedAt,
   customerName: row.customerName,
@@ -114,7 +136,7 @@ const mapOrder = (row: OrderRow): Order => ({
   customerAddress: row.customerAddress ?? undefined,
   notes: row.notes ?? undefined,
   totalAmount: row.totalAmount,
-  status: isKnownOrderStatus(row.status) ? row.status : "new",
+  status: normalizeOrderStatus(row.status),
   source: isKnownOrderSource(row.source) ? row.source : "website",
 });
 
@@ -153,7 +175,7 @@ const assertOrderId = (orderId: string) => {
 };
 
 const assertOrderStatus = (status: OrderStatus) => {
-  if (!isKnownOrderStatus(status)) {
+  if (!orderStatuses.includes(status)) {
     throw new OrdersRepositoryError("حالة الطلب غير صالحة.", "INVALID_INPUT");
   }
 };
@@ -265,6 +287,7 @@ const getTotalAmount = (items: readonly (CreateOrderItemInput & { subtotal: numb
 
 const toOrderRowData = (input: CreateOrderInput, totalAmount: number): OrderRowData => ({
   restaurantId: input.restaurantId,
+  trackingCode: generateTrackingCode(),
   customerName: input.customerName.trim(),
   customerPhone: input.customerPhone.trim(),
   customerAddress: optionalText(input.customerAddress),
@@ -335,11 +358,12 @@ const parseCreateOrderFunctionResult = (body: string): CreateOrderFunctionResult
     throw new OrdersRepositoryError("Appwrite Function لم تُرجع ملخص طلب صالح.", "WRITE_FAILED");
   }
 
-  const status = typeof result.status === "string" && isKnownOrderStatus(result.status) ? result.status : "new";
+  const status = typeof result.status === "string" ? normalizeOrderStatus(result.status) : "new";
 
   return {
     itemCount: result.itemCount,
     orderId: result.orderId,
+    trackingCode: typeof result.trackingCode === "string" ? result.trackingCode : "",
     source: result.source === "admin" || result.source === "whatsapp" ? result.source : "website",
     status,
     totalAmount: result.totalAmount,

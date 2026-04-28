@@ -11,6 +11,7 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import {
   OrdersRepositoryError,
   getOrderItems,
@@ -26,15 +27,26 @@ type OrderFilter = OrderStatus | "all";
 type StatusTone = "success" | "warning" | "neutral" | "danger";
 
 const adminCurrency = "ر.س";
-const orderStatuses = ["new", "confirmed", "preparing", "ready", "delivered", "cancelled"] as const satisfies readonly OrderStatus[];
+const orderStatuses = [
+  "new",
+  "confirmed",
+  "preparing",
+  "ready",
+  "out_for_delivery",
+  "completed",
+  "cancelled",
+  "rejected",
+] as const satisfies readonly OrderStatus[];
 
-const statusLabels: Record<OrderStatus, string> = {
-  new: "جديد",
-  confirmed: "مؤكد",
-  preparing: "قيد التحضير",
-  ready: "جاهز",
-  delivered: "تم التسليم",
-  cancelled: "ملغي",
+const statusLabelKeys: Record<OrderStatus, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+  new: "orderStatusNew",
+  confirmed: "orderStatusConfirmed",
+  preparing: "orderStatusPreparing",
+  ready: "orderStatusReady",
+  out_for_delivery: "orderStatusOutForDelivery",
+  completed: "orderStatusCompleted",
+  cancelled: "orderStatusCancelled",
+  rejected: "orderStatusRejected",
 };
 
 const statusTones: Record<OrderStatus, StatusTone> = {
@@ -42,13 +54,10 @@ const statusTones: Record<OrderStatus, StatusTone> = {
   confirmed: "neutral",
   preparing: "warning",
   ready: "success",
-  delivered: "success",
+  out_for_delivery: "warning",
+  completed: "success",
   cancelled: "danger",
-};
-
-const filterLabels: Record<OrderFilter, string> = {
-  all: "الكل",
-  ...statusLabels,
+  rejected: "danger",
 };
 
 const getErrorMessage = (error: unknown) => {
@@ -81,10 +90,12 @@ const formatDate = (value: string | undefined) => {
 const getItemsQuantity = (items: readonly OrderItem[]) => items.reduce((total, item) => total + item.quantity, 0);
 
 export default function AdminOrders() {
+  const { t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
     activeRestaurantName,
+    activeRestaurantSlug,
     canAccessFeature,
     canManageRestaurantContent,
     scopeError,
@@ -107,7 +118,7 @@ export default function AdminOrders() {
       new: orders.filter((order) => order.status === "new").length,
       preparing: orders.filter((order) => order.status === "preparing").length,
       ready: orders.filter((order) => order.status === "ready").length,
-      delivered: orders.filter((order) => order.status === "delivered").length,
+      completed: orders.filter((order) => order.status === "completed").length,
     }),
     [orders],
   );
@@ -235,7 +246,15 @@ export default function AdminOrders() {
 
   const openWhatsappReply = (order: Order) => {
     const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
-    const message = `مرحبًا ${order.customerName}، بخصوص طلبك من ${restaurantName}، حالة طلبك الآن: ${statusLabels[order.status]}.`;
+    const trackUrl = activeRestaurantSlug ? `${window.location.origin}/r/${activeRestaurantSlug}/track` : "";
+    const message = [
+      `مرحبًا ${order.customerName}، بخصوص طلبك من ${restaurantName}.`,
+      `حالة الطلب الآن: ${t(statusLabelKeys[order.status])}.`,
+      order.trackingCode ? `رمز التتبع: ${order.trackingCode}` : null,
+      trackUrl ? `رابط التتبع: ${trackUrl}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     window.open(createWhatsappUrl(order.customerPhone, message), "_blank", "noopener,noreferrer");
   };
@@ -256,10 +275,14 @@ export default function AdminOrders() {
           <span>{formatOrderId(order.id)}</span>
           <h3>{order.customerName}</h3>
         </div>
-        <AdminStatusBadge tone={statusTones[order.status]}>{statusLabels[order.status]}</AdminStatusBadge>
+        <AdminStatusBadge tone={statusTones[order.status]}>{t(statusLabelKeys[order.status])}</AdminStatusBadge>
       </div>
 
       <div className="admin-order-card__meta">
+        <div>
+          <span>{t("trackingCode")}</span>
+          <strong>{order.trackingCode || formatOrderId(order.id)}</strong>
+        </div>
         <div>
           <span>الهاتف</span>
           <strong>{order.customerPhone}</strong>
@@ -287,7 +310,7 @@ export default function AdminOrders() {
         >
           {orderStatuses.map((status) => (
             <option value={status} key={status}>
-              {statusLabels[status]}
+              {t(statusLabelKeys[status])}
             </option>
           ))}
         </select>
@@ -389,8 +412,8 @@ export default function AdminOrders() {
               <strong>{stats.ready}</strong>
             </div>
             <div>
-              <span>مكتمل/تم التسليم</span>
-              <strong>{stats.delivered}</strong>
+              <span>{t("orderStatusCompleted")}</span>
+              <strong>{stats.completed}</strong>
             </div>
           </div>
 
@@ -402,7 +425,7 @@ export default function AdminOrders() {
                 onClick={() => setStatusFilter(filter)}
                 key={filter}
               >
-                {filterLabels[filter]}
+                {filter === "all" ? t("all") : t(statusLabelKeys[filter])}
               </button>
             ))}
           </div>
@@ -434,12 +457,18 @@ export default function AdminOrders() {
                 <strong>{orderDetails.order.customerPhone}</strong>
               </div>
               <div>
+                <span>{t("trackingCode")}</span>
+                <strong>{orderDetails.order.trackingCode || formatOrderId(orderDetails.order.id)}</strong>
+              </div>
+              <div>
                 <span>العنوان</span>
                 <strong>{orderDetails.order.customerAddress || "غير متوفر"}</strong>
               </div>
               <div>
                 <span>الحالة</span>
-                <AdminStatusBadge tone={statusTones[orderDetails.order.status]}>{statusLabels[orderDetails.order.status]}</AdminStatusBadge>
+                <AdminStatusBadge tone={statusTones[orderDetails.order.status]}>
+                  {t(statusLabelKeys[orderDetails.order.status])}
+                </AdminStatusBadge>
               </div>
             </div>
 
@@ -479,7 +508,7 @@ export default function AdminOrders() {
                   disabled={busyOrderId === orderDetails.order.id}
                   key={status}
                 >
-                  {statusLabels[status]}
+                  {t(statusLabelKeys[status])}
                 </AdminActionButton>
               ))}
             </div>

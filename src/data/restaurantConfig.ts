@@ -73,6 +73,7 @@ export interface Dish {
   id: string;
   name: string;
   description: string;
+  translations?: Record<string, Record<string, string>>;
   price: number;
   oldPrice?: number;
   image: string;
@@ -88,6 +89,7 @@ export interface Offer {
   id: string;
   title: string;
   description: string;
+  translations?: Record<string, Record<string, string>>;
   price: number;
   oldPrice?: number;
   image: string;
@@ -127,6 +129,7 @@ export interface MenuCategory {
 export interface FAQItem {
   question: string;
   answer: string;
+  translations?: Record<string, Record<string, string>>;
 }
 
 export interface SocialLinks {
@@ -166,6 +169,7 @@ export interface BookingFormData {
   time: string;
   guests: string;
   notes?: string;
+  policyAccepted?: boolean;
 }
 
 export interface SectionVisibilitySettings {
@@ -188,6 +192,14 @@ export interface RestaurantConfig {
     orderMode: "whatsapp" | "database" | "both";
     reservationMode: "whatsapp" | "database" | "both";
     themePreset?: "classic_red" | "black_gold" | "coffee" | "fresh" | "minimal";
+    requireManualReservationConfirmation?: boolean;
+    requireDepositForLargeGroups?: boolean;
+    depositThresholdPeople?: number;
+    depositAmount?: number;
+    depositPolicyText?: string;
+    cancellationPolicyText?: string;
+    maxPeoplePerReservation?: number;
+    translations?: Record<string, Record<string, string>>;
     sections: SectionVisibilitySettings;
   };
   restaurant: RestaurantInfo;
@@ -285,6 +297,49 @@ export const restaurantConfig: RestaurantConfig = {
     orderMode: "whatsapp",
     reservationMode: "whatsapp",
     themePreset: "classic_red",
+    requireManualReservationConfirmation: true,
+    requireDepositForLargeGroups: true,
+    depositThresholdPeople: 8,
+    depositAmount: 100,
+    depositPolicyText: "الحجوزات من 8 أشخاص فما فوق قد تحتاج عربونًا يدويًا لتأكيد الطاولة. سيتواصل معك فريق المطعم عبر واتساب.",
+    cancellationPolicyText: "يمكن تعديل أو إلغاء الحجز قبل الموعد بثلاث ساعات. في حالات التأخر الكبير قد يتم تحرير الطاولة.",
+    maxPeoplePerReservation: 20,
+    translations: {
+      fr: {
+        heroTitle: "Cuisine marocaine fraîche, prête pour la table ou la livraison",
+        heroSubtitle:
+          "Tajines, couscous, snacks et cafés préparés chaque jour. Réservez une table ou commandez via WhatsApp en quelques minutes.",
+        primaryCtaText: "Commander",
+        secondaryCtaText: "WhatsApp",
+        featuredSectionTitle: "Plats recommandés",
+        offersSectionTitle: "Offres du jour",
+        testimonialsSectionTitle: "Avis clients",
+        contactSectionTitle: "Réservation et contact",
+        gallerySectionTitle: "Ambiance du restaurant",
+        faqSectionTitle: "Questions fréquentes",
+        depositPolicyText:
+          "Les réservations de 8 personnes ou plus peuvent nécessiter un acompte manuel. L'équipe vous contactera sur WhatsApp.",
+        cancellationPolicyText:
+          "Vous pouvez modifier ou annuler votre réservation jusqu'à trois heures avant l'horaire prévu.",
+      },
+      en: {
+        heroTitle: "Fresh Moroccan food for dine-in, delivery, and quick pickup",
+        heroSubtitle:
+          "Tajines, couscous, snacks, and coffee prepared daily. Book a table or order on WhatsApp in minutes.",
+        primaryCtaText: "Order now",
+        secondaryCtaText: "WhatsApp",
+        featuredSectionTitle: "Recommended dishes",
+        offersSectionTitle: "Today’s offers",
+        testimonialsSectionTitle: "Customer reviews",
+        contactSectionTitle: "Booking and contact",
+        gallerySectionTitle: "Inside the restaurant",
+        faqSectionTitle: "FAQ",
+        depositPolicyText:
+          "Reservations for 8 or more guests may require a manual deposit. The restaurant team will contact you on WhatsApp.",
+        cancellationPolicyText:
+          "You can change or cancel your reservation up to three hours before the booking time.",
+      },
+    },
     sections: {
       hero: true,
       trustBadges: true,
@@ -298,18 +353,18 @@ export const restaurantConfig: RestaurantConfig = {
     },
   },
   restaurant: {
-    name: "مطعم الذواقة",
-    slogan: "طعم يبقى بك",
-    logoText: "الذواقة",
-    phone: "+966 55 123 4567",
-    whatsappNumber: "966551234567",
-    email: "hello@althawaqa.example",
-    address: "شارع الأمير سلطان، الرياض، المملكة العربية السعودية",
-    workingHours: "نحن في خدمتكم يومياً من 12 ظهراً حتى 1 بعد منتصف الليل",
+    name: "دار لالة",
+    slogan: "مطبخ مغربي عصري",
+    logoText: "دار لالة",
+    phone: "+212 6 12 34 56 78",
+    whatsappNumber: "212612345678",
+    email: "hello@dar-lalla.example",
+    address: "حي أكدال، الرباط، المغرب",
+    workingHours: "مفتوح يومياً من 12:00 إلى 23:30",
     mapImage: foodImage("photo-1524661135-423995f22d0b", 900, 520),
-    mapUrl: "https://maps.google.com/?q=Riyadh%20Restaurant",
-    currency: "ر.س",
-    deliveryFee: 12,
+    mapUrl: "https://maps.google.com/?q=Agdal%20Rabat%20Restaurant",
+    currency: "د.م",
+    deliveryFee: 15,
   },
   brand: {
     primaryColor: "#E51B2B",
@@ -333,22 +388,22 @@ export const restaurantConfig: RestaurantConfig = {
   ],
   hero: {
     badgeText: "جودة المكونات، سر مذاقنا",
-    title: "عنوان قوي لزيادة الطلبات",
+    title: "أطباق مغربية تُحضّر اليوم وتصل بطعم الدار",
     subtitle:
-      "اكتشف أشهى الأطباق المحضّرة من مكونات طازجة على أيدي أفضل الشيفات. تجربة لا تُنسى تنتظرك!",
+      "من الطاجين والكسكس إلى السندويتشات السريعة والقهوة المختصة، احجز طاولتك أو اطلب وجبتك عبر واتساب في دقائق.",
     primaryCtaText: "اطلب الآن",
     secondaryCtaText: "تواصل عبر واتساب",
     image: foodImage("photo-1565299624946-b28f40a0ae38", 1000, 900),
     mediaType: "image",
     videoUrl: "",
     layout: "split",
-    imageBadge: "تواصل يومياً",
+    imageBadge: "طازج يومياً",
   },
   quickBenefits: [
     { title: "توصيل سريع", icon: "clock" },
     { title: "مكونات طازجة", icon: "leaf" },
     { title: "جودة عالية", icon: "star" },
-    { title: "دفع آمن", icon: "shield" },
+    { title: "تأكيد سريع", icon: "shield" },
   ],
   features: [
     {
@@ -377,6 +432,16 @@ export const restaurantConfig: RestaurantConfig = {
       id: "alfredo-chicken-pasta",
       name: "باستا ألفريدو بالدجاج",
       description: "باستا كريمية مع دجاج مشوي وجبن بارميزان وصلصة غنية.",
+      translations: {
+        fr: {
+          name: "Pâtes Alfredo au poulet",
+          description: "Pâtes crémeuses avec poulet grillé, parmesan et sauce riche.",
+        },
+        en: {
+          name: "Chicken Alfredo pasta",
+          description: "Creamy pasta with grilled chicken, parmesan, and a rich sauce.",
+        },
+      },
       price: 45,
       oldPrice: 56,
       image: foodImage("photo-1551183053-bf91a1d81141"),
@@ -390,6 +455,16 @@ export const restaurantConfig: RestaurantConfig = {
       id: "classic-beef-burger",
       name: "برجر اللحم الكلاسيكي",
       description: "لحم بقري طازج مع جبن شيدر وخس وصوص خاص داخل خبز بريوش.",
+      translations: {
+        fr: {
+          name: "Burger classique au boeuf",
+          description: "Boeuf frais, cheddar, salade et sauce maison dans un pain brioché.",
+        },
+        en: {
+          name: "Classic beef burger",
+          description: "Fresh beef, cheddar, lettuce, and house sauce in a brioche bun.",
+        },
+      },
       price: 38,
       image: foodImage("photo-1550547660-d9450f859349"),
       badge: "جديد",
@@ -402,6 +477,16 @@ export const restaurantConfig: RestaurantConfig = {
       id: "herb-grilled-chicken",
       name: "دجاج مشوي بالأعشاب",
       description: "صدر دجاج متبل بالأعشاب يقدم مع خضار موسمية وصلصة الليمون.",
+      translations: {
+        fr: {
+          name: "Poulet grillé aux herbes",
+          description: "Blanc de poulet mariné aux herbes, légumes de saison et sauce citron.",
+        },
+        en: {
+          name: "Herb grilled chicken",
+          description: "Herb-marinated chicken breast with seasonal vegetables and lemon sauce.",
+        },
+      },
       price: 42,
       image: foodImage("photo-1598515214211-89d3c73ae83b"),
       category: "الأطباق الرئيسية",
@@ -413,6 +498,16 @@ export const restaurantConfig: RestaurantConfig = {
       id: "chocolate-cake",
       name: "كيكة الشوكولاتة",
       description: "طبقات شوكولاتة فاخرة مع صوص كاكاو وكريمة خفيفة.",
+      translations: {
+        fr: {
+          name: "Gâteau au chocolat",
+          description: "Couches de chocolat avec sauce cacao et crème légère.",
+        },
+        en: {
+          name: "Chocolate cake",
+          description: "Rich chocolate layers with cocoa sauce and light cream.",
+        },
+      },
       price: 28,
       image: foodImage("photo-1606890737304-57a1ca8a5b62"),
       badge: "حلوى اليوم",
@@ -475,6 +570,18 @@ export const restaurantConfig: RestaurantConfig = {
       id: "saving-meal",
       title: "وجبة التوفير",
       description: "برجر كلاسيكي مع بطاطس مقرمشة ومشروب بارد.",
+      translations: {
+        fr: {
+          title: "Menu malin",
+          description: "Burger classique avec frites croustillantes et boisson fraîche.",
+          ctaText: "Commander",
+        },
+        en: {
+          title: "Value meal",
+          description: "Classic burger with crispy fries and a cold drink.",
+          ctaText: "Order now",
+        },
+      },
       price: 32,
       oldPrice: 49,
       image: foodImage("photo-1568901346375-23c9450c58cd", 760, 640),
@@ -485,6 +592,18 @@ export const restaurantConfig: RestaurantConfig = {
       id: "pizza-offer",
       title: "عرض البيتزا",
       description: "بيتزا مارجريتا كبيرة مع مقبلات ومشروبين.",
+      translations: {
+        fr: {
+          title: "Offre pizza",
+          description: "Grande pizza margherita avec entrées et deux boissons.",
+          ctaText: "Commander l'offre",
+        },
+        en: {
+          title: "Pizza offer",
+          description: "Large margherita pizza with starters and two drinks.",
+          ctaText: "Order offer",
+        },
+      },
       price: 59,
       oldPrice: 86,
       image: foodImage("photo-1594007654729-407eedc4be65", 760, 640),
@@ -495,6 +614,18 @@ export const restaurantConfig: RestaurantConfig = {
       id: "family-meal",
       title: "وجبة عائلية",
       description: "تشكيلة مشويات وسلطات ومشروبات تكفي أربعة أشخاص.",
+      translations: {
+        fr: {
+          title: "Menu familial",
+          description: "Grillades, salades et boissons pour quatre personnes.",
+          ctaText: "Commander",
+        },
+        en: {
+          title: "Family meal",
+          description: "Mixed grills, salads, and drinks for four people.",
+          ctaText: "Order now",
+        },
+      },
       price: 129,
       oldPrice: 198,
       image: foodImage("photo-1529692236671-f1f6cf9683ba", 760, 640),
@@ -639,14 +770,44 @@ export const restaurantConfig: RestaurantConfig = {
     {
       question: "هل يمكنني تعديل طلبي بعد تأكيده؟",
       answer: "نعم، تواصل معنا عبر واتساب خلال أول عشر دقائق من إرسال الطلب وسنحاول تعديله قبل التجهيز.",
+      translations: {
+        fr: {
+          question: "Puis-je modifier ma commande après confirmation ?",
+          answer: "Oui, contactez-nous sur WhatsApp dans les dix premières minutes et nous ferons le nécessaire avant la préparation.",
+        },
+        en: {
+          question: "Can I change my order after confirmation?",
+          answer: "Yes. Contact us on WhatsApp within the first ten minutes and we will try to adjust it before preparation.",
+        },
+      },
     },
     {
       question: "هل لديكم خيارات نباتية أو خالية من الجلوتين؟",
       answer: "تتوفر خيارات نباتية وعدة أطباق يمكن تعديلها حسب الحساسية أو التفضيل عند الطلب.",
+      translations: {
+        fr: {
+          question: "Avez-vous des options végétariennes ou sans gluten ?",
+          answer: "Oui, plusieurs plats peuvent être adaptés selon les préférences ou allergies au moment de la commande.",
+        },
+        en: {
+          question: "Do you have vegetarian or gluten-free options?",
+          answer: "Yes. Several dishes can be adapted for preferences or allergies when ordering.",
+        },
+      },
     },
     {
       question: "ما هي أوقات العمل؟",
       answer: "نعمل يومياً من 12 ظهراً حتى 1 بعد منتصف الليل، وقد تختلف أوقات الفروع في المواسم.",
+      translations: {
+        fr: {
+          question: "Quels sont les horaires d'ouverture ?",
+          answer: "Nous sommes ouverts tous les jours de midi à 23h30. Les horaires peuvent varier pendant les périodes chargées.",
+        },
+        en: {
+          question: "What are the opening hours?",
+          answer: "We are open daily from 12:00 to 23:30. Hours may vary during busy seasons.",
+        },
+      },
     },
     {
       question: "هل يوجد توصيل لجميع مناطق المدينة؟",

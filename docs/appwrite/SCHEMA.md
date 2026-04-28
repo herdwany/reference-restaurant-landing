@@ -14,7 +14,7 @@
 
 - `name`: string
 - `slug`: string unique
-- `businessType`: enum/string `restaurant | cafe | bakery | cloud_kitchen | salon | clinic | gym | car_rental | other`
+- `businessType`: enum/string `restaurant | cafe | bakery | cloud_kitchen` for new clients. Older non-food values are legacy only and should not be used for current sales.
 - `status`: enum `draft | active | suspended | cancelled`
 - `plan`: enum/string `starter | pro | premium | managed`, optional/default `starter`
 - `billingStatus`: enum/string `trial | active | overdue | cancelled`, optional/default `trial`
@@ -72,6 +72,7 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `restaurantId`: string
 - `name`: string
 - `description`: text
+- `translations`: text JSON optional. Example: `{ "fr": { "name": "...", "description": "..." }, "en": { "name": "...", "description": "..." } }`
 - `price`: float
 - `oldPrice`: float optional
 - `imageFileId`: string optional
@@ -91,6 +92,7 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `restaurantId`: string
 - `title`: string
 - `description`: text
+- `translations`: text JSON optional. Example: `{ "fr": { "title": "...", "description": "...", "ctaText": "..." } }`
 - `price`: float
 - `oldPrice`: float optional
 - `imageFileId`: string optional
@@ -131,6 +133,7 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `restaurantId`: string
 - `question`: string
 - `answer`: text
+- `translations`: text JSON optional. Example: `{ "fr": { "question": "...", "answer": "..." } }`
 - `isVisible`: boolean
 - `sortOrder`: integer
 
@@ -154,7 +157,17 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `featuredSectionTitle`: string optional
 - `offersSectionTitle`: string optional
 - `gallerySectionTitle`: string optional
+- `testimonialsSectionTitle`: string optional
+- `contactSectionTitle`: string optional
 - `faqSectionTitle`: string optional
+- `translations`: text JSON optional for homepage copy and policy text. Base Arabic/current copy stays in the existing columns.
+- `requireManualReservationConfirmation`: boolean optional
+- `requireDepositForLargeGroups`: boolean optional
+- `depositThresholdPeople`: integer optional
+- `depositAmount`: float optional
+- `depositPolicyText`: text optional
+- `cancellationPolicyText`: text optional
+- `maxPeoplePerReservation`: integer optional
 - `showHero`: boolean
 - `showTrustBadges`: boolean
 - `showFeatured`: boolean optional, mirrors featured dishes visibility for new homepage customization UI
@@ -170,12 +183,13 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 ## orders
 
 - `restaurantId`: string
+- `trackingCode`: string optional, generated for customer tracking without login
 - `customerName`: string
 - `customerPhone`: string
 - `customerAddress`: string optional
 - `notes`: text optional
 - `totalAmount`: float
-- `status`: enum `new | confirmed | preparing | ready | delivered | cancelled`
+- `status`: enum `new | confirmed | preparing | ready | out_for_delivery | completed | cancelled | rejected`
 - `source`: enum `website | whatsapp | admin`
 - `createdAtText`: string optional
 - `createdAt`: datetime
@@ -194,13 +208,19 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 ## reservations
 
 - `restaurantId`: string
+- `trackingCode`: string optional, generated for customer tracking without login
 - `customerName`: string
 - `customerPhone`: string
 - `reservationDate`: datetime أو string حسب إعدادات Appwrite
 - `reservationTime`: string
 - `peopleCount`: integer
 - `notes`: text optional
-- `status`: enum `new | confirmed | cancelled | completed`
+- `status`: enum `new | pending_confirmation | confirmed | deposit_required | deposit_paid | seated | completed | no_show | cancelled | rejected`
+- `depositStatus`: enum/string `none | required | paid | waived`, optional
+- `depositAmount`: float optional
+- `depositNotes`: text optional
+- `confirmationNotes`: text optional
+- `policyAccepted`: boolean optional
 - `createdAtText`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
@@ -244,12 +264,16 @@ Appwrite يحتاج indexes للحقول التي يتم استخدامها في
 - `restaurantId`
 - `restaurantId + status`
 - `restaurantId + createdAt`
+- `trackingCode`
+- `restaurantId + trackingCode`
 
 ### reservations
 
 - `restaurantId`
 - `restaurantId + status`
 - `restaurantId + reservationDate`
+- `trackingCode`
+- `restaurantId + trackingCode`
 
 ### faqs / gallery_items / testimonials
 

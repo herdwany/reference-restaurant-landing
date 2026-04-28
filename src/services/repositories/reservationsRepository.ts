@@ -8,7 +8,7 @@ import {
   hasCreateReservationFunctionConfig,
   isProductionBuild,
 } from "../../lib/appwriteIds";
-import type { Reservation, ReservationStatus } from "../../types/platform";
+import type { DepositStatus, Reservation, ReservationStatus } from "../../types/platform";
 
 type ReservationsRepositoryErrorCode =
   | "APPWRITE_NOT_CONFIGURED"
@@ -30,6 +30,7 @@ export class ReservationsRepositoryError extends Error {
 
 interface ReservationRow extends Models.Row {
   restaurantId: string;
+  trackingCode?: string | null;
   customerName: string;
   customerPhone: string;
   reservationDate: string;
@@ -37,6 +38,11 @@ interface ReservationRow extends Models.Row {
   peopleCount: number;
   notes?: string | null;
   status: ReservationStatus;
+  depositStatus?: DepositStatus | null;
+  depositAmount?: number | null;
+  depositNotes?: string | null;
+  confirmationNotes?: string | null;
+  policyAccepted?: boolean | null;
 }
 
 export type CreateReservationInput = {
@@ -48,12 +54,17 @@ export type CreateReservationInput = {
   reservationTime: string;
   peopleCount: number;
   notes?: string;
+  policyAccepted?: boolean;
+  status?: ReservationStatus;
+  depositStatus?: DepositStatus;
+  depositAmount?: number;
 };
 
 export type CreateReservationFunctionResult = {
   peopleCount: number;
   reservationDate: string;
   reservationId: string;
+  trackingCode: string;
   reservationTime: string;
   source: "website";
   status: ReservationStatus;
@@ -61,6 +72,7 @@ export type CreateReservationFunctionResult = {
 
 type ReservationRowData = {
   restaurantId: string;
+  trackingCode: string;
   customerName: string;
   customerPhone: string;
   reservationDate: string;
@@ -68,23 +80,51 @@ type ReservationRowData = {
   peopleCount: number;
   notes: string | null;
   status: ReservationStatus;
+  depositStatus: DepositStatus;
+  depositAmount: number | null;
+  depositNotes: string | null;
+  confirmationNotes: string | null;
+  policyAccepted: boolean;
 };
 
-const reservationStatuses = ["new", "confirmed", "cancelled", "completed"] as const satisfies readonly ReservationStatus[];
+const reservationStatuses = [
+  "new",
+  "pending_confirmation",
+  "confirmed",
+  "deposit_required",
+  "deposit_paid",
+  "seated",
+  "completed",
+  "no_show",
+  "cancelled",
+  "rejected",
+] as const satisfies readonly ReservationStatus[];
+const depositStatuses = ["none", "required", "paid", "waived"] as const satisfies readonly DepositStatus[];
 
-const isKnownReservationStatus = (value: string): value is ReservationStatus =>
-  reservationStatuses.includes(value as ReservationStatus);
+const normalizeReservationStatus = (value: string): ReservationStatus =>
+  reservationStatuses.includes(value as ReservationStatus) ? (value as ReservationStatus) : "new";
+
+const normalizeDepositStatus = (value: string | null | undefined): DepositStatus =>
+  depositStatuses.includes(value as DepositStatus) ? (value as DepositStatus) : "none";
+
+const generateTrackingCode = () => `RS-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
 const mapReservation = (row: ReservationRow): Reservation => ({
   id: row.$id,
   restaurantId: row.restaurantId,
+  trackingCode: row.trackingCode ?? undefined,
   customerName: row.customerName,
   customerPhone: row.customerPhone,
   reservationDate: row.reservationDate,
   reservationTime: row.reservationTime,
   peopleCount: row.peopleCount,
   notes: row.notes ?? undefined,
-  status: isKnownReservationStatus(row.status) ? row.status : "new",
+  status: normalizeReservationStatus(row.status),
+  depositStatus: normalizeDepositStatus(row.depositStatus),
+  depositAmount: row.depositAmount ?? undefined,
+  depositNotes: row.depositNotes ?? undefined,
+  confirmationNotes: row.confirmationNotes ?? undefined,
+  policyAccepted: row.policyAccepted ?? undefined,
   createdAt: row.$createdAt,
   updatedAt: row.$updatedAt,
 });
@@ -113,7 +153,7 @@ const assertReservationId = (reservationId: string) => {
 };
 
 const assertReservationStatus = (status: ReservationStatus) => {
-  if (!isKnownReservationStatus(status)) {
+  if (!reservationStatuses.includes(status)) {
     throw new ReservationsRepositoryError("حالة الحجز غير صالحة.", "INVALID_INPUT");
   }
 };
@@ -174,13 +214,19 @@ const assertCreateReservationFunctionInput = (input: CreateReservationInput) => 
 
 const toReservationRowData = (input: CreateReservationInput): ReservationRowData => ({
   restaurantId: input.restaurantId,
+  trackingCode: generateTrackingCode(),
   customerName: input.customerName.trim(),
   customerPhone: input.customerPhone.trim(),
   reservationDate: input.reservationDate.trim(),
   reservationTime: input.reservationTime.trim(),
   peopleCount: Math.trunc(input.peopleCount),
   notes: optionalText(input.notes),
-  status: "new",
+  status: input.status ?? "new",
+  depositStatus: input.depositStatus ?? "none",
+  depositAmount: typeof input.depositAmount === "number" ? input.depositAmount : null,
+  depositNotes: null,
+  confirmationNotes: null,
+  policyAccepted: Boolean(input.policyAccepted),
 });
 
 const getWriteErrorMessage = (error: unknown, action: "create" | "update") => {
@@ -262,12 +308,13 @@ const parseCreateReservationFunctionResult = (body: string): CreateReservationFu
     throw new ReservationsRepositoryError("Appwrite Function لم تُرجع ملخص حجز صالح.", "WRITE_FAILED");
   }
 
-  const status = typeof result.status === "string" && isKnownReservationStatus(result.status) ? result.status : "new";
+  const status = typeof result.status === "string" ? normalizeReservationStatus(result.status) : "new";
 
   return {
     peopleCount: result.peopleCount,
     reservationDate: result.reservationDate,
     reservationId: result.reservationId,
+    trackingCode: typeof result.trackingCode === "string" ? result.trackingCode : "",
     reservationTime: result.reservationTime,
     source: "website",
     status,
@@ -287,6 +334,7 @@ export async function createReservationViaFunction(input: CreateReservationInput
     reservationTime: input.reservationTime.trim(),
     peopleCount: Math.trunc(input.peopleCount),
     notes: input.notes?.trim() || undefined,
+    policyAccepted: Boolean(input.policyAccepted),
     source: "website",
   };
 
@@ -408,11 +456,18 @@ export async function updateReservationStatus(
   assertReservationBelongsToRestaurant(existingReservation, activeRestaurantId);
 
   try {
+    const data =
+      status === "deposit_paid"
+        ? { status, depositStatus: "paid" as DepositStatus }
+        : status === "deposit_required"
+          ? { status, depositStatus: "required" as DepositStatus }
+          : { status };
+
     const row = await databases.updateRow<ReservationRow>({
       databaseId: DATABASE_ID,
       tableId: TABLES.reservations,
       rowId: reservationId,
-      data: { status },
+      data,
     });
 
     return mapReservation(row);

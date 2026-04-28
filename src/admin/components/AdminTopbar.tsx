@@ -49,7 +49,7 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   return (
     <header className="admin-topbar">
       <div className="admin-topbar__title">
-        <button className="admin-topbar__menu" type="button" aria-label="فتح القائمة" onClick={onMenuClick}>
+        <button className="admin-topbar__menu" type="button" aria-label={t("openMenu")} onClick={onMenuClick}>
           <Menu size={21} aria-hidden="true" />
         </button>
         <div>
@@ -73,13 +73,13 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
         {isAgencyAdmin ? (
           <Link className="admin-icon-link" to="/agency" aria-label="لوحة الوكالة">
             <Building2 size={19} aria-hidden="true" />
-            <span>لوحة الوكالة</span>
+            <span>{t("agencyDashboard")}</span>
           </Link>
         ) : null}
         <LanguageSwitcher className="language-switcher--admin" />
-        <Link className="admin-icon-link" to="/" aria-label="معاينة الموقع">
+        <Link className="admin-icon-link" to="/" aria-label={t("previewSite")}>
           <Eye size={19} aria-hidden="true" />
-          <span>معاينة الموقع</span>
+          <span>{t("previewSite")}</span>
         </Link>
         <div className="admin-user-chip" title={displayName}>
           <span>{displayName.slice(0, 1).toUpperCase()}</span>

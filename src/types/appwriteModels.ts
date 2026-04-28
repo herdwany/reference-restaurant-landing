@@ -9,6 +9,7 @@ export type {
   BusinessType,
   ClientPlan,
   ColorTheme,
+  DepositStatus,
   Dish,
   DomainStatus,
   DomainType,

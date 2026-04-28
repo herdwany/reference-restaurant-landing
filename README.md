@@ -216,6 +216,25 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG="demo-restaurant"
 - نموذج الحجز يدعم `reservationMode`: واتساب فقط، قاعدة البيانات فقط، أو الحفظ في Appwrite ثم فتح واتساب.
 - كل روابط الهيدر تعمل بسلاسة، ورابط المعرض يفتح قسماً تفاعلياً قابل للتوسعة.
 
+## FINALIZATION_BATCH_1_PRODUCT_AND_RESTAURANT_OPERATIONS
+
+- الصفحة العامة `/r/:slug` أصبحت تستخدم تخصيص homepage فعليًا: hero layout، theme preset، image/video، عناوين الأقسام، وإظهار/إخفاء الأقسام.
+- `ar/fr/en` مدعومة للواجهة والمحتوى الأساسي. محتوى الأطباق والعروض والأسئلة والصفحة الرئيسية يستخدم حقل `translations` كـ JSON نصي اختياري مع fallback للحقول الأساسية.
+- أضيفت صفحة تتبع بدون login: `/r/:slug/track`.
+- الطلبات والحجوزات تنشئ `trackingCode`، والتتبع يتم عبر Function باسم `trackRequest` ولا يحتاج public read على الجداول الحساسة.
+- حجوزات المطاعم تدعم تأكيدًا يدويًا وعربونًا يدويًا للمجموعات الكبيرة بدون payment gateway.
+- حالات الطلبات والحجوزات توسعت لتناسب تشغيل المطاعم.
+- لم تتم إضافة payment gateway أو billing provider أو viaSocket أو customer accounts أو subdomain/custom domain resolver.
+
+### Demo readiness checklist
+
+- افتح `/r/demo-restaurant` لمعاينة موقع مطعم جاهز.
+- جرّب LanguageSwitcher بين `ar`, `fr`, و`en`.
+- جرّب إضافة طبق أو عرض إلى السلة وإرسال order demo.
+- جرّب reservation demo بعدد أشخاص يتجاوز threshold لرؤية رسالة العربون اليدوي.
+- بعد إنشاء طلب/حجز عبر Appwrite Functions، جرّب `/r/demo-restaurant/track` باستخدام الهاتف و`trackingCode`.
+- من `/admin/settings` جرّب تخصيص Hero، عناوين الأقسام، الترجمات، وسياسات الحجز حسب الخطة.
+
 ## Phase 3 - Admin CMS Foundation
 
 - تم إضافة مكونات Admin CMS قابلة لإعادة الاستخدام.

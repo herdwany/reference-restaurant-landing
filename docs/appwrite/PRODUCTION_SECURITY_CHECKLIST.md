@@ -1,17 +1,20 @@
 # Production Security Checklist
 
-Use this checklist after deploying `createOrder`, `createReservation`, and `createClient`.
+Use this checklist after deploying `createOrder`, `createReservation`, `trackRequest`, and `createClient`.
 
 ## Functions
 
 - [ ] `createOrder` Function is deployed from `functions/createOrder`.
 - [ ] `createReservation` Function is deployed from `functions/createReservation`.
+- [ ] `trackRequest` Function is deployed from `functions/trackRequest`.
 - [ ] `createClient` Function is deployed from `functions/createClient`.
 - [ ] `VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID` is set in production frontend env.
 - [ ] `VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID` is set in production frontend env.
+- [ ] `VITE_APPWRITE_TRACK_REQUEST_FUNCTION_ID` is set in production frontend env.
 - [ ] `VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID` is set in production frontend env.
 - [ ] `createOrder` execute access is `Guests` or `Any`.
 - [ ] `createReservation` execute access is `Guests` or `Any`.
+- [ ] `trackRequest` execute access is `Guests` or `Any`.
 - [ ] `createClient` execute access is `Users` only.
 - [ ] `APPWRITE_API_KEY` exists only in Function environment variables.
 - [ ] `.env.local`, `.env.production`, and Vite env variables do not contain `APPWRITE_API_KEY`.
@@ -29,6 +32,7 @@ Use this checklist after deploying `createOrder`, `createReservation`, and `crea
 - [ ] No public read on `audit_logs`.
 - [ ] Order checkout still works through `createOrder` after public create is removed.
 - [ ] Booking still works through `createReservation` after public create is removed.
+- [ ] `/r/:slug/track` works through `trackRequest` while public read remains disabled.
 
 ## Final Permissions Matrix
 
@@ -53,10 +57,14 @@ Use this checklist after deploying `createOrder`, `createReservation`, and `crea
 - [ ] Send an order with `orderMode=both`; it saves and WhatsApp opens.
 - [ ] Send a reservation with `reservationMode=database`; it appears in `/admin/reservations`.
 - [ ] Send a reservation with `reservationMode=both`; it saves and WhatsApp opens.
+- [ ] Track an order by phone + `trackingCode`; verify the result is sanitized.
+- [ ] Track a reservation by phone + `trackingCode`; verify deposit status is shown when applicable.
+- [ ] Try the right tracking code with a wrong phone and confirm no result is returned.
 - [ ] Temporarily remove a Function ID in production build and confirm direct DB write is not attempted.
 - [ ] Dishes, offers, settings, FAQ, gallery, image uploads, cart, and WhatsApp still work.
 - [ ] No horizontal scroll on public or admin mobile views.
 - [ ] Audit logs appear in `/admin/activity` after admin create/update/delete/status changes.
+- [ ] No payment gateway, billing provider, viaSocket, customer accounts, subdomain resolver, or custom domain resolver is enabled in this batch.
 
 ## audit_logs MVP Permissions
 
@@ -76,5 +84,7 @@ Security notes:
 
 - [ ] Replace broad `Users` writes with Teams/Functions scoped to each restaurant.
 - [ ] Add anti-spam/rate limiting to public Functions.
+- [ ] Add throttling/rate limiting to `/track` and `trackRequest`.
 - [ ] Recalculate all official order totals server-side from trusted menu/offer data.
+- [ ] Move order/reservation status updates to Functions if stricter audit requirements are needed.
 - [ ] Move audit logging for sensitive admin changes to server-side Functions or an agency/team backend.

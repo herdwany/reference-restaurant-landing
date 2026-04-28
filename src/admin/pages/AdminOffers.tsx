@@ -13,6 +13,7 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
   OffersRepositoryError,
   createOffer,
@@ -37,6 +38,12 @@ type OfferFormValues = {
   sortOrder: string;
   startsAt: string;
   title: string;
+  frTitle: string;
+  frDescription: string;
+  frCtaText: string;
+  enTitle: string;
+  enDescription: string;
+  enCtaText: string;
 };
 
 type OfferFormErrors = Partial<Record<keyof OfferFormValues, string>>;
@@ -63,6 +70,12 @@ const emptyOfferFormValues: OfferFormValues = {
   sortOrder: "",
   startsAt: "",
   title: "",
+  frTitle: "",
+  frDescription: "",
+  frCtaText: "",
+  enTitle: "",
+  enDescription: "",
+  enCtaText: "",
 };
 
 const formatPrice = (value: number) => `${new Intl.NumberFormat("ar-SA").format(value)} ${adminCurrency}`;
@@ -90,6 +103,8 @@ const getOfferFormValues = (offer?: Offer): OfferFormValues => {
     return emptyOfferFormValues;
   }
 
+  const translations = parseTranslationString(offer.translations);
+
   return {
     colorTheme: offer.colorTheme,
     ctaText: offer.ctaText || "اطلب الآن",
@@ -103,6 +118,12 @@ const getOfferFormValues = (offer?: Offer): OfferFormValues => {
     sortOrder: formatOptionalNumber(offer.sortOrder),
     startsAt: toLocalInputValue(offer.startsAt),
     title: offer.title,
+    frTitle: String(translations.fr?.title ?? ""),
+    frDescription: String(translations.fr?.description ?? ""),
+    frCtaText: String(translations.fr?.ctaText ?? ""),
+    enTitle: String(translations.en?.title ?? ""),
+    enDescription: String(translations.en?.description ?? ""),
+    enCtaText: String(translations.en?.ctaText ?? ""),
   };
 };
 
@@ -164,10 +185,24 @@ const validateOfferForm = (values: OfferFormValues): OfferFormErrors => {
   return errors;
 };
 
-const toOfferMutationInput = (values: OfferFormValues): OfferMutationInput => ({
+const toOfferMutationInput = (values: OfferFormValues, canSaveTranslations: boolean): OfferMutationInput => ({
   colorTheme: values.colorTheme,
   ctaText: values.ctaText.trim() || "اطلب الآن",
   description: values.description.trim(),
+  translations: canSaveTranslations
+    ? stringifyTranslations({
+        fr: {
+          title: values.frTitle,
+          description: values.frDescription,
+          ctaText: values.frCtaText,
+        },
+        en: {
+          title: values.enTitle,
+          description: values.enDescription,
+          ctaText: values.enCtaText,
+        },
+      })
+    : undefined,
   endsAt: values.endsAt || undefined,
   imageFileId: values.imageFileId.trim() || undefined,
   imageUrl: values.imageUrl.trim() || undefined,
@@ -204,6 +239,7 @@ export default function AdminOffers() {
   } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const canUseOffers = canAccessFeature("canManageOffers");
+  const canSaveTranslations = canAccessFeature("canCustomizeBrand");
   const [offers, setOffers] = useState<Offer[]>([]);
   const [formMode, setFormMode] = useState<OfferFormMode | null>(null);
   const [formValues, setFormValues] = useState<OfferFormValues>(emptyOfferFormValues);
@@ -308,7 +344,10 @@ export default function AdminOffers() {
     setIsSaving(true);
 
     try {
-      const input = toOfferMutationInput(formValues);
+      const input = toOfferMutationInput(formValues, canSaveTranslations);
+      if (!canSaveTranslations && formMode.type === "edit") {
+        input.translations = formMode.offer.translations;
+      }
       const savedOffer =
         formMode.type === "edit"
           ? await updateOffer(formMode.offer.id, input, activeRestaurantId)
@@ -674,6 +713,38 @@ export default function AdminOffers() {
               <span>الوصف</span>
               <textarea value={formValues.description} onChange={(event) => updateFormValue("description", event.target.value)} rows={3} />
             </label>
+
+            {canSaveTranslations ? (
+              <details className="admin-form-grid__wide admin-translation-panel">
+                <summary>ترجمات اختيارية</summary>
+                <div className="admin-form-grid">
+                  <label>
+                    <span>Fr title</span>
+                    <input value={formValues.frTitle} onChange={(event) => updateFormValue("frTitle", event.target.value)} />
+                  </label>
+                  <label>
+                    <span>En title</span>
+                    <input value={formValues.enTitle} onChange={(event) => updateFormValue("enTitle", event.target.value)} />
+                  </label>
+                  <label>
+                    <span>Fr CTA</span>
+                    <input value={formValues.frCtaText} onChange={(event) => updateFormValue("frCtaText", event.target.value)} />
+                  </label>
+                  <label>
+                    <span>En CTA</span>
+                    <input value={formValues.enCtaText} onChange={(event) => updateFormValue("enCtaText", event.target.value)} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>Fr description</span>
+                    <textarea value={formValues.frDescription} onChange={(event) => updateFormValue("frDescription", event.target.value)} rows={2} />
+                  </label>
+                  <label className="admin-form-grid__wide">
+                    <span>En description</span>
+                    <textarea value={formValues.enDescription} onChange={(event) => updateFormValue("enDescription", event.target.value)} rows={2} />
+                  </label>
+                </div>
+              </details>
+            ) : null}
           </div>
 
           <div className="admin-dish-form__checks">

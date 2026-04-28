@@ -21,6 +21,7 @@ interface DishRow extends Models.Row {
   restaurantId: string;
   name: string;
   description?: string | null;
+  translations?: string | null;
   price: number;
   oldPrice?: number | null;
   imageFileId?: string | null;
@@ -37,6 +38,7 @@ interface DishRow extends Models.Row {
 export type DishMutationInput = {
   name: string;
   description?: string;
+  translations?: string;
   price: number;
   oldPrice?: number;
   imageFileId?: string;
@@ -53,6 +55,7 @@ export type DishMutationInput = {
 type DishRowData = {
   name: string;
   description: string;
+  translations: string | null;
   price: number;
   oldPrice: number | null;
   imageFileId: string | null;
@@ -97,6 +100,7 @@ const mapDish = (row: DishRow): Dish => ({
   updatedAt: row.$updatedAt,
   name: row.name,
   description: row.description ?? "",
+  translations: row.translations ?? undefined,
   price: row.price,
   oldPrice: row.oldPrice ?? undefined,
   imageFileId: row.imageFileId ?? undefined,
@@ -120,6 +124,7 @@ const optionalNumber = (value: number | undefined) => (typeof value === "number"
 const toDishRowData = (input: DishMutationInput): DishRowData => ({
   name: input.name.trim(),
   description: input.description?.trim() ?? "",
+  translations: optionalText(input.translations),
   price: input.price,
   oldPrice: optionalNumber(input.oldPrice),
   imageFileId: optionalText(input.imageFileId),

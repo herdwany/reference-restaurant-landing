@@ -17,8 +17,27 @@ export type SupportLevel = "basic" | "standard" | "priority" | "managed";
 export type DomainType = "pixelone_path" | "subdomain" | "custom_domain";
 export type DomainStatus = "not_configured" | "pending_dns" | "pending_verification" | "active" | "failed";
 export type FeatureFlagKey = keyof FeatureFlags;
-export type OrderStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
-export type ReservationStatus = "new" | "confirmed" | "cancelled" | "completed";
+export type OrderStatus =
+  | "new"
+  | "confirmed"
+  | "preparing"
+  | "ready"
+  | "out_for_delivery"
+  | "completed"
+  | "cancelled"
+  | "rejected";
+export type ReservationStatus =
+  | "new"
+  | "pending_confirmation"
+  | "confirmed"
+  | "deposit_required"
+  | "deposit_paid"
+  | "seated"
+  | "completed"
+  | "no_show"
+  | "cancelled"
+  | "rejected";
+export type DepositStatus = "none" | "required" | "paid" | "waived";
 export type OrderSource = "website" | "whatsapp" | "admin";
 export type ColorTheme = "orange" | "red" | "gold";
 export type SiteDirection = "rtl" | "ltr";
@@ -126,6 +145,7 @@ export interface Dish extends BaseModel {
   restaurantId: string;
   name: string;
   description: string;
+  translations?: string;
   price: number;
   oldPrice?: number;
   imageFileId?: string;
@@ -143,6 +163,7 @@ export interface Offer extends BaseModel {
   restaurantId: string;
   title: string;
   description: string;
+  translations?: string;
   price: number;
   oldPrice?: number;
   imageFileId?: string;
@@ -181,6 +202,7 @@ export interface FAQItem extends BaseModel {
   restaurantId: string;
   question: string;
   answer: string;
+  translations?: string;
   isVisible: boolean;
   sortOrder: number;
 }
@@ -204,7 +226,17 @@ export interface SiteSettings extends BaseModel {
   featuredSectionTitle?: string;
   offersSectionTitle?: string;
   gallerySectionTitle?: string;
+  testimonialsSectionTitle?: string;
+  contactSectionTitle?: string;
   faqSectionTitle?: string;
+  translations?: string;
+  requireManualReservationConfirmation?: boolean;
+  requireDepositForLargeGroups?: boolean;
+  depositThresholdPeople?: number;
+  depositAmount?: number;
+  depositPolicyText?: string;
+  cancellationPolicyText?: string;
+  maxPeoplePerReservation?: number;
   showHero: boolean;
   showFeatured?: boolean;
   showTrustBadges: boolean;
@@ -220,6 +252,7 @@ export interface SiteSettings extends BaseModel {
 
 export interface Order extends BaseModel {
   restaurantId: string;
+  trackingCode?: string;
   customerName: string;
   customerPhone: string;
   customerAddress?: string;
@@ -241,6 +274,7 @@ export interface OrderItem extends BaseModel {
 
 export interface Reservation extends BaseModel {
   restaurantId: string;
+  trackingCode?: string;
   customerName: string;
   customerPhone: string;
   reservationDate: string;
@@ -248,6 +282,11 @@ export interface Reservation extends BaseModel {
   peopleCount: number;
   notes?: string;
   status: ReservationStatus;
+  depositStatus?: DepositStatus;
+  depositAmount?: number;
+  depositNotes?: string;
+  confirmationNotes?: string;
+  policyAccepted?: boolean;
 }
 
 export interface AuditLog extends BaseModel {

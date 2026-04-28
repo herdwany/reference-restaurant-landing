@@ -448,9 +448,27 @@ Security constraints:
 - Removed visitor-facing template/badge wording from the public site.
 - No drag/drop builder, content translation table, full content translation manager, payment, viaSocket, subdomain/custom domain resolver, or non-food verticals were added.
 
-## Upcoming Phase 10 Work
+## FINALIZATION_BATCH_1_PRODUCT_AND_RESTAURANT_OPERATIONS - Completed
 
-- Phase 10B: Full homepage customization polish.
-- Phase 10C: Content translations for dishes/offers/faqs.
-- Phase 10D: Admin/agency translation coverage.
-- Phase 10E: Theme/layout preset refinement.
+- Homepage customization now affects the real public UI: `heroLayout`, `themePreset`, hero image/video URL with image fallback, section titles, and show/hide controls.
+- Starter can save basic hero title/subtitle only. Pro unlocks CTA text, section titles, section visibility, hero image, homepage translations, and reservation policies. Premium/Managed unlock advanced theme/layout/video and the manual deposit workflow. `agency_admin` bypasses plan gates.
+- Added multilingual content foundation with optional `translations` JSON strings on `site_settings`, `dishes`, `offers`, and `faqs`.
+- Public content uses `getLocalizedField` / `getLocalizedContent` for `ar/fr/en` and falls back to the base Arabic/current fields when translations are missing.
+- Added customer tracking without login at `/r/:slug/track` through `functions/trackRequest`.
+- Orders and reservations now generate `trackingCode`; public tracking requires restaurant slug, phone, and tracking code before returning sanitized results.
+- Order statuses now support `new`, `confirmed`, `preparing`, `ready`, `out_for_delivery`, `completed`, `cancelled`, and `rejected`.
+- Reservation statuses now support `new`, `pending_confirmation`, `confirmed`, `deposit_required`, `deposit_paid`, `seated`, `completed`, `no_show`, `cancelled`, and `rejected`.
+- Added manual reservation deposit foundation: deposit status, amount, notes fields, policy acceptance, and settings for manual confirmation, group thresholds, deposit amount, policy text, cancellation policy, and max people.
+- `createReservation` reads reservation settings when available and sets `pending_confirmation` or `deposit_required` automatically. No payment gateway was added.
+- Demo fallback content was refreshed for a restaurant-ready Moroccan demo with sample `fr/en` translations.
+- `createClient` onboarding is restricted to food verticals: restaurant, cafe, bakery, and cloud kitchen.
+- No payment gateway, billing provider, viaSocket, customer accounts, drag/drop builder, subdomain resolver, or custom domain resolver was added.
+
+## Upcoming Phase 2 Batch
+
+- Deploy and verify `trackRequest` in Appwrite Console.
+- Add rate limiting/abuse controls to public Functions.
+- Add customer-facing tracking code display refinements after order/reservation submit.
+- Move broader admin writes for settings/content behind restaurant-scoped Functions or Teams.
+- Continue future `/r/:slug` resolver work separately from custom domain/subdomain routing.
+- viaSocket remains deferred.

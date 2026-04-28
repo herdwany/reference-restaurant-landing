@@ -11,6 +11,7 @@ import { useAuditLogger } from "../hooks/useAuditLogger";
 import { useAuth } from "../../context/AuthContext";
 import { defaultRestaurantConfig } from "../../data/restaurantConfig";
 import { canCurrentUserBypassFeatureGate } from "../../lib/featureAccess";
+import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
   RestaurantRepositoryError,
   getRestaurantById,
@@ -71,7 +72,17 @@ type SettingsFormValues = {
   featuredSectionTitle: string;
   offersSectionTitle: string;
   gallerySectionTitle: string;
+  testimonialsSectionTitle: string;
+  contactSectionTitle: string;
   faqSectionTitle: string;
+  translations: HomepageTranslations;
+  requireManualReservationConfirmation: boolean;
+  requireDepositForLargeGroups: boolean;
+  depositThresholdPeople: string;
+  depositAmount: string;
+  depositPolicyText: string;
+  cancellationPolicyText: string;
+  maxPeoplePerReservation: string;
   showHero: boolean;
   showTrustBadges: boolean;
   showFeatured: boolean;
@@ -86,6 +97,21 @@ type SettingsFormValues = {
 };
 
 type SettingsFormErrors = Partial<Record<keyof SettingsFormValues, string>>;
+type HomepageTranslationLanguage = "fr" | "en";
+type HomepageTranslationField =
+  | "heroTitle"
+  | "heroSubtitle"
+  | "primaryCtaText"
+  | "secondaryCtaText"
+  | "featuredSectionTitle"
+  | "offersSectionTitle"
+  | "gallerySectionTitle"
+  | "testimonialsSectionTitle"
+  | "contactSectionTitle"
+  | "faqSectionTitle"
+  | "depositPolicyText"
+  | "cancellationPolicyText";
+type HomepageTranslations = Record<HomepageTranslationLanguage, Record<HomepageTranslationField, string>>;
 
 const orderModes = ["whatsapp", "database", "both"] as const satisfies readonly OrderMode[];
 const reservationModes = ["whatsapp", "database", "both"] as const satisfies readonly ReservationMode[];
@@ -93,6 +119,33 @@ const directions = ["rtl", "ltr"] as const satisfies readonly SiteDirection[];
 const heroMediaTypes = ["image", "video_url"] as const satisfies readonly HeroMediaType[];
 const heroLayouts = ["split", "background", "centered"] as const satisfies readonly HeroLayoutPreset[];
 const themePresets = ["classic_red", "black_gold", "coffee", "fresh", "minimal"] as const satisfies readonly ThemePreset[];
+const homepageTranslationLanguages = ["fr", "en"] as const satisfies readonly HomepageTranslationLanguage[];
+const homepageTranslationFields = [
+  "heroTitle",
+  "heroSubtitle",
+  "primaryCtaText",
+  "secondaryCtaText",
+  "featuredSectionTitle",
+  "offersSectionTitle",
+  "gallerySectionTitle",
+  "testimonialsSectionTitle",
+  "contactSectionTitle",
+  "faqSectionTitle",
+  "depositPolicyText",
+  "cancellationPolicyText",
+] as const satisfies readonly HomepageTranslationField[];
+
+const emptyHomepageTranslations = homepageTranslationLanguages.reduce((translations, language) => {
+  translations[language] = homepageTranslationFields.reduce(
+    (fields, field) => ({
+      ...fields,
+      [field]: "",
+    }),
+    {} as Record<HomepageTranslationField, string>,
+  );
+
+  return translations;
+}, {} as HomepageTranslations);
 
 const modeLabels: Record<OrderMode | ReservationMode, string> = {
   whatsapp: "واتساب",
@@ -118,6 +171,42 @@ const themePresetLabels: Record<ThemePreset, string> = {
   fresh: "طازج",
   minimal: "بسيط",
 };
+
+const homepageTranslationLabels: Record<HomepageTranslationField, string> = {
+  heroTitle: "Hero title",
+  heroSubtitle: "Hero subtitle",
+  primaryCtaText: "Primary CTA",
+  secondaryCtaText: "Secondary CTA",
+  featuredSectionTitle: "Featured dishes title",
+  offersSectionTitle: "Offers title",
+  gallerySectionTitle: "Gallery title",
+  testimonialsSectionTitle: "Testimonials title",
+  contactSectionTitle: "Contact title",
+  faqSectionTitle: "FAQ title",
+  depositPolicyText: "Deposit policy",
+  cancellationPolicyText: "Cancellation policy",
+};
+
+const cloneEmptyHomepageTranslations = (): HomepageTranslations => ({
+  fr: { ...emptyHomepageTranslations.fr },
+  en: { ...emptyHomepageTranslations.en },
+});
+
+const getHomepageTranslations = (value: string | undefined): HomepageTranslations => {
+  const parsed = parseTranslationString(value);
+  const nextTranslations = cloneEmptyHomepageTranslations();
+
+  for (const language of homepageTranslationLanguages) {
+    for (const field of homepageTranslationFields) {
+      nextTranslations[language][field] = String(parsed[language]?.[field] ?? "");
+    }
+  }
+
+  return nextTranslations;
+};
+
+const hasHomepageTranslationsChanged = (current: SettingsFormValues, persisted: SettingsFormValues) =>
+  JSON.stringify(current.translations) !== JSON.stringify(persisted.translations);
 
 const sectionToggles = [
   { key: "showHero", label: "Hero" },
@@ -174,7 +263,17 @@ const emptySettingsFormValues: SettingsFormValues = {
   featuredSectionTitle: defaultRestaurantConfig.ui.sectionTitles.featuredDishes,
   offersSectionTitle: defaultRestaurantConfig.ui.sectionTitles.offers,
   gallerySectionTitle: defaultRestaurantConfig.ui.sectionTitles.gallery,
+  testimonialsSectionTitle: defaultRestaurantConfig.ui.sectionTitles.testimonials,
+  contactSectionTitle: defaultRestaurantConfig.ui.sectionTitles.actionGrid,
   faqSectionTitle: defaultRestaurantConfig.ui.sectionTitles.faq,
+  translations: cloneEmptyHomepageTranslations(),
+  requireManualReservationConfirmation: defaultRestaurantConfig.settings.requireManualReservationConfirmation ?? false,
+  requireDepositForLargeGroups: defaultRestaurantConfig.settings.requireDepositForLargeGroups ?? false,
+  depositThresholdPeople: String(defaultRestaurantConfig.settings.depositThresholdPeople ?? ""),
+  depositAmount: String(defaultRestaurantConfig.settings.depositAmount ?? ""),
+  depositPolicyText: defaultRestaurantConfig.settings.depositPolicyText ?? "",
+  cancellationPolicyText: defaultRestaurantConfig.settings.cancellationPolicyText ?? "",
+  maxPeoplePerReservation: String(defaultRestaurantConfig.settings.maxPeoplePerReservation ?? ""),
   showHero: defaultRestaurantConfig.settings.sections.hero,
   showTrustBadges: defaultRestaurantConfig.settings.sections.trustBadges,
   showFeatured: defaultRestaurantConfig.settings.sections.featuredDishes,
@@ -242,7 +341,25 @@ const getSettingsFormValues = (restaurant: Restaurant | null, settings: SiteSett
     featuredSectionTitle: settings?.featuredSectionTitle ?? emptySettingsFormValues.featuredSectionTitle,
     offersSectionTitle: settings?.offersSectionTitle ?? emptySettingsFormValues.offersSectionTitle,
     gallerySectionTitle: settings?.gallerySectionTitle ?? emptySettingsFormValues.gallerySectionTitle,
+    testimonialsSectionTitle: settings?.testimonialsSectionTitle ?? emptySettingsFormValues.testimonialsSectionTitle,
+    contactSectionTitle: settings?.contactSectionTitle ?? emptySettingsFormValues.contactSectionTitle,
     faqSectionTitle: settings?.faqSectionTitle ?? emptySettingsFormValues.faqSectionTitle,
+    translations: getHomepageTranslations(settings?.translations),
+    requireManualReservationConfirmation:
+      settings?.requireManualReservationConfirmation ?? emptySettingsFormValues.requireManualReservationConfirmation,
+    requireDepositForLargeGroups: settings?.requireDepositForLargeGroups ?? emptySettingsFormValues.requireDepositForLargeGroups,
+    depositThresholdPeople:
+      typeof settings?.depositThresholdPeople === "number"
+        ? String(settings.depositThresholdPeople)
+        : emptySettingsFormValues.depositThresholdPeople,
+    depositAmount:
+      typeof settings?.depositAmount === "number" ? String(settings.depositAmount) : emptySettingsFormValues.depositAmount,
+    depositPolicyText: settings?.depositPolicyText ?? emptySettingsFormValues.depositPolicyText,
+    cancellationPolicyText: settings?.cancellationPolicyText ?? emptySettingsFormValues.cancellationPolicyText,
+    maxPeoplePerReservation:
+      typeof settings?.maxPeoplePerReservation === "number"
+        ? String(settings.maxPeoplePerReservation)
+        : emptySettingsFormValues.maxPeoplePerReservation,
     showHero: settings?.showHero ?? emptySettingsFormValues.showHero,
     showTrustBadges: settings?.showTrustBadges ?? emptySettingsFormValues.showTrustBadges,
     showFeatured: settings?.showFeatured ?? settings?.showFeaturedDishes ?? emptySettingsFormValues.showFeatured,
@@ -268,6 +385,14 @@ const isAcceptableUrl = (value: string) => {
 
 const isAcceptableEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const isHexColor = (value: string) => /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(value);
+const parseOptionalPositiveNumber = (value: string) => {
+  if (!value.trim()) {
+    return undefined;
+  }
+
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : Number.NaN;
+};
 
 const brandSettingKeys = [
   "logoFileId",
@@ -295,6 +420,8 @@ const proHomepageSettingKeys = [
   "featuredSectionTitle",
   "offersSectionTitle",
   "gallerySectionTitle",
+  "testimonialsSectionTitle",
+  "contactSectionTitle",
   "faqSectionTitle",
   "showHero",
   "showFeatured",
@@ -307,6 +434,22 @@ const proHomepageSettingKeys = [
   "showFaq",
   "showTrustBadges",
   "showFooter",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const reservationSimpleSettingKeys = [
+  "maxPeoplePerReservation",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const proReservationSettingKeys = [
+  "requireManualReservationConfirmation",
+  "depositPolicyText",
+  "cancellationPolicyText",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const depositWorkflowSettingKeys = [
+  "requireDepositForLargeGroups",
+  "depositThresholdPeople",
+  "depositAmount",
 ] as const satisfies readonly (keyof SettingsFormValues)[];
 
 const advancedHomepageSettingKeys = [
@@ -324,7 +467,7 @@ const hasChangedFields = (
 
 const validateSettingsForm = (
   values: SettingsFormValues,
-  options: { canSaveAdvancedTheme: boolean; canSaveBrand: boolean },
+  options: { canSaveAdvancedTheme: boolean; canSaveBrand: boolean; canSaveDepositWorkflow: boolean; canSaveReservationPolicies: boolean },
 ): SettingsFormErrors => {
   const errors: SettingsFormErrors = {};
 
@@ -386,6 +529,24 @@ const validateSettingsForm = (
     }
   }
 
+  const maxPeople = parseOptionalPositiveNumber(values.maxPeoplePerReservation);
+  if (values.maxPeoplePerReservation.trim() && !Number.isFinite(maxPeople)) {
+    errors.maxPeoplePerReservation = "عدد الأشخاص يجب أن يكون رقمًا أكبر من 0";
+  }
+
+  if (options.canSaveDepositWorkflow) {
+    const threshold = parseOptionalPositiveNumber(values.depositThresholdPeople);
+    const amount = parseOptionalPositiveNumber(values.depositAmount);
+
+    if (values.depositThresholdPeople.trim() && !Number.isFinite(threshold)) {
+      errors.depositThresholdPeople = "حد الأشخاص يجب أن يكون رقمًا أكبر من 0";
+    }
+
+    if (values.depositAmount.trim() && !Number.isFinite(amount)) {
+      errors.depositAmount = "مبلغ العربون يجب أن يكون رقمًا أكبر من 0";
+    }
+  }
+
   return errors;
 };
 
@@ -431,7 +592,17 @@ const toSiteSettingsInput = (values: SettingsFormValues): SiteSettingsMutationIn
   featuredSectionTitle: values.featuredSectionTitle.trim() || undefined,
   offersSectionTitle: values.offersSectionTitle.trim() || undefined,
   gallerySectionTitle: values.gallerySectionTitle.trim() || undefined,
+  testimonialsSectionTitle: values.testimonialsSectionTitle.trim() || undefined,
+  contactSectionTitle: values.contactSectionTitle.trim() || undefined,
   faqSectionTitle: values.faqSectionTitle.trim() || undefined,
+  translations: stringifyTranslations(values.translations),
+  requireManualReservationConfirmation: values.requireManualReservationConfirmation,
+  requireDepositForLargeGroups: values.requireDepositForLargeGroups,
+  depositThresholdPeople: parseOptionalPositiveNumber(values.depositThresholdPeople),
+  depositAmount: parseOptionalPositiveNumber(values.depositAmount),
+  depositPolicyText: values.depositPolicyText.trim() || undefined,
+  cancellationPolicyText: values.cancellationPolicyText.trim() || undefined,
+  maxPeoplePerReservation: parseOptionalPositiveNumber(values.maxPeoplePerReservation),
   showHero: values.showHero,
   showTrustBadges: values.showTrustBadges,
   showFeatured: values.showFeatured,
@@ -454,16 +625,26 @@ const mergeAllowedSettingsValues = (
 
   nextValues.heroTitle = values.heroTitle;
   nextValues.heroSubtitle = values.heroSubtitle;
+  for (const key of reservationSimpleSettingKeys) {
+    nextValues[key] = values[key] as never;
+  }
 
   if (options.canSaveBrand) {
     for (const key of proHomepageSettingKeys) {
       nextValues[key] = values[key] as never;
     }
+    for (const key of proReservationSettingKeys) {
+      nextValues[key] = values[key] as never;
+    }
+    nextValues.translations = values.translations;
     nextValues.heroImageUrl = values.heroImageUrl;
   }
 
   if (options.canSaveAdvancedTheme) {
     for (const key of [...advancedSettingKeys, ...advancedHomepageSettingKeys] as const) {
+      nextValues[key] = values[key] as never;
+    }
+    for (const key of depositWorkflowSettingKeys) {
       nextValues[key] = values[key] as never;
     }
   }
@@ -495,6 +676,8 @@ export default function AdminSettings() {
   const isAgencyAdminBypass = canCurrentUserBypassFeatureGate(role);
   const canSaveBrand = canAccessFeature("canCustomizeBrand") || isAgencyAdminBypass;
   const canSaveAdvancedTheme = canAccessFeature("canUseAdvancedTheme") || isAgencyAdminBypass;
+  const canSaveReservationPolicies = canSaveBrand;
+  const canSaveDepositWorkflow = canSaveAdvancedTheme;
   const clientCanCustomizeBrand = clientHasFeature("canCustomizeBrand");
   const clientCanUseAdvancedTheme = clientHasFeature("canUseAdvancedTheme");
   const initialSettingsFormValues = getSettingsFormValues(activeRestaurant, null);
@@ -542,12 +725,34 @@ export default function AdminSettings() {
     setFormErrors((current) => ({ ...current, [key]: undefined }));
   };
 
+  const updateHomepageTranslation = (
+    language: HomepageTranslationLanguage,
+    field: HomepageTranslationField,
+    value: string,
+  ) => {
+    setFormValues((current) => ({
+      ...current,
+      translations: {
+        ...current.translations,
+        [language]: {
+          ...current.translations[language],
+          [field]: value,
+        },
+      },
+    }));
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setPageError(null);
     setSuccessMessage(null);
 
-    const nextErrors = validateSettingsForm(formValues, { canSaveAdvancedTheme, canSaveBrand });
+    const nextErrors = validateSettingsForm(formValues, {
+      canSaveAdvancedTheme,
+      canSaveBrand,
+      canSaveDepositWorkflow,
+      canSaveReservationPolicies,
+    });
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -569,9 +774,19 @@ export default function AdminSettings() {
       return;
     }
 
+    if (!canSaveBrand && hasHomepageTranslationsChanged(formValues, persistedValues)) {
+      setPageError("لا يمكن حفظ ترجمات المحتوى لأن الميزة غير مفعلة.");
+      return;
+    }
+
+    if (!canSaveReservationPolicies && hasChangedFields(proReservationSettingKeys, formValues, persistedValues)) {
+      setPageError("لا يمكن حفظ سياسات الحجز لأن الميزة غير مفعلة.");
+      return;
+    }
+
     if (
       !canSaveAdvancedTheme &&
-      hasChangedFields([...advancedSettingKeys, ...advancedHomepageSettingKeys], formValues, persistedValues)
+      hasChangedFields([...advancedSettingKeys, ...advancedHomepageSettingKeys, ...depositWorkflowSettingKeys], formValues, persistedValues)
     ) {
       setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
@@ -861,10 +1076,50 @@ export default function AdminSettings() {
                 <input value={formValues.gallerySectionTitle} onChange={(event) => updateFormValue("gallerySectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
+                <span>عنوان آراء العملاء</span>
+                <input value={formValues.testimonialsSectionTitle} onChange={(event) => updateFormValue("testimonialsSectionTitle", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
+                <span>عنوان الحجز والتواصل</span>
+                <input value={formValues.contactSectionTitle} onChange={(event) => updateFormValue("contactSectionTitle", event.target.value)} disabled={!canSaveBrand} />
+              </label>
+              <label>
                 <span>عنوان FAQ</span>
                 <input value={formValues.faqSectionTitle} onChange={(event) => updateFormValue("faqSectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
             </div>
+
+            {canSaveBrand ? (
+              <details className="admin-translation-panel">
+                <summary>ترجمات الصفحة الرئيسية</summary>
+                <div className="admin-translation-panel__grid">
+                  {homepageTranslationLanguages.map((language) => (
+                    <div className="admin-translation-panel__group" key={language}>
+                      <h4>{language.toUpperCase()}</h4>
+                      <div className="admin-form-grid">
+                        {homepageTranslationFields.map((field) => (
+                          <label className={field.includes("Subtitle") || field.includes("Policy") ? "admin-form-grid__wide" : ""} key={field}>
+                            <span>{homepageTranslationLabels[field]}</span>
+                            {field.includes("Subtitle") || field.includes("Policy") ? (
+                              <textarea
+                                value={formValues.translations[language][field]}
+                                onChange={(event) => updateHomepageTranslation(language, field, event.target.value)}
+                                rows={2}
+                              />
+                            ) : (
+                              <input
+                                value={formValues.translations[language][field]}
+                                onChange={(event) => updateHomepageTranslation(language, field, event.target.value)}
+                              />
+                            )}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            ) : null}
 
             <div className="admin-toggle-grid admin-toggle-grid--compact">
               {sectionToggles.map((item) => (
@@ -879,6 +1134,94 @@ export default function AdminSettings() {
                 </label>
               ))}
             </div>
+          </AdminCard>
+
+          <AdminCard className="admin-settings-section">
+            <div className="admin-settings-section__header">
+              <Settings size={20} aria-hidden="true" />
+              <div>
+                <h3>إعدادات الحجوزات والعربون</h3>
+                <p>تأكيد الحجوزات وسياسات الإلغاء والعربون اليدوي بدون دفع إلكتروني.</p>
+              </div>
+            </div>
+            <div className="admin-form-grid">
+              <label>
+                <span>أقصى عدد أشخاص للحجز</span>
+                <input
+                  value={formValues.maxPeoplePerReservation}
+                  onChange={(event) => updateFormValue("maxPeoplePerReservation", event.target.value)}
+                  aria-invalid={Boolean(formErrors.maxPeoplePerReservation)}
+                  inputMode="numeric"
+                  placeholder="20"
+                />
+                {renderFieldError("maxPeoplePerReservation")}
+              </label>
+              <label className="admin-toggle-row admin-toggle-row--inline">
+                <input
+                  type="checkbox"
+                  checked={formValues.requireManualReservationConfirmation}
+                  onChange={(event) => updateFormValue("requireManualReservationConfirmation", event.target.checked)}
+                  disabled={!canSaveReservationPolicies}
+                />
+                <span>تأكيد يدوي للحجوزات</span>
+              </label>
+              <label className="admin-form-grid__wide">
+                <span>نص سياسة العربون</span>
+                <textarea
+                  value={formValues.depositPolicyText}
+                  onChange={(event) => updateFormValue("depositPolicyText", event.target.value)}
+                  disabled={!canSaveReservationPolicies}
+                  rows={3}
+                />
+              </label>
+              <label className="admin-form-grid__wide">
+                <span>نص سياسة الإلغاء</span>
+                <textarea
+                  value={formValues.cancellationPolicyText}
+                  onChange={(event) => updateFormValue("cancellationPolicyText", event.target.value)}
+                  disabled={!canSaveReservationPolicies}
+                  rows={3}
+                />
+              </label>
+              <label className="admin-toggle-row admin-toggle-row--inline">
+                <input
+                  type="checkbox"
+                  checked={formValues.requireDepositForLargeGroups}
+                  onChange={(event) => updateFormValue("requireDepositForLargeGroups", event.target.checked)}
+                  disabled={!canSaveDepositWorkflow}
+                />
+                <span>تفعيل العربون للمجموعات الكبيرة</span>
+              </label>
+              <label>
+                <span>حد الأشخاص للعربون</span>
+                <input
+                  value={formValues.depositThresholdPeople}
+                  onChange={(event) => updateFormValue("depositThresholdPeople", event.target.value)}
+                  aria-invalid={Boolean(formErrors.depositThresholdPeople)}
+                  disabled={!canSaveDepositWorkflow}
+                  inputMode="numeric"
+                  placeholder="8"
+                />
+                {renderFieldError("depositThresholdPeople")}
+              </label>
+              <label>
+                <span>مبلغ العربون اليدوي</span>
+                <input
+                  value={formValues.depositAmount}
+                  onChange={(event) => updateFormValue("depositAmount", event.target.value)}
+                  aria-invalid={Boolean(formErrors.depositAmount)}
+                  disabled={!canSaveDepositWorkflow}
+                  inputMode="decimal"
+                  placeholder="100"
+                />
+                {renderFieldError("depositAmount")}
+              </label>
+            </div>
+            {!canSaveReservationPolicies || !canSaveDepositWorkflow ? (
+              <div className="admin-feedback admin-feedback--warning">
+                إعدادات السياسات متاحة من Pro، والعربون اليدوي متاح في Premium/Managed. وضع الوكالة يتجاوز هذا القيد.
+              </div>
+            ) : null}
           </AdminCard>
 
           {canSaveBrand ? (

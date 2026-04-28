@@ -87,6 +87,19 @@ const getStoredAssetUrl = (fileId: string | undefined) => {
 
 const resolveImageUrl = (...candidates: (string | undefined)[]) => candidates.find(isAcceptableImageUrl);
 
+const parseTranslationsObject = (value: string | undefined) => {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+    return parsed && typeof parsed === "object" ? (parsed as Record<string, Record<string, string>>) : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 const heroLayouts = new Set(["split", "background", "centered"]);
 const themePresets = new Set(["classic_red", "black_gold", "coffee", "fresh", "minimal"]);
 
@@ -105,6 +118,7 @@ const mapDishes = (dishes: AppwriteDish[], base: RestaurantConfig): ConfigDish[]
       id: dish.id,
       name: dish.name,
       description: dish.description,
+      translations: parseTranslationsObject(dish.translations),
       price: dish.price,
       oldPrice: dish.oldPrice,
       image: imageUrl || fallback.image,
@@ -126,6 +140,7 @@ const mapOffers = (offers: AppwriteOffer[], base: RestaurantConfig): ConfigOffer
       id: offer.id,
       title: offer.title,
       description: offer.description,
+      translations: parseTranslationsObject(offer.translations),
       price: offer.price,
       oldPrice: offer.oldPrice ?? fallback.oldPrice,
       image: imageUrl || fallback.image,
@@ -143,6 +158,7 @@ const mapFaqs = (faqs: AppwriteFAQItem[]): ConfigFAQItem[] =>
   faqs.map((faq) => ({
     question: faq.question,
     answer: faq.answer,
+    translations: parseTranslationsObject(faq.translations),
   }));
 
 const mapGalleryImages = (items: AppwriteGalleryItem[], base: RestaurantConfig): ConfigGalleryImage[] =>
@@ -210,6 +226,14 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
     orderMode: settings.orderMode || base.settings.orderMode,
     reservationMode: settings.reservationMode || base.settings.reservationMode,
     themePreset: getThemePreset(settings.themePreset),
+    requireManualReservationConfirmation: Boolean(settings.requireManualReservationConfirmation),
+    requireDepositForLargeGroups: Boolean(settings.requireDepositForLargeGroups),
+    depositThresholdPeople: settings.depositThresholdPeople ?? base.settings.depositThresholdPeople,
+    depositAmount: settings.depositAmount ?? base.settings.depositAmount,
+    depositPolicyText: settings.depositPolicyText?.trim() || base.settings.depositPolicyText,
+    cancellationPolicyText: settings.cancellationPolicyText?.trim() || base.settings.cancellationPolicyText,
+    maxPeoplePerReservation: settings.maxPeoplePerReservation ?? base.settings.maxPeoplePerReservation,
+    translations: parseTranslationsObject(settings.translations),
     sections: {
       ...base.settings.sections,
       hero: settings.showHero,
@@ -256,6 +280,8 @@ const mergeUi = (
     ...base.ui.sectionTitles,
     featuredDishes: settings?.featuredSectionTitle?.trim() || base.ui.sectionTitles.featuredDishes,
     offers: settings?.offersSectionTitle?.trim() || base.ui.sectionTitles.offers,
+    testimonials: settings?.testimonialsSectionTitle?.trim() || base.ui.sectionTitles.testimonials,
+    actionGrid: settings?.contactSectionTitle?.trim() || base.ui.sectionTitles.actionGrid,
     gallery: settings?.gallerySectionTitle?.trim() || base.ui.sectionTitles.gallery,
     faq: settings?.faqSectionTitle?.trim() || base.ui.sectionTitles.faq,
   },
