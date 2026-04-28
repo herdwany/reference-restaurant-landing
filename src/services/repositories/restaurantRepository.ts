@@ -1,7 +1,15 @@
 import { AppwriteException, Query, type Models } from "appwrite";
 import { databases } from "../../lib/appwriteClient";
 import { COLLECTIONS, DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
-import type { BusinessType, Restaurant, RestaurantStatus } from "../../types/platform";
+import type {
+  BillingStatus,
+  BusinessType,
+  ClientPlan,
+  FeatureFlags,
+  Restaurant,
+  RestaurantStatus,
+  SupportLevel,
+} from "../../types/platform";
 import { getFirstRow, getRowById } from "./readRows";
 
 type RestaurantRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED" | "WRITE_FAILED";
@@ -22,6 +30,12 @@ interface RestaurantRow extends Models.Row {
   slug: string;
   businessType: BusinessType;
   status: RestaurantStatus;
+  plan?: ClientPlan | null;
+  billingStatus?: BillingStatus | null;
+  subscriptionEndsAt?: string | null;
+  trialEndsAt?: string | null;
+  supportLevel?: SupportLevel | null;
+  features?: string | Partial<FeatureFlags> | null;
   teamId: string;
   ownerUserId: string;
   nameAr: string;
@@ -66,9 +80,19 @@ export type RestaurantContactInput = {
 
 export type AgencyRestaurantStats = {
   active: number;
+  cancelled: number;
   draft: number;
   suspended: number;
   total: number;
+};
+
+export type RestaurantAgencyControlsInput = {
+  billingStatus: BillingStatus;
+  plan: ClientPlan;
+  status: RestaurantStatus;
+  subscriptionEndsAt?: string | null;
+  supportLevel: SupportLevel;
+  trialEndsAt?: string | null;
 };
 
 type RestaurantContactRowData = {
@@ -91,6 +115,45 @@ type RestaurantContactRowData = {
   successColor: string;
 };
 
+const clientPlans = ["starter", "pro", "premium", "managed"] as const satisfies readonly ClientPlan[];
+const billingStatuses = ["trial", "active", "overdue", "cancelled"] as const satisfies readonly BillingStatus[];
+const restaurantStatuses = ["draft", "active", "suspended", "cancelled"] as const satisfies readonly RestaurantStatus[];
+const supportLevels = ["basic", "standard", "priority", "managed"] as const satisfies readonly SupportLevel[];
+
+const isKnownClientPlan = (value: unknown): value is ClientPlan =>
+  typeof value === "string" && clientPlans.includes(value as ClientPlan);
+
+const isKnownBillingStatus = (value: unknown): value is BillingStatus =>
+  typeof value === "string" && billingStatuses.includes(value as BillingStatus);
+
+const isKnownRestaurantStatus = (value: unknown): value is RestaurantStatus =>
+  typeof value === "string" && restaurantStatuses.includes(value as RestaurantStatus);
+
+const isKnownSupportLevel = (value: unknown): value is SupportLevel =>
+  typeof value === "string" && supportLevels.includes(value as SupportLevel);
+
+const parseRestaurantFeatures = (value: RestaurantRow["features"]): Partial<FeatureFlags> | undefined => {
+  if (!value) {
+    return undefined;
+  }
+
+  if (typeof value === "object") {
+    return value;
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(value);
+
+    if (!parsed || typeof parsed !== "object") {
+      return undefined;
+    }
+
+    return parsed as Partial<FeatureFlags>;
+  } catch {
+    return undefined;
+  }
+};
+
 const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   id: row.$id,
   createdAt: row.$createdAt,
@@ -98,7 +161,13 @@ const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   name: row.name,
   slug: row.slug,
   businessType: row.businessType,
-  status: row.status,
+  status: isKnownRestaurantStatus(row.status) ? row.status : "draft",
+  plan: isKnownClientPlan(row.plan) ? row.plan : "starter",
+  billingStatus: isKnownBillingStatus(row.billingStatus) ? row.billingStatus : "trial",
+  subscriptionEndsAt: row.subscriptionEndsAt ?? undefined,
+  trialEndsAt: row.trialEndsAt ?? undefined,
+  supportLevel: isKnownSupportLevel(row.supportLevel) ? row.supportLevel : "basic",
+  features: parseRestaurantFeatures(row.features),
   teamId: row.teamId,
   ownerUserId: row.ownerUserId,
   nameAr: row.nameAr,
@@ -184,7 +253,6 @@ const getReadErrorMessage = (error: unknown) => {
 export async function getRestaurantBySlug(slug: string): Promise<Restaurant | null> {
   const row = await getFirstRow<RestaurantRow>(COLLECTIONS.restaurants, [
     Query.equal("slug", slug),
-    Query.equal("status", "active"),
     Query.limit(1),
   ]);
 
@@ -220,12 +288,66 @@ export function getRestaurantStatsForAgency(restaurants: readonly Restaurant[]):
   return restaurants.reduce<AgencyRestaurantStats>(
     (stats, restaurant) => ({
       active: stats.active + (restaurant.status === "active" ? 1 : 0),
+      cancelled: stats.cancelled + (restaurant.status === "cancelled" ? 1 : 0),
       draft: stats.draft + (restaurant.status === "draft" ? 1 : 0),
       suspended: stats.suspended + (restaurant.status === "suspended" ? 1 : 0),
       total: stats.total + 1,
     }),
-    { active: 0, draft: 0, suspended: 0, total: 0 },
+    { active: 0, cancelled: 0, draft: 0, suspended: 0, total: 0 },
   );
+}
+
+const normalizeOptionalDatetime = (value: string | null | undefined) => {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+};
+
+const toRestaurantAgencyControlsRowData = (input: RestaurantAgencyControlsInput) => {
+  if (
+    !isKnownRestaurantStatus(input.status) ||
+    !isKnownClientPlan(input.plan) ||
+    !isKnownBillingStatus(input.billingStatus) ||
+    !isKnownSupportLevel(input.supportLevel)
+  ) {
+    throw new RestaurantRepositoryError("بيانات الباقة أو حالة المطعم غير صالحة.", "INVALID_INPUT");
+  }
+
+  return {
+    status: input.status,
+    plan: input.plan,
+    billingStatus: input.billingStatus,
+    subscriptionEndsAt: normalizeOptionalDatetime(input.subscriptionEndsAt),
+    trialEndsAt: normalizeOptionalDatetime(input.trialEndsAt),
+    supportLevel: input.supportLevel,
+  };
+};
+
+// TODO Phase 9D hardening: this MVP update runs from the React Client SDK for agency_admin only.
+// Move plan/status updates to an Appwrite Function that verifies agency_admin and restaurant ownership.
+// React feature guards are UX gates, not a final security boundary for sensitive data.
+export async function updateRestaurantAgencyControls(
+  restaurantId: string,
+  input: RestaurantAgencyControlsInput,
+): Promise<Restaurant> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  try {
+    const row = await databases.updateRow<RestaurantRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.restaurants,
+      rowId: restaurantId,
+      data: toRestaurantAgencyControlsRowData(input),
+    });
+
+    return mapRestaurant(row);
+  } catch (error) {
+    if (error instanceof RestaurantRepositoryError) {
+      throw error;
+    }
+
+    throw new RestaurantRepositoryError(getWriteErrorMessage(error), "WRITE_FAILED", error);
+  }
 }
 
 export async function updateRestaurantContact(restaurantId: string, input: RestaurantContactInput): Promise<Restaurant> {

@@ -4,6 +4,7 @@ import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
 import AdminFormModal from "../components/AdminFormModal";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
@@ -80,8 +81,16 @@ const formatDate = (value: string | undefined) => {
 const getItemsQuantity = (items: readonly OrderItem[]) => items.reduce((total, item) => total + item.quantity, 0);
 
 export default function AdminOrders() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
+  const canUseOrders = canAccessFeature("canManageOrders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [statusFilter, setStatusFilter] = useState<OrderFilter>("all");
@@ -146,14 +155,14 @@ export default function AdminOrders() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    if (!canManageRestaurantContent || !activeRestaurantId) {
+    if (!canManageRestaurantContent || !canUseOrders || !activeRestaurantId) {
       setOrders([]);
       setItemCounts({});
       return;
     }
 
     void loadOrders();
-  }, [activeRestaurantId, canManageRestaurantContent, loadOrders]);
+  }, [activeRestaurantId, canManageRestaurantContent, canUseOrders, loadOrders]);
 
   const loadOrderDetails = async (order: Order) => {
     if (!activeRestaurantId) {
@@ -290,6 +299,10 @@ export default function AdminOrders() {
       return <AdminErrorState title="لا يمكن فتح الطلبات" message={scopeError} />;
     }
 
+    if (!canUseOrders) {
+      return <AdminFeatureUnavailable featureName="الطلبات" />;
+    }
+
     if (isLoading) {
       return <AdminLoadingState label="جارٍ تحميل الطلبات..." />;
     }
@@ -337,7 +350,7 @@ export default function AdminOrders() {
         title="الطلبات"
         description="تابع الطلبات الواردة من موقع مطعمك."
         actions={
-          canManageRestaurantContent ? (
+          canManageRestaurantContent && canUseOrders ? (
             <AdminActionButton
               variant="secondary"
               icon={<RefreshCw size={18} aria-hidden="true" />}
@@ -350,7 +363,7 @@ export default function AdminOrders() {
         }
       />
 
-      {canManageRestaurantContent && orders.length > 0 ? (
+      {canManageRestaurantContent && canUseOrders && orders.length > 0 ? (
         <>
           <div className="admin-orders-stats" aria-label="ملخص الطلبات">
             <div>

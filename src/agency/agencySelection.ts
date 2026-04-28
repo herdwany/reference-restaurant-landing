@@ -1,10 +1,19 @@
 import type { Restaurant } from "../types/platform";
 
 export type AgencySelectedRestaurant = {
+  billingStatus?: Restaurant["billingStatus"];
+  plan?: Restaurant["plan"];
   selectedRestaurantId: string;
   selectedRestaurantName: string;
   selectedRestaurantSlug: string;
+  status?: Restaurant["status"];
+  subscriptionEndsAt?: string;
+  supportLevel?: Restaurant["supportLevel"];
+  trialEndsAt?: string;
 };
+
+type AgencySelectableRestaurant = Pick<Restaurant, "id" | "name" | "nameAr" | "slug"> &
+  Partial<Pick<Restaurant, "billingStatus" | "plan" | "status" | "subscriptionEndsAt" | "supportLevel" | "trialEndsAt">>;
 
 const AGENCY_SELECTED_RESTAURANT_KEY = "pixel-one.agency.selectedRestaurant";
 
@@ -28,15 +37,21 @@ const isAgencySelectedRestaurant = (value: unknown): value is AgencySelectedRest
 
 // TODO Phase 9 hardening: this client-side selection is MVP UI context only.
 // Enforce agency restaurant access through Teams/Functions/backend rules before production.
-export function setAgencySelectedRestaurant(restaurant: Pick<Restaurant, "id" | "name" | "nameAr" | "slug">) {
+export function setAgencySelectedRestaurant(restaurant: AgencySelectableRestaurant) {
   if (!canUseLocalStorage()) {
     return;
   }
 
   const selection: AgencySelectedRestaurant = {
+    billingStatus: restaurant.billingStatus,
+    plan: restaurant.plan,
     selectedRestaurantId: restaurant.id,
     selectedRestaurantName: restaurant.nameAr || restaurant.name,
     selectedRestaurantSlug: restaurant.slug,
+    status: restaurant.status,
+    subscriptionEndsAt: restaurant.subscriptionEndsAt,
+    supportLevel: restaurant.supportLevel,
+    trialEndsAt: restaurant.trialEndsAt,
   };
 
   window.localStorage.setItem(AGENCY_SELECTED_RESTAURANT_KEY, JSON.stringify(selection));

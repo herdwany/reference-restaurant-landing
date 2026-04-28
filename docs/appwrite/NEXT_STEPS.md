@@ -320,15 +320,25 @@ Security constraints:
 - Phase 9C completed: `/agency` can create a client/restaurant through the `createClient` Appwrite Function.
 - `createClient` creates the owner Auth user, restaurant row, owner profile, and default settings row.
 - `createClient` verifies `role=agency_admin` server-side from `x-appwrite-user-id` and the `profiles` table.
+- Phase 9D completed: manual Plans + Feature Flags + Client Status Control MVP.
+- Plans are `starter`, `pro`, `premium`, and `managed`.
+- Billing status is manual only: `trial`, `active`, `overdue`, `cancelled`.
+- `/agency` can update client `status`, `plan`, `billingStatus`, `subscriptionEndsAt`, `trialEndsAt`, and `supportLevel`.
+- `/admin` uses plan feature gating for orders, reservations, gallery, activity logs, dishes/offers, and brand customization.
+- The public site shows draft/suspended/cancelled status messages instead of rendering an unavailable site as active.
+- No payment gateway, invoices, recurring subscription provider, viaSocket, custom domains, public signup, delete client, or impersonation was added.
 - No direct browser fallback exists for client creation.
 - No impersonation was added.
-- No billing or subscriptions yet.
+- No real billing or subscriptions yet.
 - No public signup was added.
 - No delete restaurant flow.
 - Security note: `selectedRestaurantId` in `localStorage` is MVP UI context only, not a final security boundary.
+- Security note: `updateRestaurantAgencyControls` is a frontend MVP path only; move agency plan/status updates to an Appwrite Function that verifies `agency_admin`.
 - Security note: agency restaurant reads/manage access should later move behind Appwrite Teams, Functions, or backend-enforced rules instead of relying only on React role guards and broad Appwrite read permissions.
 
 ## Future Phase 9 Work
+
+- Phase 9E: Dynamic public routing by slug/domain.
 - Create client repair flow for incomplete default settings, if needed.
 - ربط Teams والصلاحيات والاشتراكات.
 - تقوية restaurant list/manage عبر Function أو backend rules.

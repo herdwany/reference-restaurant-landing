@@ -34,6 +34,7 @@ import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { getSiteData } from "./services/siteDataService";
+import type { RestaurantStatus } from "./types/platform";
 import {
   OrdersRepositoryError,
   createOrder as createAppwriteOrder,
@@ -73,6 +74,44 @@ function AgencyRoute() {
   );
 }
 
+type PublicSiteStatusPageProps = {
+  restaurantName: string;
+  status: RestaurantStatus;
+  style: ThemeStyle;
+};
+
+function PublicSiteStatusPage({ restaurantName, status, style }: PublicSiteStatusPageProps) {
+  const statusCopy: Record<Exclude<RestaurantStatus, "active">, { body: string; title: string }> = {
+    draft: {
+      title: "الموقع في وضع المسودة.",
+      body: "الموقع قيد التجهيز وسيكون متاحًا قريبًا.",
+    },
+    suspended: {
+      title: "هذا الموقع غير متاح مؤقتًا.",
+      body: "تواصل مع Pixel One لتفعيل الموقع مرة أخرى.",
+    },
+    cancelled: {
+      title: "هذا الموقع غير متاح حاليًا.",
+      body: "تواصل مع Pixel One لمعرفة حالة الموقع.",
+    },
+  };
+  const copy = status === "active" ? null : statusCopy[status];
+
+  if (!copy) {
+    return null;
+  }
+
+  return (
+    <main className="public-status-page" dir="rtl" style={style}>
+      <section className="public-status-card" role="status">
+        <span>{restaurantName}</span>
+        <h1>{copy.title}</h1>
+        <p>{copy.body}</p>
+      </section>
+    </main>
+  );
+}
+
 type PublicGalleryCardProps = {
   fallbackImage: string;
   image: GalleryImage;
@@ -106,6 +145,7 @@ function PublicGalleryCard({ fallbackImage, image, onOpen }: PublicGalleryCardPr
 
 function LandingPage() {
   const [config, setConfig] = useState(restaurantConfig);
+  const [publicStatus, setPublicStatus] = useState<RestaurantStatus>("active");
   const sections = config.settings.sections;
   const cart = useCart();
   const { toasts, showToast, dismissToast } = useToast();
@@ -123,10 +163,12 @@ function LandingPage() {
 
         if (isMounted) {
           setConfig(result.config);
+          setPublicStatus(result.restaurantStatus);
         }
       } catch {
         if (isMounted) {
           setConfig(restaurantConfig);
+          setPublicStatus("active");
         }
       }
     };
@@ -167,6 +209,10 @@ function LandingPage() {
     "--color-border": config.brand.borderColor,
     "--radius-card": config.brand.borderRadius,
   };
+
+  if (publicStatus !== "active") {
+    return <PublicSiteStatusPage restaurantName={config.restaurant.name} status={publicStatus} style={themeStyle} />;
+  }
 
   const addDishToCart = (dish: Dish, quantity = 1) => {
     cart.addItem(dish, "dish", quantity);

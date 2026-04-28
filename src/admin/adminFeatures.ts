@@ -1,4 +1,4 @@
-import type { UserRole } from "../types/platform";
+import type { FeatureFlagKey, UserRole } from "../types/platform";
 
 export type AdminFeatureStatus = "active" | "coming_soon";
 
@@ -23,6 +23,8 @@ export type AdminFeature = {
   requiredRoles: readonly UserRole[];
   description: string;
   placement: "main" | "footer";
+  featureKey?: FeatureFlagKey;
+  allowWhenFeatureDisabled?: boolean;
 };
 
 const restaurantRoles = ["owner", "staff", "agency_admin"] as const satisfies readonly UserRole[];
@@ -47,6 +49,7 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "إدارة الأطباق التي تظهر في موقع المطعم.",
     placement: "main",
+    featureKey: "canManageDishes",
   },
   {
     id: "offers",
@@ -57,6 +60,7 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "إدارة العروض الموسمية والخصومات.",
     placement: "main",
+    featureKey: "canManageOffers",
   },
   {
     id: "settings",
@@ -67,6 +71,8 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "إدارة بيانات التواصل وإعدادات ظهور الموقع.",
     placement: "main",
+    featureKey: "canCustomizeBrand",
+    allowWhenFeatureDisabled: true,
   },
   {
     id: "faqs",
@@ -87,6 +93,7 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "متابعة طلبات الموقع وتحديث حالتها.",
     placement: "main",
+    featureKey: "canManageOrders",
   },
   {
     id: "reservations",
@@ -97,6 +104,7 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "متابعة حجوزات الطاولات وتأكيدها.",
     placement: "main",
+    featureKey: "canManageReservations",
   },
   {
     id: "gallery",
@@ -107,6 +115,7 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "إدارة الصور التي تظهر في قسم أجواء المطعم.",
     placement: "main",
+    featureKey: "canManageGallery",
   },
   {
     id: "activity",
@@ -117,6 +126,7 @@ export const adminFeatures = [
     requiredRoles: restaurantRoles,
     description: "راجع آخر العمليات المهمة التي تمت داخل لوحة التحكم.",
     placement: "main",
+    featureKey: "canAccessActivityLogs",
   },
   {
     id: "preview",

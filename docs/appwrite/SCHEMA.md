@@ -15,7 +15,12 @@
 - `name`: string
 - `slug`: string unique
 - `businessType`: enum/string `restaurant | cafe | bakery | cloud_kitchen | salon | clinic | gym | car_rental | other`
-- `status`: enum `draft | active | suspended`
+- `status`: enum `draft | active | suspended | cancelled`
+- `plan`: enum/string `starter | pro | premium | managed`, optional/default `starter`
+- `billingStatus`: enum/string `trial | active | overdue | cancelled`, optional/default `trial`
+- `subscriptionEndsAt`: datetime optional
+- `trialEndsAt`: datetime optional
+- `supportLevel`: enum/string `basic | standard | priority | managed`, optional/default `basic`
 - `teamId`: string
 - `ownerUserId`: string
 - `nameAr`: string
@@ -38,6 +43,8 @@
 - `domain`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
+
+ملاحظة Phase 9D: لم تتم إضافة عمود `features` مخصص في TablesDB. الـ Feature Flags الحالية مشتقة من `plan` داخل التطبيق، ويمكن إضافة overrides لاحقًا عبر Function/Schema مستقلة إذا احتجنا تخصيصًا لكل عميل.
 
 ## profiles
 

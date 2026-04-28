@@ -1,3 +1,4 @@
+import type { ClientPlan } from "../../types/platform";
 import { AppwriteException, ExecutionMethod } from "appwrite";
 import { functions } from "../../lib/appwriteClient";
 import { CREATE_CLIENT_FUNCTION_ID, hasCreateClientFunctionConfig } from "../../lib/appwriteIds";
@@ -8,7 +9,7 @@ export type CreateClientInput = {
   ownerEmail: string;
   ownerName: string;
   ownerPhone?: string;
-  plan?: "starter" | "pro" | "premium" | "";
+  plan: ClientPlan;
   restaurantName: string;
   restaurantNameAr?: string;
   slug: string;

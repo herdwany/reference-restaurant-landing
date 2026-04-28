@@ -328,8 +328,12 @@ Security constraints:
 
 - Phase 9B: مكتملة. `agency_admin` يختار مطعمًا من `/agency` ثم يفتح `/admin` لإدارة ذلك المطعم عبر `selectedRestaurantId` المخزن client-side كسياق MVP فقط.
 - Phase 9C: مكتملة. `agency_admin` يستطيع إنشاء عميل/مطعم من `/agency` عبر Appwrite Function باسم `createClient`، بدون API key داخل React وبدون public signup.
+- Phase 9D: مكتملة. تمت إضافة Plans يدوية `starter/pro/premium/managed`، وحالة دفع يدوية، وتحكم حالة العميل/الموقع، وFeature Flags MVP حسب الباقة.
+- `/agency` يعرض الخطة وحالة الدفع والدعم وحالة الموقع لكل عميل، ويحتوي نافذة “إدارة الباقة” لتحديث الحقول المسموحة فقط.
+- `/admin` يطبق feature gating للطلبات والحجوزات والمعرض وسجل النشاط وتخصيص الهوية، مع رسائل ترقية واضحة للمالك والموظف.
+- الموقع العام يعرض رسائل `draft/suspended/cancelled` بدل الموقع النشط عند تعطيل العميل.
+- Phase 9D لا يحتوي payment gateway، ولا invoices، ولا billing provider، ولا subscriptions حقيقية، ولا viaSocket، ولا impersonation، ولا domain routing.
 - سلوك `owner` و`staff` بقي عبر `profile.restaurantId`.
-- لا يوجد impersonation ولا billing ولا subscriptions في Phase 9C.
-- الخطوة التالية: تقوية Teams/Permissions وإضافة onboarding repair/ops flow عند الحاجة.
+- الخطوة التالية المقترحة: Phase 9E للـ dynamic public routing by slug/domain.
 
-ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، ولا يوجد impersonation في هذه المرحلة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.
+ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، و`updateRestaurantAgencyControls` مسار MVP من الواجهة يجب نقله لاحقًا إلى Appwrite Function تتحقق من `agency_admin`. Feature flags ليست حماية نهائية للبيانات الحساسة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.

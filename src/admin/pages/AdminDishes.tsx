@@ -5,6 +5,7 @@ import AdminCard from "../components/AdminCard";
 import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
 import AdminFormModal from "../components/AdminFormModal";
 import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
@@ -169,8 +170,16 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminDishes() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
+  const canUseDishes = canAccessFeature("canManageDishes");
   const [dishes, setDishes] = useState<Dish[]>([]);
   const [formMode, setFormMode] = useState<DishFormMode | null>(null);
   const [formValues, setFormValues] = useState<DishFormValues>(emptyDishFormValues);
@@ -203,13 +212,13 @@ export default function AdminDishes() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    if (!canManageRestaurantContent || !activeRestaurantId) {
+    if (!canManageRestaurantContent || !canUseDishes || !activeRestaurantId) {
       setDishes([]);
       return;
     }
 
     void loadDishes();
-  }, [activeRestaurantId, canManageRestaurantContent, loadDishes]);
+  }, [activeRestaurantId, canManageRestaurantContent, canUseDishes, loadDishes]);
 
   const openCreateModal = () => {
     setFormMode({ type: "create" });
@@ -357,6 +366,10 @@ export default function AdminDishes() {
       return <AdminErrorState title="لا يمكن فتح إدارة الأطباق" message={scopeError} />;
     }
 
+    if (!canUseDishes) {
+      return <AdminFeatureUnavailable featureName="الأطباق" />;
+    }
+
     if (isLoading) {
       return <AdminLoadingState label="جارٍ تحميل الأطباق..." />;
     }
@@ -470,7 +483,7 @@ export default function AdminDishes() {
         title="الأطباق والمنيو"
         description="أدر الأطباق التي تظهر في موقع مطعمك."
         actions={
-          canManageRestaurantContent ? (
+          canManageRestaurantContent && canUseDishes ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
               إضافة طبق
             </AdminActionButton>
@@ -478,7 +491,7 @@ export default function AdminDishes() {
         }
       />
 
-      {canManageRestaurantContent && dishes.length > 0 ? (
+      {canManageRestaurantContent && canUseDishes && dishes.length > 0 ? (
         <div className="admin-dishes-summary" aria-label="ملخص الأطباق">
           <span>{dishes.length} طبق</span>
           <span>{availableCount} متاح</span>

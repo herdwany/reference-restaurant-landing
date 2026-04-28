@@ -289,9 +289,18 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminSettings() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const { refreshProfile } = useAuth();
+  const canCustomizeBrand = canAccessFeature("canCustomizeBrand");
+  const canUseAdvancedTheme = canAccessFeature("canUseAdvancedTheme");
   const [formValues, setFormValues] = useState<SettingsFormValues>(getSettingsFormValues(activeRestaurant, null));
   const [formErrors, setFormErrors] = useState<SettingsFormErrors>({});
   const [pageError, setPageError] = useState<string | null>(null);
@@ -423,6 +432,11 @@ export default function AdminSettings() {
         <form className="admin-settings-form" onSubmit={handleSubmit} noValidate>
           {successMessage ? <div className="admin-feedback admin-feedback--success">{successMessage}</div> : null}
           {pageError ? <div className="admin-feedback admin-feedback--error">{pageError}</div> : null}
+          {!canCustomizeBrand ? (
+            <div className="admin-feedback admin-feedback--error">
+              هذه الميزة غير متاحة في باقتك الحالية. يمكنك تعديل الأساسيات فقط. تواصل مع Pixel One لتفعيل تخصيص الهوية.
+            </div>
+          ) : null}
 
           <AdminCard className="admin-settings-section">
             <div className="admin-settings-section__header">
@@ -508,93 +522,97 @@ export default function AdminSettings() {
             </div>
           </AdminCard>
 
-          <AdminCard className="admin-settings-section">
-            <div className="admin-settings-section__header">
-              <Settings size={20} aria-hidden="true" />
-              <div>
-                <h3>الهوية</h3>
-                <p>ألوان الموقع الأساسية بصيغة hex.</p>
-              </div>
-            </div>
-            <div className="admin-form-grid">
-              {(["primaryColor", "secondaryColor", "accentColor", "successColor"] as const).map((key) => (
-                <label key={key}>
-                  <span>
-                    {key === "primaryColor"
-                      ? "اللون الأساسي"
-                      : key === "secondaryColor"
-                        ? "اللون الثانوي"
-                        : key === "accentColor"
-                          ? "لون التمييز"
-                          : "لون النجاح"}
-                  </span>
-                  <span className="admin-color-field">
-                    <span style={{ background: formValues[key] }} aria-hidden="true" />
-                    <input value={formValues[key]} onChange={(event) => updateFormValue(key, event.target.value)} aria-invalid={Boolean(formErrors[key])} />
-                  </span>
-                  {renderFieldError(key)}
-                </label>
-              ))}
-            </div>
-          </AdminCard>
+          {canCustomizeBrand ? (
+            <>
+              <AdminCard className="admin-settings-section">
+                <div className="admin-settings-section__header">
+                  <Settings size={20} aria-hidden="true" />
+                  <div>
+                    <h3>الهوية</h3>
+                    <p>ألوان الموقع الأساسية بصيغة hex.</p>
+                  </div>
+                </div>
+                <div className="admin-form-grid">
+                  {(["primaryColor", "secondaryColor", "accentColor", "successColor"] as const).map((key) => (
+                    <label key={key}>
+                      <span>
+                        {key === "primaryColor"
+                          ? "اللون الأساسي"
+                          : key === "secondaryColor"
+                            ? "اللون الثانوي"
+                            : key === "accentColor"
+                              ? "لون التمييز"
+                              : "لون النجاح"}
+                      </span>
+                      <span className="admin-color-field">
+                        <span style={{ background: formValues[key] }} aria-hidden="true" />
+                        <input value={formValues[key]} onChange={(event) => updateFormValue(key, event.target.value)} aria-invalid={Boolean(formErrors[key])} />
+                      </span>
+                      {renderFieldError(key)}
+                    </label>
+                  ))}
+                </div>
+              </AdminCard>
 
-          <AdminCard className="admin-settings-section">
-            <div className="admin-settings-section__header">
-              <ImageIcon size={20} aria-hidden="true" />
-              <div>
-                <h3>صور الهوية</h3>
-                <p>الشعار وصورة الواجهة الرئيسية للموقع العام.</p>
-              </div>
-            </div>
-            <div className="admin-form-grid">
-              <div className="admin-form-grid__wide">
-                <span className="admin-field-label">شعار المطعم</span>
-                <AdminImageUploader
-                  restaurantId={activeRestaurantId ?? ""}
-                  type="logo"
-                  value={{
-                    imageFileId: formValues.logoFileId || undefined,
-                    imageUrl: formValues.logoPreviewUrl || undefined,
-                  }}
-                  onChange={(nextValue) => {
-                    updateFormValue("logoFileId", nextValue.imageFileId ?? "");
-                    updateFormValue("logoPreviewUrl", nextValue.imageUrl ?? "");
-                  }}
-                  disabled={isSaving || !activeRestaurantId}
-                />
-              </div>
+              <AdminCard className="admin-settings-section">
+                <div className="admin-settings-section__header">
+                  <ImageIcon size={20} aria-hidden="true" />
+                  <div>
+                    <h3>صور الهوية</h3>
+                    <p>الشعار وصورة الواجهة الرئيسية للموقع العام.</p>
+                  </div>
+                </div>
+                <div className="admin-form-grid">
+                  <div className="admin-form-grid__wide">
+                    <span className="admin-field-label">شعار المطعم</span>
+                    <AdminImageUploader
+                      restaurantId={activeRestaurantId ?? ""}
+                      type="logo"
+                      value={{
+                        imageFileId: formValues.logoFileId || undefined,
+                        imageUrl: formValues.logoPreviewUrl || undefined,
+                      }}
+                      onChange={(nextValue) => {
+                        updateFormValue("logoFileId", nextValue.imageFileId ?? "");
+                        updateFormValue("logoPreviewUrl", nextValue.imageUrl ?? "");
+                      }}
+                      disabled={isSaving || !activeRestaurantId}
+                    />
+                  </div>
 
-              <label>
-                <span>رابط صورة الواجهة اليدوي</span>
-                <input
-                  value={formValues.heroImageUrl}
-                  onChange={(event) => updateFormValue("heroImageUrl", event.target.value)}
-                  aria-invalid={Boolean(formErrors.heroImageUrl)}
-                  inputMode="url"
-                  placeholder="https://example.com/hero.jpg"
-                />
-                {renderFieldError("heroImageUrl")}
-              </label>
+                  <label>
+                    <span>رابط صورة الواجهة اليدوي</span>
+                    <input
+                      value={formValues.heroImageUrl}
+                      onChange={(event) => updateFormValue("heroImageUrl", event.target.value)}
+                      aria-invalid={Boolean(formErrors.heroImageUrl)}
+                      inputMode="url"
+                      placeholder="https://example.com/hero.jpg"
+                    />
+                    {renderFieldError("heroImageUrl")}
+                  </label>
 
-              <div className="admin-form-grid__wide">
-                <span className="admin-field-label">صورة الواجهة الرئيسية</span>
-                <AdminImageUploader
-                  restaurantId={activeRestaurantId ?? ""}
-                  type="hero"
-                  value={{
-                    imageFileId: formValues.heroImageFileId || undefined,
-                    imageUrl: formValues.heroImageUrl || formValues.heroPreviewUrl || undefined,
-                  }}
-                  onChange={(nextValue) => {
-                    updateFormValue("heroImageFileId", nextValue.imageFileId ?? "");
-                    updateFormValue("heroImageUrl", nextValue.imageUrl ?? "");
-                    updateFormValue("heroPreviewUrl", nextValue.imageUrl ?? "");
-                  }}
-                  disabled={isSaving || !activeRestaurantId}
-                />
-              </div>
-            </div>
-          </AdminCard>
+                  <div className="admin-form-grid__wide">
+                    <span className="admin-field-label">صورة الواجهة الرئيسية</span>
+                    <AdminImageUploader
+                      restaurantId={activeRestaurantId ?? ""}
+                      type="hero"
+                      value={{
+                        imageFileId: formValues.heroImageFileId || undefined,
+                        imageUrl: formValues.heroImageUrl || formValues.heroPreviewUrl || undefined,
+                      }}
+                      onChange={(nextValue) => {
+                        updateFormValue("heroImageFileId", nextValue.imageFileId ?? "");
+                        updateFormValue("heroImageUrl", nextValue.imageUrl ?? "");
+                        updateFormValue("heroPreviewUrl", nextValue.imageUrl ?? "");
+                      }}
+                      disabled={isSaving || !activeRestaurantId}
+                    />
+                  </div>
+                </div>
+              </AdminCard>
+            </>
+          ) : null}
 
           <AdminCard className="admin-settings-section">
             <div className="admin-settings-section__header">
@@ -653,6 +671,7 @@ export default function AdminSettings() {
             </div>
           </AdminCard>
 
+          {canUseAdvancedTheme ? (
           <AdminCard className="admin-settings-section">
             <div className="admin-settings-section__header">
               <Settings size={20} aria-hidden="true" />
@@ -674,6 +693,7 @@ export default function AdminSettings() {
               ))}
             </div>
           </AdminCard>
+          ) : null}
 
           <div className="admin-settings-form__actions">
             <AdminActionButton variant="primary" type="submit" icon={<Save size={18} aria-hidden="true" />} disabled={isSaving}>

@@ -4,6 +4,7 @@ import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
@@ -85,7 +86,15 @@ const formatUser = (userId: string | undefined) => {
 };
 
 export default function AdminActivity() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
+  const canUseActivity = canAccessFeature("canAccessActivityLogs");
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -109,13 +118,13 @@ export default function AdminActivity() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    if (!canManageRestaurantContent || !activeRestaurantId) {
+    if (!canManageRestaurantContent || !canUseActivity || !activeRestaurantId) {
       setLogs([]);
       return;
     }
 
     void loadLogs();
-  }, [activeRestaurantId, canManageRestaurantContent, loadLogs]);
+  }, [activeRestaurantId, canManageRestaurantContent, canUseActivity, loadLogs]);
 
   const renderMetadata = (log: AuditLog) => {
     const entries = Object.entries(log.metadata ?? {});
@@ -139,6 +148,10 @@ export default function AdminActivity() {
   const renderContent = () => {
     if (scopeError) {
       return <AdminErrorState title="لا يمكن فتح سجل النشاط" message={scopeError} />;
+    }
+
+    if (!canUseActivity) {
+      return <AdminFeatureUnavailable featureName="سجل النشاط" />;
     }
 
     if (isLoading) {
@@ -201,7 +214,7 @@ export default function AdminActivity() {
         title="سجل النشاط"
         description="راجع آخر العمليات التي تمت داخل لوحة التحكم."
         actions={
-          canManageRestaurantContent ? (
+          canManageRestaurantContent && canUseActivity ? (
             <AdminActionButton
               variant="secondary"
               icon={<RefreshCw size={18} aria-hidden="true" />}

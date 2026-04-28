@@ -84,7 +84,7 @@ const isReadyStatus = (resource) => {
   return !status || status === "available";
 };
 
-const varchar = (key, size, required = false) => ({ key, kind: "varchar", size, required });
+const varchar = (key, size, required = false, xdefault) => ({ key, kind: "varchar", size, required, xdefault });
 const text = (key, required = false) => ({ key, kind: "text", required });
 const email = (key, required = false) => ({ key, kind: "email", required });
 const bool = (key, required = false, xdefault) => ({ key, kind: "boolean", required, xdefault });
@@ -105,6 +105,11 @@ const tables = [
       varchar("name", 255, true),
       varchar("nameAr", 255, true),
       varchar("status", 50, true),
+      varchar("plan", 50, false, "starter"),
+      varchar("billingStatus", 50, false, "trial"),
+      datetime("subscriptionEndsAt"),
+      datetime("trialEndsAt"),
+      varchar("supportLevel", 50, false, "basic"),
       varchar("teamId", 255),
       varchar("ownerUserId", 255),
       varchar("businessType", 80, true),
@@ -126,7 +131,10 @@ const tables = [
       varchar("workingHours", 255),
       varchar("domain", 255),
     ],
-    indexes: [uniqueIndex("restaurants_slug_unique", ["slug"])],
+    indexes: [
+      uniqueIndex("restaurants_slug_unique", ["slug"]),
+      keyIndex("restaurants_status_idx", ["status"]),
+    ],
   },
   {
     id: "profiles",
@@ -610,6 +618,9 @@ async function seedDemoRestaurant() {
       name: "Demo Restaurant",
       nameAr: "مطعم تجريبي",
       status: "active",
+      plan: "starter",
+      billingStatus: "trial",
+      supportLevel: "basic",
       teamId: "",
       ownerUserId: "",
       businessType: "restaurant",

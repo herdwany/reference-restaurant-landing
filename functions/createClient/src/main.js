@@ -3,7 +3,9 @@ import { AppwriteException, Client, ID, Query, TablesDB, Users } from "node-appw
 const MAX_TEXT_LENGTH = 500;
 const ALLOWED_BUSINESS_TYPES = ["restaurant", "cafe", "bakery", "cloud_kitchen", "other"];
 const ALLOWED_STATUSES = ["draft", "active"];
-const ALLOWED_PLANS = ["starter", "pro", "premium"];
+const ALLOWED_PLANS = ["starter", "pro", "premium", "managed"];
+const ALLOWED_BILLING_STATUSES = ["trial", "active", "overdue", "cancelled"];
+const ALLOWED_SUPPORT_LEVELS = ["basic", "standard", "priority", "managed"];
 
 const env = (key, fallback = "") => process.env[key]?.trim() || fallback;
 
@@ -141,7 +143,11 @@ const validateInput = (input) => {
   const ownerPhone = cleanText(input.ownerPhone, 50);
   const temporaryPassword = cleanText(input.temporaryPassword, 256);
   const status = cleanText(input.status, 50) || "draft";
-  const plan = cleanText(input.plan, 50);
+  const plan = cleanText(input.plan, 50) || "starter";
+  const billingStatus = cleanText(input.billingStatus, 50) || "trial";
+  const supportLevel = cleanText(input.supportLevel, 50) || "basic";
+  const trialEndsAt = cleanText(input.trialEndsAt, 80);
+  const subscriptionEndsAt = cleanText(input.subscriptionEndsAt, 80);
   const notes = cleanText(input.notes, 1000);
 
   if (!restaurantName) {
@@ -172,8 +178,16 @@ const validateInput = (input) => {
     throw new HttpError(400, "حالة المطعم غير صالحة.");
   }
 
-  if (plan && !ALLOWED_PLANS.includes(plan)) {
+  if (!ALLOWED_PLANS.includes(plan)) {
     throw new HttpError(400, "الخطة غير صالحة.");
+  }
+
+  if (!ALLOWED_BILLING_STATUSES.includes(billingStatus)) {
+    throw new HttpError(400, "حالة الدفع غير صالحة.");
+  }
+
+  if (!ALLOWED_SUPPORT_LEVELS.includes(supportLevel)) {
+    throw new HttpError(400, "مستوى الدعم غير صالح.");
   }
 
   if (!isOptionalPhone(ownerPhone)) {
@@ -190,7 +204,11 @@ const validateInput = (input) => {
     ownerPhone,
     temporaryPassword,
     status,
-    plan: plan || null,
+    plan,
+    billingStatus,
+    supportLevel,
+    trialEndsAt: trialEndsAt || null,
+    subscriptionEndsAt: subscriptionEndsAt || null,
     notes: notes || null,
   };
 };
@@ -256,6 +274,10 @@ const createRestaurant = async (tablesDb, input, ownerUserId, agencyUserId, rest
     workingHours: "",
     createdByAgencyUserId: agencyUserId,
     plan: input.plan,
+    billingStatus: input.billingStatus,
+    subscriptionEndsAt: input.subscriptionEndsAt,
+    trialEndsAt: input.trialEndsAt,
+    supportLevel: input.supportLevel,
     notes: input.notes,
   };
 

@@ -1,4 +1,15 @@
-import { AlertTriangle, Building2, ExternalLink, Loader2, RefreshCw, Search, ShieldCheck, UserPlus, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Building2,
+  ExternalLink,
+  Loader2,
+  RefreshCw,
+  Search,
+  ShieldCheck,
+  SlidersHorizontal,
+  UserPlus,
+  X,
+} from "lucide-react";
 import type { FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
@@ -9,6 +20,7 @@ import AdminFormModal from "../admin/components/AdminFormModal";
 import AdminLoadingState from "../admin/components/AdminLoadingState";
 import { useAuth } from "../context/AuthContext";
 import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
+import { clientPlans, getDefaultSupportLevelForPlan, planDefinitions } from "../lib/plans";
 import { ADMIN_APPWRITE_REQUIRED_MESSAGE } from "../services/authService";
 import {
   ClientOnboardingError,
@@ -20,8 +32,9 @@ import {
   RestaurantRepositoryError,
   getRestaurantStatsForAgency,
   getRestaurantsForAgency,
+  updateRestaurantAgencyControls,
 } from "../services/repositories/restaurantRepository";
-import type { BusinessType, Restaurant, RestaurantStatus } from "../types/platform";
+import type { BillingStatus, BusinessType, ClientPlan, Restaurant, RestaurantStatus, SupportLevel } from "../types/platform";
 import {
   clearAgencySelectedRestaurant,
   getAgencySelectedRestaurant,
@@ -38,7 +51,15 @@ type AgencyStatusMessageProps = {
 type StatusFilter = RestaurantStatus | "all";
 type OnboardingBusinessType = CreateClientInput["businessType"];
 type OnboardingStatus = CreateClientInput["status"];
-type OnboardingPlan = NonNullable<CreateClientInput["plan"]>;
+type OnboardingPlan = CreateClientInput["plan"];
+type AgencyControlsFormValues = {
+  billingStatus: BillingStatus;
+  plan: ClientPlan;
+  status: RestaurantStatus;
+  subscriptionEndsAt: string;
+  supportLevel: SupportLevel;
+  trialEndsAt: string;
+};
 
 type CreateClientFormValues = {
   businessType: OnboardingBusinessType;
@@ -56,16 +77,40 @@ type CreateClientFormValues = {
 
 type CreateClientFormErrors = Partial<Record<keyof CreateClientFormValues, string>>;
 
-const statusFilters = ["all", "active", "draft", "suspended"] as const satisfies readonly StatusFilter[];
+const statusFilters = ["all", "active", "draft", "suspended", "cancelled"] as const satisfies readonly StatusFilter[];
 const onboardingBusinessTypes = ["restaurant", "cafe", "bakery", "cloud_kitchen", "other"] as const satisfies readonly OnboardingBusinessType[];
 const onboardingStatuses = ["draft", "active"] as const satisfies readonly OnboardingStatus[];
-const onboardingPlans = ["", "starter", "pro", "premium"] as const satisfies readonly OnboardingPlan[];
+const onboardingPlans = clientPlans;
+const billingStatuses = ["trial", "active", "overdue", "cancelled"] as const satisfies readonly BillingStatus[];
+const supportLevels = ["basic", "standard", "priority", "managed"] as const satisfies readonly SupportLevel[];
 
 const statusLabels: Record<StatusFilter, string> = {
   active: "نشط",
   all: "الكل",
+  cancelled: "ملغي",
   draft: "مسودة",
   suspended: "معلّق",
+};
+
+const planLabels: Record<ClientPlan, string> = {
+  starter: "Starter",
+  pro: "Pro",
+  premium: "Premium",
+  managed: "Managed",
+};
+
+const billingStatusLabels: Record<BillingStatus, string> = {
+  trial: "تجريبي",
+  active: "مدفوع",
+  overdue: "متأخر",
+  cancelled: "ملغي",
+};
+
+const supportLevelLabels: Record<SupportLevel, string> = {
+  basic: "أساسي",
+  standard: "قياسي",
+  priority: "أولوية",
+  managed: "مُدار",
 };
 
 const businessTypeLabels: Record<BusinessType, string> = {
@@ -86,7 +131,7 @@ const onboardingStatusLabels: Record<OnboardingStatus, string> = {
 };
 
 const onboardingPlanLabels: Record<OnboardingPlan, string> = {
-  "": "بدون خطة الآن",
+  managed: "Managed",
   premium: "Premium",
   pro: "Pro",
   starter: "Starter",
@@ -98,7 +143,7 @@ const emptyCreateClientFormValues: CreateClientFormValues = {
   ownerEmail: "",
   ownerName: "",
   ownerPhone: "",
-  plan: "",
+  plan: "starter",
   restaurantName: "",
   restaurantNameAr: "",
   slug: "",
@@ -150,6 +195,39 @@ const formatDate = (value: string | undefined) => {
     timeStyle: "short",
   }).format(date);
 };
+
+const toDateTimeInputValue = (value: string | undefined) => {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return localDate.toISOString().slice(0, 16);
+};
+
+const fromDateTimeInputValue = (value: string) => {
+  if (!value.trim()) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+};
+
+const getAgencyControlsFormValues = (restaurant: Restaurant): AgencyControlsFormValues => ({
+  billingStatus: restaurant.billingStatus,
+  plan: restaurant.plan,
+  status: restaurant.status,
+  subscriptionEndsAt: toDateTimeInputValue(restaurant.subscriptionEndsAt),
+  supportLevel: restaurant.supportLevel,
+  trialEndsAt: toDateTimeInputValue(restaurant.trialEndsAt),
+});
 
 const matchesSearch = (restaurant: Restaurant, query: string) => {
   const normalizedQuery = query.trim().toLowerCase();
@@ -240,6 +318,11 @@ export default function AgencyDashboard() {
   const [createClientError, setCreateClientError] = useState<string | null>(null);
   const [createClientSuccess, setCreateClientSuccess] = useState<string | null>(null);
   const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [controlsRestaurant, setControlsRestaurant] = useState<Restaurant | null>(null);
+  const [controlsValues, setControlsValues] = useState<AgencyControlsFormValues | null>(null);
+  const [controlsError, setControlsError] = useState<string | null>(null);
+  const [controlsSuccess, setControlsSuccess] = useState<string | null>(null);
+  const [isSavingControls, setIsSavingControls] = useState(false);
 
   const loadRestaurants = useCallback(async () => {
     setIsLoading(true);
@@ -321,6 +404,85 @@ export default function AgencyDashboard() {
   const clearSelectedRestaurant = () => {
     clearAgencySelectedRestaurant();
     setSelectedRestaurant(null);
+  };
+
+  const openControlsModal = (restaurant: Restaurant) => {
+    setControlsRestaurant(restaurant);
+    setControlsValues(getAgencyControlsFormValues(restaurant));
+    setControlsError(null);
+  };
+
+  const closeControlsModal = () => {
+    if (isSavingControls) {
+      return;
+    }
+
+    setControlsRestaurant(null);
+    setControlsValues(null);
+    setControlsError(null);
+  };
+
+  const updateControlsValue = <Key extends keyof AgencyControlsFormValues>(
+    key: Key,
+    value: AgencyControlsFormValues[Key],
+  ) => {
+    setControlsValues((current) => {
+      if (!current) {
+        return current;
+      }
+
+      if (key === "plan") {
+        const nextPlan = value as ClientPlan;
+        return {
+          ...current,
+          plan: nextPlan,
+          supportLevel: getDefaultSupportLevelForPlan(nextPlan),
+        };
+      }
+
+      return { ...current, [key]: value };
+    });
+    setControlsError(null);
+  };
+
+  const handleControlsSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    if (!controlsRestaurant || !controlsValues) {
+      return;
+    }
+
+    setIsSavingControls(true);
+    setControlsError(null);
+    setControlsSuccess(null);
+
+    try {
+      const updatedRestaurant = await updateRestaurantAgencyControls(controlsRestaurant.id, {
+        billingStatus: controlsValues.billingStatus,
+        plan: controlsValues.plan,
+        status: controlsValues.status,
+        subscriptionEndsAt: fromDateTimeInputValue(controlsValues.subscriptionEndsAt),
+        supportLevel: controlsValues.supportLevel,
+        trialEndsAt: fromDateTimeInputValue(controlsValues.trialEndsAt),
+      });
+
+      setRestaurants((current) =>
+        current.map((restaurant) => (restaurant.id === updatedRestaurant.id ? updatedRestaurant : restaurant)),
+      );
+
+      if (selectedRestaurant?.selectedRestaurantId === updatedRestaurant.id) {
+        setAgencySelectedRestaurant(updatedRestaurant);
+        setSelectedRestaurant(getAgencySelectedRestaurant());
+      }
+
+      setControlsSuccess("تم تحديث باقة العميل بنجاح.");
+      setControlsRestaurant(null);
+      setControlsValues(null);
+    } catch {
+      setControlsError("تعذر تحديث الباقة. تحقق من الصلاحيات أو الاتصال.");
+    } finally {
+      setIsSavingControls(false);
+    }
   };
 
   const openCreateClientModal = () => {
@@ -472,9 +634,14 @@ export default function AgencyDashboard() {
           <span>مسودة</span>
           <strong>{stats.draft}</strong>
         </div>
+        <div>
+          <span>ملغية</span>
+          <strong>{stats.cancelled}</strong>
+        </div>
       </section>
 
       {createClientSuccess ? <div className="admin-feedback admin-feedback--success">{createClientSuccess}</div> : null}
+      {controlsSuccess ? <div className="admin-feedback admin-feedback--success">{controlsSuccess}</div> : null}
 
       <section className="agency-toolbar" aria-label="بحث وتصفية المواقع">
         <label className="agency-search">
@@ -543,6 +710,7 @@ export default function AgencyDashboard() {
                   </div>
                   <div className="agency-restaurant-card__badges">
                     {isSelected ? <span className="agency-current-selection">محدد الآن</span> : null}
+                    <span className="agency-plan-badge">{planLabels[restaurant.plan]}</span>
                     <span className={`agency-status agency-status--${restaurant.status}`}>{statusLabels[restaurant.status]}</span>
                   </div>
                 </div>
@@ -555,6 +723,22 @@ export default function AgencyDashboard() {
                   <div>
                     <span>Owner User ID</span>
                     <strong>{restaurant.ownerUserId || "غير محدد"}</strong>
+                  </div>
+                  <div>
+                    <span>الخطة</span>
+                    <strong>{planLabels[restaurant.plan]}</strong>
+                  </div>
+                  <div>
+                    <span>حالة الدفع</span>
+                    <strong>{billingStatusLabels[restaurant.billingStatus]}</strong>
+                  </div>
+                  <div>
+                    <span>الدعم</span>
+                    <strong>{supportLevelLabels[restaurant.supportLevel]}</strong>
+                  </div>
+                  <div>
+                    <span>نهاية الاشتراك</span>
+                    <strong>{formatDate(restaurant.subscriptionEndsAt)}</strong>
                   </div>
                   <div>
                     <span>تاريخ الإنشاء</span>
@@ -577,6 +761,14 @@ export default function AgencyDashboard() {
 
                   <AdminActionButton variant="primary" onClick={() => openClientAdmin(restaurant)}>
                     فتح لوحة العميل
+                  </AdminActionButton>
+
+                  <AdminActionButton
+                    variant="secondary"
+                    icon={<SlidersHorizontal size={17} aria-hidden="true" />}
+                    onClick={() => openControlsModal(restaurant)}
+                  >
+                    إدارة الباقة
                   </AdminActionButton>
                 </div>
               </article>
@@ -745,6 +937,118 @@ export default function AgencyDashboard() {
             </AdminActionButton>
           </div>
         </form>
+      </AdminFormModal>
+
+      <AdminFormModal
+        isOpen={Boolean(controlsRestaurant && controlsValues)}
+        title="إدارة الباقة"
+        description={
+          controlsRestaurant
+            ? `تحكم يدويًا في خطة وحالة ${controlsRestaurant.nameAr || controlsRestaurant.name}. لا يتم إنشاء أي دفع أو فاتورة هنا.`
+            : "تحكم يدويًا في خطة وحالة العميل."
+        }
+        onClose={closeControlsModal}
+        size="lg"
+      >
+        {controlsValues ? (
+          <form className="admin-dish-form" onSubmit={handleControlsSubmit} noValidate>
+            {controlsError ? <div className="admin-feedback admin-feedback--error">{controlsError}</div> : null}
+
+            <div className="admin-form-grid">
+              <label>
+                <span>حالة الموقع</span>
+                <select
+                  value={controlsValues.status}
+                  onChange={(event) => updateControlsValue("status", event.target.value as RestaurantStatus)}
+                >
+                  {(["draft", "active", "suspended", "cancelled"] as const).map((status) => (
+                    <option value={status} key={status}>
+                      {statusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>الباقة</span>
+                <select
+                  value={controlsValues.plan}
+                  onChange={(event) => updateControlsValue("plan", event.target.value as ClientPlan)}
+                >
+                  {clientPlans.map((plan) => (
+                    <option value={plan} key={plan}>
+                      {planLabels[plan]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>حالة الدفع</span>
+                <select
+                  value={controlsValues.billingStatus}
+                  onChange={(event) => updateControlsValue("billingStatus", event.target.value as BillingStatus)}
+                >
+                  {billingStatuses.map((status) => (
+                    <option value={status} key={status}>
+                      {billingStatusLabels[status]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>مستوى الدعم</span>
+                <select
+                  value={controlsValues.supportLevel}
+                  onChange={(event) => updateControlsValue("supportLevel", event.target.value as SupportLevel)}
+                >
+                  {supportLevels.map((level) => (
+                    <option value={level} key={level}>
+                      {supportLevelLabels[level]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label>
+                <span>نهاية الاشتراك</span>
+                <input
+                  type="datetime-local"
+                  value={controlsValues.subscriptionEndsAt}
+                  onChange={(event) => updateControlsValue("subscriptionEndsAt", event.target.value)}
+                />
+              </label>
+
+              <label>
+                <span>نهاية التجربة</span>
+                <input
+                  type="datetime-local"
+                  value={controlsValues.trialEndsAt}
+                  onChange={(event) => updateControlsValue("trialEndsAt", event.target.value)}
+                />
+              </label>
+
+              <div className="agency-plan-summary admin-form-grid__wide">
+                <span>ميزات الباقة الحالية</span>
+                <strong>{planDefinitions[controlsValues.plan].label}</strong>
+                <p>
+                  {Object.values(planDefinitions[controlsValues.plan].features).filter(Boolean).length} ميزات مفعلة من أصل{" "}
+                  {Object.values(planDefinitions[controlsValues.plan].features).length}.
+                </p>
+              </div>
+            </div>
+
+            <div className="admin-dish-form__actions">
+              <AdminActionButton variant="ghost" onClick={closeControlsModal} disabled={isSavingControls}>
+                إلغاء
+              </AdminActionButton>
+              <AdminActionButton variant="primary" type="submit" disabled={isSavingControls}>
+                {isSavingControls ? "جارٍ الحفظ..." : "حفظ"}
+              </AdminActionButton>
+            </div>
+          </form>
+        ) : null}
       </AdminFormModal>
     </main>
   );

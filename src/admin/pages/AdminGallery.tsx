@@ -5,6 +5,7 @@ import AdminCard from "../components/AdminCard";
 import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
 import AdminFormModal from "../components/AdminFormModal";
 import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
@@ -118,8 +119,16 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminGallery() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
+  const canUseGallery = canAccessFeature("canManageGallery");
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>([]);
   const [formMode, setFormMode] = useState<GalleryFormMode | null>(null);
   const [formValues, setFormValues] = useState<GalleryFormValues>(emptyGalleryFormValues);
@@ -152,13 +161,13 @@ export default function AdminGallery() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    if (!canManageRestaurantContent || !activeRestaurantId) {
+    if (!canManageRestaurantContent || !canUseGallery || !activeRestaurantId) {
       setGalleryItems([]);
       return;
     }
 
     void loadGalleryItems();
-  }, [activeRestaurantId, canManageRestaurantContent, loadGalleryItems]);
+  }, [activeRestaurantId, canManageRestaurantContent, canUseGallery, loadGalleryItems]);
 
   const openCreateModal = () => {
     setFormMode({ type: "create" });
@@ -306,6 +315,10 @@ export default function AdminGallery() {
       return <AdminErrorState title="لا يمكن فتح معرض الصور" message={scopeError} />;
     }
 
+    if (!canUseGallery) {
+      return <AdminFeatureUnavailable featureName="معرض الصور" />;
+    }
+
     if (isLoading) {
       return <AdminLoadingState label="جارٍ تحميل صور المعرض..." />;
     }
@@ -401,7 +414,7 @@ export default function AdminGallery() {
         title="معرض الصور"
         description="أدر الصور التي تظهر في قسم أجواء المطعم."
         actions={
-          canManageRestaurantContent ? (
+          canManageRestaurantContent && canUseGallery ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
               إضافة صورة
             </AdminActionButton>
@@ -409,7 +422,7 @@ export default function AdminGallery() {
         }
       />
 
-      {canManageRestaurantContent && galleryItems.length > 0 ? (
+      {canManageRestaurantContent && canUseGallery && galleryItems.length > 0 ? (
         <div className="admin-dishes-summary" aria-label="ملخص معرض الصور">
           <span>{galleryItems.length} صورة</span>
           <span>{visibleCount} ظاهرة</span>

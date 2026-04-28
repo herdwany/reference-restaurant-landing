@@ -4,6 +4,7 @@ import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
 import AdminFormModal from "../components/AdminFormModal";
 import AdminLoadingState from "../components/AdminLoadingState";
 import AdminPageHeader from "../components/AdminPageHeader";
@@ -95,8 +96,16 @@ const formatReservationTime = (value: string) => {
 };
 
 export default function AdminReservations() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
+  const canUseReservations = canAccessFeature("canManageReservations");
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [statusFilter, setStatusFilter] = useState<ReservationFilter>("all");
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
@@ -154,7 +163,7 @@ export default function AdminReservations() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    if (!canManageRestaurantContent || !activeRestaurantId) {
+    if (!canManageRestaurantContent || !canUseReservations || !activeRestaurantId) {
       setReservations([]);
       setSelectedReservationId(null);
       setReservationDetails(null);
@@ -162,7 +171,7 @@ export default function AdminReservations() {
     }
 
     void loadReservations();
-  }, [activeRestaurantId, canManageRestaurantContent, loadReservations]);
+  }, [activeRestaurantId, canManageRestaurantContent, canUseReservations, loadReservations]);
 
   const loadReservationDetails = async (reservation: Reservation) => {
     if (!activeRestaurantId) {
@@ -325,6 +334,10 @@ export default function AdminReservations() {
       return <AdminErrorState title="لا يمكن فتح الحجوزات" message={scopeError} />;
     }
 
+    if (!canUseReservations) {
+      return <AdminFeatureUnavailable featureName="الحجوزات" />;
+    }
+
     if (isLoading) {
       return <AdminLoadingState label="جارٍ تحميل الحجوزات..." />;
     }
@@ -372,7 +385,7 @@ export default function AdminReservations() {
         title="الحجوزات"
         description="تابع حجوزات الطاولات الواردة من موقع مطعمك."
         actions={
-          canManageRestaurantContent ? (
+          canManageRestaurantContent && canUseReservations ? (
             <AdminActionButton
               variant="secondary"
               icon={<RefreshCw size={18} aria-hidden="true" />}
@@ -385,7 +398,7 @@ export default function AdminReservations() {
         }
       />
 
-      {canManageRestaurantContent && reservations.length > 0 ? (
+      {canManageRestaurantContent && canUseReservations && reservations.length > 0 ? (
         <>
           <div className="admin-orders-stats" aria-label="ملخص الحجوزات">
             <div>

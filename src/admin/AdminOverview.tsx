@@ -1,6 +1,7 @@
 import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import AdminErrorState from "./components/AdminErrorState";
 import { adminFeatureIcons } from "./adminFeatureIcons";
 import { adminMainFeatures } from "./adminFeatures";
 import { getRoleLabel } from "./adminLabels";
@@ -10,11 +11,20 @@ const overviewCards = adminMainFeatures.filter((feature) => feature.id !== "over
 
 export default function AdminOverview() {
   const { currentUser, profile, role } = useAuth();
-  const { activeRestaurantId, activeRestaurantName, activeRestaurantSlug } = useActiveRestaurantScope();
+  const { activeRestaurantId, activeRestaurantName, activeRestaurantSlug, canAccessFeature, clientHasFeature, scopeError } =
+    useActiveRestaurantScope();
   const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
   const displayEmail = profile?.email || currentUser?.email || "غير متوفر";
   const roleLabel = getRoleLabel(role);
   const restaurantName = activeRestaurantName || (activeRestaurantId ? "غير متاح" : "غير مرتبط");
+
+  if (scopeError) {
+    return (
+      <section className="admin-overview">
+        <AdminErrorState title="لا يمكن فتح لوحة التحكم" message={scopeError} />
+      </section>
+    );
+  }
 
   return (
     <section className="admin-overview">
@@ -64,6 +74,17 @@ export default function AdminOverview() {
       <div className="admin-overview__grid">
         {overviewCards.map((feature) => {
           const Icon = adminFeatureIcons[feature.icon];
+          const hasPlanAccess = feature.featureKey ? canAccessFeature(feature.featureKey) : true;
+          const clientFeatureEnabled = feature.featureKey ? clientHasFeature(feature.featureKey) : true;
+          const canOpenFeature = feature.status === "active" && (hasPlanAccess || feature.allowWhenFeatureDisabled);
+          const statusLabel =
+            role === "agency_admin" && !clientFeatureEnabled
+              ? "غير مفعلة للعميل"
+              : hasPlanAccess
+                ? feature.status === "active"
+                  ? "متاح"
+                  : "قريبًا"
+                : "ترقية";
           const cardContent = (
             <>
               <div className="admin-placeholder-card__icon">
@@ -73,11 +94,11 @@ export default function AdminOverview() {
                 <h3>{feature.label}</h3>
                 <p>{feature.description}</p>
               </div>
-              <span>{feature.status === "active" ? "متاح" : "قريبًا"}</span>
+              <span>{statusLabel}</span>
             </>
           );
 
-          if (feature.status === "active") {
+          if (canOpenFeature) {
             return (
               <Link className="admin-placeholder-card admin-placeholder-card--link" to={feature.path} key={feature.id}>
                 {cardContent}

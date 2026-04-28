@@ -8,12 +8,14 @@ import {
 } from "../data/restaurantConfig";
 import { isAppwriteConfigured } from "../lib/appwriteClient";
 import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
+import { isPublicRestaurantUnavailable } from "../lib/featureAccess";
 import type {
   Dish as AppwriteDish,
   FAQItem as AppwriteFAQItem,
   GalleryItem as AppwriteGalleryItem,
   Offer as AppwriteOffer,
   Restaurant,
+  RestaurantStatus,
   SiteSettings,
 } from "../types/platform";
 import { getPublicDishes } from "./repositories/dishesRepository";
@@ -30,12 +32,14 @@ export interface SiteDataResult {
   config: RestaurantConfig;
   source: SiteDataSource;
   isFallback: boolean;
+  restaurantStatus: RestaurantStatus;
 }
 
 const withFallback = (): SiteDataResult => ({
   config: defaultRestaurantConfig,
   source: "config",
   isFallback: true,
+  restaurantStatus: "active",
 });
 
 const isAcceptableImageUrl = (value: string | undefined) => {
@@ -206,6 +210,29 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
       return withFallback();
     }
 
+    const mergedRestaurant = {
+      ...mergeRestaurant(restaurant, defaultRestaurantConfig),
+      currency: defaultRestaurantConfig.restaurant.currency,
+    };
+
+    if (isPublicRestaurantUnavailable(restaurant.status)) {
+      return {
+        config: {
+          ...defaultRestaurantConfig,
+          restaurant: mergedRestaurant,
+          brand: mergeBrand(restaurant, defaultRestaurantConfig),
+          hero: {
+            ...defaultRestaurantConfig.hero,
+            subtitle: restaurant.description || defaultRestaurantConfig.hero.subtitle,
+            image: getRestaurantHeroImage(restaurant) || defaultRestaurantConfig.hero.image,
+          },
+        },
+        source: "appwrite",
+        isFallback: false,
+        restaurantStatus: restaurant.status,
+      };
+    }
+
     const [dishesResult, offersResult, settingsResult, faqsResult, galleryResult] = await Promise.allSettled([
       getPublicDishes(restaurant.id),
       getActiveOffers(restaurant.id),
@@ -225,7 +252,7 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
     const hasAppwriteGalleryItems = galleryItems.length > 0;
     const mergedSettings = mergeSettings(siteSettings, defaultRestaurantConfig);
     const heroImage = getRestaurantHeroImage(restaurant) || defaultRestaurantConfig.hero.image;
-    const mergedRestaurant = {
+    const activeMergedRestaurant = {
       ...mergeRestaurant(restaurant, defaultRestaurantConfig),
       currency: mergedSettings.currency || defaultRestaurantConfig.restaurant.currency,
     };
@@ -233,7 +260,7 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
     return {
       config: {
         ...defaultRestaurantConfig,
-        restaurant: mergedRestaurant,
+        restaurant: activeMergedRestaurant,
         brand: mergeBrand(restaurant, defaultRestaurantConfig),
         settings: mergedSettings,
         hero: {
@@ -255,6 +282,7 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
       },
       source: "appwrite",
       isFallback: false,
+      restaurantStatus: restaurant.status,
     };
   } catch {
     return withFallback();

@@ -10,7 +10,11 @@ export type BusinessType =
   | "other";
 
 export type UserRole = "agency_admin" | "owner" | "staff";
-export type RestaurantStatus = "draft" | "active" | "suspended";
+export type RestaurantStatus = "draft" | "active" | "suspended" | "cancelled";
+export type ClientPlan = "starter" | "pro" | "premium" | "managed";
+export type BillingStatus = "trial" | "active" | "overdue" | "cancelled";
+export type SupportLevel = "basic" | "standard" | "priority" | "managed";
+export type FeatureFlagKey = keyof FeatureFlags;
 export type OrderStatus = "new" | "confirmed" | "preparing" | "ready" | "delivered" | "cancelled";
 export type ReservationStatus = "new" | "confirmed" | "cancelled" | "completed";
 export type OrderSource = "website" | "whatsapp" | "admin";
@@ -49,11 +53,30 @@ export interface BaseModel {
   updatedAt?: string;
 }
 
+export interface FeatureFlags {
+  canManageDishes: boolean;
+  canManageOffers: boolean;
+  canManageOrders: boolean;
+  canManageReservations: boolean;
+  canUploadImages: boolean;
+  canManageGallery: boolean;
+  canCustomizeBrand: boolean;
+  canUseCustomDomain: boolean;
+  canAccessActivityLogs: boolean;
+  canUseAdvancedTheme: boolean;
+}
+
 export interface Restaurant extends BaseModel {
   name: string;
   slug: string;
   businessType: BusinessType;
   status: RestaurantStatus;
+  plan: ClientPlan;
+  billingStatus: BillingStatus;
+  subscriptionEndsAt?: string;
+  trialEndsAt?: string;
+  supportLevel: SupportLevel;
+  features?: Partial<FeatureFlags>;
   teamId: string;
   ownerUserId: string;
   nameAr: string;

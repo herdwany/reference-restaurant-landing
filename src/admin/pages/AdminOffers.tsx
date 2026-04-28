@@ -5,6 +5,7 @@ import AdminCard from "../components/AdminCard";
 import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
+import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
 import AdminFormModal from "../components/AdminFormModal";
 import AdminImageUploader from "../components/AdminImageUploader";
 import AdminLoadingState from "../components/AdminLoadingState";
@@ -193,8 +194,16 @@ const getErrorMessage = (error: unknown) => {
 };
 
 export default function AdminOffers() {
-  const { activeRestaurant, activeRestaurantId, activeRestaurantName, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
+  const {
+    activeRestaurant,
+    activeRestaurantId,
+    activeRestaurantName,
+    canAccessFeature,
+    canManageRestaurantContent,
+    scopeError,
+  } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
+  const canUseOffers = canAccessFeature("canManageOffers");
   const [offers, setOffers] = useState<Offer[]>([]);
   const [formMode, setFormMode] = useState<OfferFormMode | null>(null);
   const [formValues, setFormValues] = useState<OfferFormValues>(emptyOfferFormValues);
@@ -227,13 +236,13 @@ export default function AdminOffers() {
   }, [activeRestaurantId]);
 
   useEffect(() => {
-    if (!canManageRestaurantContent || !activeRestaurantId) {
+    if (!canManageRestaurantContent || !canUseOffers || !activeRestaurantId) {
       setOffers([]);
       return;
     }
 
     void loadOffers();
-  }, [activeRestaurantId, canManageRestaurantContent, loadOffers]);
+  }, [activeRestaurantId, canManageRestaurantContent, canUseOffers, loadOffers]);
 
   const openCreateModal = () => {
     setFormMode({ type: "create" });
@@ -381,6 +390,10 @@ export default function AdminOffers() {
       return <AdminErrorState title="لا يمكن فتح إدارة العروض" message={scopeError} />;
     }
 
+    if (!canUseOffers) {
+      return <AdminFeatureUnavailable featureName="العروض" />;
+    }
+
     if (isLoading) {
       return <AdminLoadingState label="جارٍ تحميل العروض..." />;
     }
@@ -486,7 +499,7 @@ export default function AdminOffers() {
         title="العروض"
         description="أدر العروض التي تظهر لعملاء مطعمك."
         actions={
-          canManageRestaurantContent ? (
+          canManageRestaurantContent && canUseOffers ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
               إضافة عرض
             </AdminActionButton>
@@ -494,7 +507,7 @@ export default function AdminOffers() {
         }
       />
 
-      {canManageRestaurantContent && offers.length > 0 ? (
+      {canManageRestaurantContent && canUseOffers && offers.length > 0 ? (
         <div className="admin-dishes-summary" aria-label="ملخص العروض">
           <span>{offers.length} عرض</span>
           <span>{activeCount} نشط</span>

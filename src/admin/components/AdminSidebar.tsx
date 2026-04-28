@@ -4,6 +4,7 @@ import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthContext";
 import { adminFeatureIcons } from "../adminFeatureIcons";
 import { adminFooterFeatures, adminMainFeatures } from "../adminFeatures";
+import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 
 type AdminSidebarProps = {
   isOpen: boolean;
@@ -12,6 +13,7 @@ type AdminSidebarProps = {
 
 export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   const { logout } = useAuth();
+  const { canAccessFeature, clientHasFeature, role } = useActiveRestaurantScope();
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -46,13 +48,23 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         <nav className="admin-sidebar__nav">
           {adminMainFeatures.map((feature) => {
             const Icon = adminFeatureIcons[feature.icon];
+            const hasPlanAccess = feature.featureKey ? canAccessFeature(feature.featureKey) : true;
+            const clientFeatureEnabled = feature.featureKey ? clientHasFeature(feature.featureKey) : true;
+            const shouldDisable = feature.status === "coming_soon" || (!hasPlanAccess && !feature.allowWhenFeatureDisabled);
+            const showAgencyClientBadge = role === "agency_admin" && feature.featureKey && !clientFeatureEnabled;
 
-            if (feature.status === "coming_soon") {
+            if (shouldDisable) {
               return (
-                <button className="admin-sidebar__link admin-sidebar__link--disabled" type="button" key={feature.id} disabled>
+                <button
+                  className="admin-sidebar__link admin-sidebar__link--disabled"
+                  type="button"
+                  title={feature.status === "coming_soon" ? "هذه الميزة ستتوفر لاحقًا." : "هذه الميزة غير متاحة في باقتك الحالية."}
+                  key={feature.id}
+                  disabled
+                >
                   <Icon size={19} aria-hidden="true" />
                   <span>{feature.label}</span>
-                  <small>قريبًا</small>
+                  <small>{feature.status === "coming_soon" ? "قريبًا" : "ترقية"}</small>
                 </button>
               );
             }
@@ -61,6 +73,8 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               <NavLink className="admin-sidebar__link" to={feature.path} end={feature.path === "/admin"} onClick={onClose} key={feature.id}>
                 <Icon size={19} aria-hidden="true" />
                 <span>{feature.label}</span>
+                {showAgencyClientBadge ? <small>غير مفعلة</small> : null}
+                {!hasPlanAccess && feature.allowWhenFeatureDisabled ? <small>ترقية</small> : null}
               </NavLink>
             );
           })}
