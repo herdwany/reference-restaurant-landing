@@ -99,7 +99,7 @@ const findOrder = async (tablesDb, restaurantId, phone, trackingCode) => {
     return null;
   }
 
-  let items = [];
+  let itemCount = 0;
 
   try {
     const itemsResponse = await tablesDb.listRows({
@@ -108,12 +108,9 @@ const findOrder = async (tablesDb, restaurantId, phone, trackingCode) => {
       queries: [Query.equal("restaurantId", restaurantId), Query.equal("orderId", order.$id), Query.limit(20)],
     });
 
-    items = itemsResponse.rows.map((item) => ({
-      dishName: item.dishName,
-      quantity: item.quantity,
-    }));
+    itemCount = itemsResponse.rows.reduce((total, item) => total + (Number(item.quantity) || 0), 0);
   } catch {
-    items = [];
+    itemCount = 0;
   }
 
   return {
@@ -122,8 +119,7 @@ const findOrder = async (tablesDb, restaurantId, phone, trackingCode) => {
     status: order.status,
     createdAt: order.$createdAt ?? order.createdAtText ?? null,
     totalAmount: order.totalAmount ?? null,
-    itemCount: items.reduce((total, item) => total + (Number(item.quantity) || 0), 0),
-    items,
+    itemCount,
   };
 };
 

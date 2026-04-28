@@ -101,11 +101,21 @@ const getRestaurant = async (tablesDb, input) => {
     throw new HttpError(400, "restaurantSlug is required.");
   }
 
-  const restaurant = await tablesDb.getRow({
-    databaseId: config.databaseId,
-    tableId: config.restaurantsTableId,
-    rowId: restaurantId,
-  });
+  let restaurant;
+
+  try {
+    restaurant = await tablesDb.getRow({
+      databaseId: config.databaseId,
+      tableId: config.restaurantsTableId,
+      rowId: restaurantId,
+    });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && error.code === 404) {
+      throw new HttpError(404, "Restaurant was not found.");
+    }
+
+    throw error;
+  }
 
   if (restaurant.status !== "active") {
     throw new HttpError(403, "Restaurant is not active.");
@@ -311,7 +321,7 @@ export default async ({ req, res, log, error }) => {
     const reservationSummary = await createReservationRow(tablesDb, restaurant, reservation, settings);
 
     // Notify viaSocket (non-blocking, optional)
-    notifyViaSocket(reservationSummary, restaurant);
+    void notifyViaSocket(reservationSummary, restaurant);
 
     log(`Created reservation ${reservationSummary.reservationId} for restaurant ${restaurant.$id}`);
 

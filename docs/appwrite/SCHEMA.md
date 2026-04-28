@@ -233,6 +233,7 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `entityType`: string
 - `entityId`: string optional
 - `metadata`: text JSON optional
+- `createdAtText`: string optional
 - `createdAt`: datetime
 
 ## Suggested Indexes

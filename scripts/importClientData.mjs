@@ -1,163 +1,165 @@
 #!/usr/bin/env node
 
-/**
- * importClientData.mjs
- * 
- * Safe import/restore script for client data exports.
- * 
- * Features:
- * - Dry-run by default (no actual writes)
- * - Shows what would be imported
- * - Validates data structure before import
- * - Does not import secrets
- * - Does not upload images
- * 
- * Usage:
- * - Dry-run: npm run import:client
- * - Apply: npm run import:client -- --apply
- * - Specific export: node scripts/importClientData.mjs /path/to/export --apply
- */
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const projectRoot = join(__dirname, "..");
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const projectRoot = path.join(__dirname, '..');
-
-// Parse CLI arguments
 const args = process.argv.slice(2);
-const isApply = args.includes('--apply');
-const customPath = args.find(arg => !arg.startsWith('--'));
-const exportPath = customPath || path.join(projectRoot, 'exports');
-const dryRun = !isApply;
+const requestedApply = args.includes("--apply");
+const customPath = args.find((arg) => !arg.startsWith("--"));
+const exportPath = customPath ? resolve(customPath) : resolve(projectRoot, "exports");
 
-console.log('📋 Client Data Import Utility');
-console.log('═══════════════════════════════════════════════════════════');
-console.log(`Mode: ${dryRun ? '🔍 DRY-RUN (no changes)' : '✅ APPLY (changes will be made)'}`);
-console.log(`Export path: ${exportPath}`);
-console.log('');
+const printUsage = () => {
+  console.log("Usage:");
+  console.log("  npm run import:client");
+  console.log("  node scripts/importClientData.mjs");
+  console.log("  node scripts/importClientData.mjs exports/demo-restaurant/2026-04-28T15-30-00");
+  console.log("  node scripts/importClientData.mjs <path> --apply");
+  console.log("");
+  console.log("Status: import dry-run foundation only. No restore writes are implemented.");
+};
 
-// Helper: recursively find export-summary.json
-const findExportSummary = (dir, depth = 0, maxDepth = 3) => {
-    if (depth > maxDepth) return null;
+const fail = (message, exitCode = 1) => {
+  console.error(`[error] ${message}`);
+  process.exit(exitCode);
+};
 
-    try {
-        const entries = fs.readdirSync(dir, { withFileTypes: true });
-
-        // Check for export-summary.json in current directory
-        const summary = entries.find(e => e.name === 'export-summary.json');
-        if (summary) {
-            return path.join(dir, 'export-summary.json');
-        }
-
-        // Sort subdirectories by name (ISO dates work well when sorted reverse)
-        const subdirs = entries
-            .filter(e => e.isDirectory())
-            .sort((a, b) => b.name.localeCompare(a.name));
-
-        // Recursively search subdirectories
-        for (const subdir of subdirs) {
-            const result = findExportSummary(path.join(dir, subdir.name), depth + 1, maxDepth);
-            if (result) return result;
-        }
-    } catch (err) {
-        // Silently skip directories we can't read
-    }
-
+const findExportSummary = (dir, depth = 0, maxDepth = 4) => {
+  if (depth > maxDepth) {
     return null;
-};
+  }
 
-// Main import logic
-const importClientData = async () => {
-    try {
-        // Check if export path exists
-        if (!fs.existsSync(exportPath)) {
-            console.error(`❌ Export path not found: ${exportPath}`);
-            process.exit(1);
-        }
+  let entries = [];
 
-        const stats = fs.statSync(exportPath);
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
 
-        // Find export-summary.json
-        let summaryPath = null;
+  const summary = entries.find((entry) => entry.isFile() && entry.name === "export-summary.json");
 
-        if (stats.isDirectory()) {
-            summaryPath = findExportSummary(exportPath);
-            if (!summaryPath) {
-                console.error(`❌ No export-summary.json found in: ${exportPath}`);
-                process.exit(1);
-            }
-        } else if (stats.isFile()) {
-            // Direct file path
-            summaryPath = exportPath;
-        }
+  if (summary) {
+    return join(dir, summary.name);
+  }
 
-        // Read export summary
-        console.log(`📖 Reading export file: ${path.basename(summaryPath)}`);
-        const summaryDataRaw = fs.readFileSync(summaryPath, 'utf-8');
-        const summaryData = JSON.parse(summaryDataRaw);
+  const subdirectories = entries
+    .filter((entry) => entry.isDirectory())
+    .sort((left, right) => right.name.localeCompare(left.name));
 
-        // Validate export structure
-        if (!summaryData.exportedAt) {
-            console.error('❌ Invalid export: missing exportedAt timestamp');
-            process.exit(1);
-        }
-
-        if (!summaryData.slug) {
-            console.error('❌ Invalid export: missing slug');
-            process.exit(1);
-        }
-
-        console.log(`✅ Export structure valid`);
-        console.log(`📅 Exported at: ${new Date(summaryData.exportedAt).toISOString()}`);
-        console.log(`🍽️  Restaurant: ${summaryData.slug} (${summaryData.restaurantName})`);
-        console.log(`📊 Data counts:`, summaryData.counts);
-        console.log('');
-
-        // Show summary
-        console.log('📊 Import Summary:');
-        console.log(`  Restaurant: ${summaryData.slug}`);
-        console.log(`  Owner: ${summaryData.restaurantId}`);
-        console.log(`  Project: ${summaryData.appwriteProjectId}`);
-        console.log('');
-
-        console.log('✅ Restaurant ready for import:');
-        console.log(`  • ${summaryData.slug} (${summaryData.restaurantName})`);
-        console.log(`    - Project: ${summaryData.appwriteProjectId}`);
-        console.log(`    - Database: ${summaryData.databaseId}`);
-
-        console.log('');
-
-        if (dryRun) {
-            console.log('🔍 DRY-RUN: No changes made.');
-            console.log('');
-            console.log('To apply this import, run:');
-            console.log(`  node scripts/importClientData.mjs ${exportPath} --apply`);
-            console.log('');
-            process.exit(0);
-        } else {
-            // Apply mode (currently stub - would connect to Appwrite)
-            console.log('✅ APPLY mode - data validated successfully.');
-            console.log('');
-            console.log('Next steps:');
-            console.log('  1. Verify the data above');
-            console.log('  2. Integrate with Appwrite SDK in this script');
-            console.log('  3. Use updateClientControlsViaFunction for sensitive updates');
-            console.log('  4. Handle images separately (not in this script)');
-            console.log('');
-            console.log('⚠️  This is a foundation - actual import not yet implemented');
-            process.exit(0);
-        }
-    } catch (error) {
-        console.error('❌ Import failed:');
-        console.error(`  ${error.message}`);
-        if (error.code) {
-            console.error(`  Code: ${error.code}`);
-        }
-        process.exit(1);
+  for (const subdirectory of subdirectories) {
+    const nestedSummary = findExportSummary(join(dir, subdirectory.name), depth + 1, maxDepth);
+    if (nestedSummary) {
+      return nestedSummary;
     }
+  }
+
+  return null;
 };
 
-// Run
-importClientData();
+const resolveSummaryPath = (inputPath) => {
+  if (!existsSync(inputPath)) {
+    fail(`Export path not found: ${inputPath}`);
+  }
+
+  const stats = statSync(inputPath);
+
+  if (stats.isFile()) {
+    return inputPath;
+  }
+
+  const summaryPath = findExportSummary(inputPath);
+
+  if (!summaryPath) {
+    fail(`No export-summary.json found under: ${inputPath}`);
+  }
+
+  return summaryPath;
+};
+
+const readJson = (filePath) => {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf8"));
+  } catch (error) {
+    fail(`Failed to parse JSON from ${basename(filePath)}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+};
+
+const assertSummaryShape = (summary) => {
+  if (!summary || typeof summary !== "object") {
+    fail("Invalid export summary: expected a JSON object.");
+  }
+
+  if (typeof summary.exportedAt !== "string" || !summary.exportedAt.trim()) {
+    fail("Invalid export summary: missing exportedAt.");
+  }
+
+  if (typeof summary.slug !== "string" || !summary.slug.trim()) {
+    fail("Invalid export summary: missing slug.");
+  }
+
+  if (typeof summary.restaurantId !== "string" || !summary.restaurantId.trim()) {
+    fail("Invalid export summary: missing restaurantId.");
+  }
+
+  if (summary.counts !== undefined && (typeof summary.counts !== "object" || summary.counts === null)) {
+    fail("Invalid export summary: counts must be an object when present.");
+  }
+};
+
+const formatCounts = (counts) => {
+  if (!counts || typeof counts !== "object") {
+    return "not provided";
+  }
+
+  return Object.entries(counts)
+    .map(([key, value]) => `${key}=${value}`)
+    .join(", ");
+};
+
+const main = () => {
+  if (args.includes("--help") || args.includes("-h")) {
+    printUsage();
+    return;
+  }
+
+  const summaryPath = resolveSummaryPath(exportPath);
+  const summary = readJson(summaryPath);
+  assertSummaryShape(summary);
+
+  console.log("Client import validator");
+  console.log("=======================");
+  console.log("Mode: DRY-RUN foundation only");
+  console.log(`Requested path: ${exportPath}`);
+  console.log(`Summary file: ${summaryPath}`);
+  console.log(`Exported at: ${summary.exportedAt}`);
+  console.log(`Restaurant: ${summary.slug} (${summary.restaurantName ?? "unknown"})`);
+  console.log(`Restaurant ID: ${summary.restaurantId}`);
+  console.log(`Project: ${summary.appwriteProjectId ?? "unknown"}`);
+  console.log(`Counts: ${formatCounts(summary.counts)}`);
+
+  if (Array.isArray(summary.warnings) && summary.warnings.length > 0) {
+    console.log("Warnings:");
+    for (const warning of summary.warnings) {
+      console.log(`- ${warning}`);
+    }
+  }
+
+  console.log("");
+  console.log("Validation result: export summary is readable and structurally valid.");
+  console.log("Safety note: actual restore/import writes are intentionally not implemented in this script.");
+
+  if (requestedApply) {
+    fail(
+      "Apply mode is intentionally disabled: import dry-run foundation only. No Appwrite restore logic exists yet.",
+      2,
+    );
+  }
+
+  console.log("No changes were made.");
+};
+
+main();

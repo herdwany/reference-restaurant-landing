@@ -36,8 +36,6 @@ import {
   getRestaurantsForAgency,
   updateClientControlsViaFunction,
   updateDomainSettingsViaFunction,
-  updateRestaurantAgencyControls,
-  updateRestaurantDomainSettings,
 } from "../services/repositories/restaurantRepository";
 import type {
   BillingStatus,
@@ -64,7 +62,7 @@ type AgencyStatusMessageProps = {
 
 type StatusFilter = RestaurantStatus | "all";
 type OnboardingBusinessType = CreateClientInput["businessType"];
-type OnboardingStatus = CreateClientInput["status"];
+type OnboardingStatus = "draft" | "active";
 type OnboardingPlan = CreateClientInput["plan"];
 type AgencyControlsFormValues = {
   billingStatus: BillingStatus;

@@ -10,6 +10,8 @@ Use these settings when deploying production Functions:
 | `createReservation` | `functions/createReservation` | `src/main.js` | `npm install` | `Guests` or `Any` |
 | `trackRequest` | `functions/trackRequest` | `src/main.js` | `npm install` | `Guests` or `Any` |
 | `createClient` | `functions/createClient` | `src/main.js` | `npm install` | `Users` only |
+| `updateClientControls` | `functions/updateClientControls` | `src/main.js` | `npm install` | `Users` only |
+| `updateDomainSettings` | `functions/updateDomainSettings` | `src/main.js` | `npm install` | `Users` only |
 
 `createOrder`, `createReservation`, and `trackRequest` are public visitor entrypoints and must be paired with closed table permissions for `orders`, `order_items`, and `reservations`.
 
@@ -356,7 +358,7 @@ Do not put `APPWRITE_API_KEY` in `.env.local`, `.env.example`, Vite variables, o
 - Do not allow `Any`.
 - The Function reads the authenticated caller from `x-appwrite-user-id`.
 - The Function loads the caller profile from `profiles`.
-- The Function allows the operation only when `profile.role === "agency_admin"` and the profile is active.
+- The Function allows the operation only when `profile.role === "agency_admin"` and `profile.isActive === true`.
 - The frontend never sends or controls the new owner role. The Function always creates `role=owner`.
 - Temporary passwords are never returned in the response and must not be logged.
 
@@ -488,14 +490,15 @@ VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID=
   "restaurantId": "restaurant-id",
   "plan": "pro",
   "status": "active",
-  "billingStatus": "paid",
+  "billingStatus": "active",
   "supportLevel": "standard",
   "subscriptionEndsAt": "2026-12-31T23:59:59.000Z",
   "trialEndsAt": null
 }
 ```
 
-Only allowed fields are processed; others are ignored. No immutable fields (`ownerUserId`, `teamId`, `restaurantId`) can be changed.
+Only these fields are processed: `plan`, `status`, `billingStatus`, `supportLevel`, `subscriptionEndsAt`, `trialEndsAt`.
+All other fields are ignored and are never updated by this Function.
 
 ### Response
 
@@ -510,7 +513,7 @@ Only allowed fields are processed; others are ignored. No immutable fields (`own
 
 ### Security
 
-- Caller must be `agency_admin` with `active=true`
+- Caller must be `agency_admin` with `isActive=true`
 - All changes are logged to `audit_logs` for compliance
 - Enum values are validated server-side
 - Errors are safe (no data leakage)
@@ -555,11 +558,14 @@ VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID=
   "subdomain": "my-restaurant",
   "customDomain": null,
   "dnsTarget": "pixelonevisuals.tech",
-  "domainStatus": "pending",
+  "domainStatus": "pending_dns",
   "domainVerifiedAt": null,
   "domainNotes": "Awaiting DNS verification"
 }
 ```
+
+Only these fields are processed: `domainType`, `subdomain`, `customDomain`, `domainStatus`, `domainNotes`, `domainVerifiedAt`, `dnsTarget`.
+The Function does not change slug, owner fields, contact fields, routing, or DNS outside this metadata.
 
 ### Response
 
@@ -574,9 +580,10 @@ VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID=
 
 ### Security
 
-- Caller must be `agency_admin` with `active=true`
+- Caller must be `agency_admin` with `isActive=true`
 - Domain format is validated (subdomain, custom domain regex)
 - No DNS API calls are made (manual only)
+- No subdomain resolver or custom domain resolver is added here
 - No SSL certificate provisioning
 - All changes are logged to `audit_logs`
 
@@ -634,7 +641,7 @@ When set, after successful reservation creation, a POST request is sent with:
 
 ## Important Notes
 
-- viaSocket webhook URLs are **optional** – omit them if not needed
+- viaSocket webhook URLs are **optional**. Omit them if not needed.
 - Failed webhooks **do not** block order/reservation creation
 - Webhook failures are logged as warnings only
 - No API keys are included in webhook payloads

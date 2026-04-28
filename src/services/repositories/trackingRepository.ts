@@ -24,7 +24,6 @@ export type TrackRequestResult = {
     createdAt?: string | null;
     totalAmount?: number | null;
     itemCount?: number;
-    items?: { dishName: string; quantity: number }[];
     reservationDate?: string;
     reservationTime?: string;
     peopleCount?: number;

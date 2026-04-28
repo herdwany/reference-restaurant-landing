@@ -2,7 +2,7 @@ import { AppwriteException, Client, ID, Query, TablesDB, Users } from "node-appw
 
 const MAX_TEXT_LENGTH = 500;
 const ALLOWED_BUSINESS_TYPES = ["restaurant", "cafe", "bakery", "cloud_kitchen"];
-const ALLOWED_STATUSES = ["draft", "active"];
+const ALLOWED_STATUSES = ["draft", "active", "suspended", "cancelled"];
 const ALLOWED_PLANS = ["starter", "pro", "premium", "managed"];
 const ALLOWED_BILLING_STATUSES = ["trial", "active", "overdue", "cancelled"];
 const ALLOWED_SUPPORT_LEVELS = ["basic", "standard", "priority", "managed"];
@@ -81,6 +81,21 @@ const cleanText = (value, maxLength = MAX_TEXT_LENGTH) => {
 };
 
 const normalizeEmail = (value) => cleanText(value, 255).toLowerCase();
+const normalizeOptionalDatetime = (value, fieldName) => {
+  const cleanedValue = cleanText(value, 80);
+
+  if (!cleanedValue) {
+    return null;
+  }
+
+  const parsedDate = new Date(cleanedValue);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    throw new HttpError(400, `${fieldName} must be a valid datetime.`);
+  }
+
+  return parsedDate.toISOString();
+};
 
 const isEmail = (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 const isSlug = (value) => /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value);
@@ -121,12 +136,17 @@ const assertAgencyAdmin = async (tablesDb, req) => {
   const response = await tablesDb.listRows({
     databaseId: config.databaseId,
     tableId: config.profilesTableId,
-    queries: [Query.equal("userId", userId), Query.limit(1)],
+    queries: [
+      Query.equal("userId", userId),
+      Query.equal("role", "agency_admin"),
+      Query.equal("isActive", true),
+      Query.limit(1),
+    ],
   });
 
   const profile = response.rows[0];
 
-  if (!profile || profile.role !== "agency_admin" || profile.isActive === false) {
+  if (!profile) {
     throw new HttpError(403, "هذه العملية متاحة لحسابات الوكالة فقط.");
   }
 
@@ -142,12 +162,12 @@ const validateInput = (input) => {
   const ownerEmail = normalizeEmail(input.ownerEmail);
   const ownerPhone = cleanText(input.ownerPhone, 50);
   const temporaryPassword = cleanText(input.temporaryPassword, 256);
-  const status = cleanText(input.status, 50) || "draft";
-  const plan = cleanText(input.plan, 50) || "starter";
-  const billingStatus = cleanText(input.billingStatus, 50) || "trial";
-  const supportLevel = cleanText(input.supportLevel, 50) || "basic";
-  const trialEndsAt = cleanText(input.trialEndsAt, 80);
-  const subscriptionEndsAt = cleanText(input.subscriptionEndsAt, 80);
+  const status = cleanText(input.status, 50).toLowerCase() || "draft";
+  const plan = cleanText(input.plan, 50).toLowerCase() || "starter";
+  const billingStatus = cleanText(input.billingStatus, 50).toLowerCase() || "trial";
+  const supportLevel = cleanText(input.supportLevel, 50).toLowerCase() || "basic";
+  const trialEndsAt = normalizeOptionalDatetime(input.trialEndsAt, "trialEndsAt");
+  const subscriptionEndsAt = normalizeOptionalDatetime(input.subscriptionEndsAt, "subscriptionEndsAt");
   const notes = cleanText(input.notes, 1000);
 
   if (!restaurantName) {
@@ -207,8 +227,8 @@ const validateInput = (input) => {
     plan,
     billingStatus,
     supportLevel,
-    trialEndsAt: trialEndsAt || null,
-    subscriptionEndsAt: subscriptionEndsAt || null,
+    trialEndsAt,
+    subscriptionEndsAt,
     notes: notes || null,
   };
 };

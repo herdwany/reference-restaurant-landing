@@ -11,7 +11,9 @@ export const UPDATE_DOMAIN_SETTINGS_FUNCTION_ID = import.meta.env.VITE_APPWRITE_
 export const DEFAULT_RESTAURANT_SLUG =
   import.meta.env.VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG?.trim() || "demo-restaurant";
 export const ENABLE_ANALYTICS = import.meta.env.VITE_ENABLE_ANALYTICS === "true";
-export const isProductionBuild = import.meta.env.PROD;
+const buildMode = import.meta.env.MODE?.trim().toLowerCase() ?? "";
+export const isStagingBuild = buildMode === "staging";
+export const isProductionBuild = import.meta.env.PROD && !isStagingBuild;
 export const isDevelopmentBuild = import.meta.env.DEV;
 
 // appwrite@24 supports TablesDB and Rows. Keep these IDs as table IDs, not legacy collection IDs.
@@ -40,4 +42,4 @@ export const hasTrackRequestFunctionConfig = isAppwriteConfigured && Boolean(TRA
 export const hasCreateClientFunctionConfig = isAppwriteConfigured && Boolean(CREATE_CLIENT_FUNCTION_ID);
 export const hasUpdateClientControlsFunctionConfig = isAppwriteConfigured && Boolean(UPDATE_CLIENT_CONTROLS_FUNCTION_ID);
 export const hasUpdateDomainSettingsFunctionConfig = isAppwriteConfigured && Boolean(UPDATE_DOMAIN_SETTINGS_FUNCTION_ID);
-export const canUseDirectSensitiveTableFallback = !isProductionBuild;
+export const canUseDirectSensitiveTableFallback = isDevelopmentBuild || isStagingBuild;

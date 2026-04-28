@@ -1,4 +1,4 @@
-import type { ClientPlan } from "../../types/platform";
+import type { ClientPlan, RestaurantStatus } from "../../types/platform";
 import { AppwriteException, ExecutionMethod } from "appwrite";
 import { functions } from "../../lib/appwriteClient";
 import { CREATE_CLIENT_FUNCTION_ID, hasCreateClientFunctionConfig } from "../../lib/appwriteIds";
@@ -13,7 +13,7 @@ export type CreateClientInput = {
   restaurantName: string;
   restaurantNameAr?: string;
   slug: string;
-  status: "draft" | "active";
+  status: RestaurantStatus;
   temporaryPassword: string;
 };
 

@@ -4,9 +4,9 @@ import {
   CREATE_RESERVATION_FUNCTION_ID,
   DATABASE_ID,
   TABLES,
+  canUseDirectSensitiveTableFallback,
   hasAppwriteDataConfig,
   hasCreateReservationFunctionConfig,
-  isProductionBuild,
 } from "../../lib/appwriteIds";
 import type { DepositStatus, Reservation, ReservationStatus } from "../../types/platform";
 
@@ -363,10 +363,10 @@ export async function createReservationViaFunction(input: CreateReservationInput
   }
 }
 
-// Staging fallback only. Production should prefer createReservationViaFunction, then remove
+// Development/staging fallback only. Production should prefer createReservationViaFunction, then remove
 // public create permissions from reservations after the Function is verified.
 export async function createReservation(input: CreateReservationInput): Promise<Reservation> {
-  if (isProductionBuild) {
+  if (!canUseDirectSensitiveTableFallback) {
     throw new ReservationsRepositoryError("لا يمكن إنشاء الحجز مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
   }
 

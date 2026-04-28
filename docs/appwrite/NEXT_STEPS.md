@@ -466,6 +466,13 @@ Security constraints:
 
 ## Upcoming Phase 2 Batch
 
+- Current stabilization notes (2026-04-28):
+- `createClient`, `updateClientControls`, and `updateDomainSettings` now verify `profiles.userId`, `role=agency_admin`, and `isActive=true`.
+- Unified enums across code/docs/setup use: `starter | pro | premium | managed`, `draft | active | suspended | cancelled`, `trial | active | overdue | cancelled`, `basic | standard | priority | managed`, `pixelone_path | subdomain | custom_domain`, and `not_configured | pending_dns | pending_verification | active | failed`.
+- Production uses `updateClientControls` / `updateDomainSettings` Functions for agency-sensitive writes. Direct sensitive table fallback remains for development/staging only.
+- `scripts/importClientData.mjs` is still import dry-run foundation only. Real restore/apply writes are intentionally not implemented yet.
+- viaSocket remains optional only inside Functions. No payment gateway, no customer accounts/login, and no real subdomain/custom-domain resolver were added.
+
 - Deploy and verify `trackRequest` in Appwrite Console.
 - Add rate limiting/abuse controls to public Functions.
 - Add customer-facing tracking code display refinements after order/reservation submit.

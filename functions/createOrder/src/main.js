@@ -107,11 +107,21 @@ const getRestaurant = async (tablesDb, input) => {
     throw new HttpError(400, "restaurantSlug is required.");
   }
 
-  const restaurant = await tablesDb.getRow({
-    databaseId: config.databaseId,
-    tableId: config.restaurantsTableId,
-    rowId: restaurantId,
-  });
+  let restaurant;
+
+  try {
+    restaurant = await tablesDb.getRow({
+      databaseId: config.databaseId,
+      tableId: config.restaurantsTableId,
+      rowId: restaurantId,
+    });
+  } catch (error) {
+    if (typeof error === "object" && error !== null && error.code === 404) {
+      throw new HttpError(404, "Restaurant was not found.");
+    }
+
+    throw error;
+  }
 
   if (restaurant.status !== "active") {
     throw new HttpError(403, "Restaurant is not active.");
@@ -341,7 +351,7 @@ export default async ({ req, res, log, error }) => {
     const orderSummary = await createOrderRows(tablesDb, restaurant, customer, items, deliveryFee);
 
     // Notify viaSocket (non-blocking, optional)
-    notifyViaSocket(orderSummary, restaurant);
+    void notifyViaSocket(orderSummary, restaurant);
 
     log(`Created order ${orderSummary.orderId} for restaurant ${restaurant.$id}`);
 

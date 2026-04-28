@@ -22,8 +22,10 @@ Use this checklist after deploying `createOrder`, `createReservation`, `trackReq
 - [ ] `createClient` execute access is `Users` only.
 - [ ] `updateClientControls` execute access is `Users` only.
 - [ ] `updateDomainSettings` execute access is `Users` only.
+- [ ] `createClient`, `updateClientControls`, and `updateDomainSettings` verify `agency_admin` with `profile.isActive=true`.
 - [ ] `APPWRITE_API_KEY` exists only in Function environment variables.
 - [ ] `.env.local`, `.env.production`, and Vite env variables do not contain `APPWRITE_API_KEY`.
+- [ ] Direct sensitive table fallback is enabled only for development/staging builds, never production.
 - [ ] After changing files under `functions/*`, changes are committed, pushed to GitHub, then redeployed in Appwrite.
 
 ## Sensitive Public Writes
@@ -54,7 +56,7 @@ Use this checklist after deploying `createOrder`, `createReservation`, `trackReq
 | `orders` | No access | Read, Update | Create only through Function, delete disabled |
 | `order_items` | No access | Read only | Create only through Function |
 | `reservations` | No access | Read, Update | Create only through Function, delete disabled |
-| `audit_logs` | No access | Create, Read temporarily for current restaurant via app filter; Update/Delete disabled | MVP client-side logs only |
+| `audit_logs` | No access | Create, Read temporarily for current restaurant via app filter; Update/Delete disabled | Server-side audit is used for agency Functions; keep table non-public |
 | `restaurant-assets` | Read only | Create, Read, Update, Delete temporarily | No public upload/update/delete |
 
 ## Manual Verification
@@ -70,6 +72,7 @@ Use this checklist after deploying `createOrder`, `createReservation`, `trackReq
 - [ ] Dishes, offers, settings, FAQ, gallery, image uploads, cart, and WhatsApp still work.
 - [ ] No horizontal scroll on public or admin mobile views.
 - [ ] Audit logs appear in `/admin/activity` after admin create/update/delete/status changes.
+- [ ] Agency plan/domain changes create sanitized rows in `audit_logs` with `action`, `entityType`, `entityId`, and `createdAtText`.
 - [ ] No payment gateway, billing provider, viaSocket, customer accounts, subdomain resolver, or custom domain resolver is enabled in this batch.
 
 ## audit_logs MVP Permissions

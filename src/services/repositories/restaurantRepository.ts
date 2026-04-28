@@ -6,6 +6,7 @@ import {
   TABLES,
   UPDATE_CLIENT_CONTROLS_FUNCTION_ID,
   UPDATE_DOMAIN_SETTINGS_FUNCTION_ID,
+  canUseDirectSensitiveTableFallback,
   hasAppwriteDataConfig,
   hasUpdateClientControlsFunctionConfig,
   hasUpdateDomainSettingsFunctionConfig,
@@ -618,7 +619,7 @@ export async function updateClientControlsViaFunction(
   }
 
   // Fallback to direct write in non-production only
-  if (!isDevelopmentBuild) {
+  if (!canUseDirectSensitiveTableFallback) {
     throw new RestaurantRepositoryError(
       "Production environment requires updateClientControlsViaFunction to be configured.",
       "APPWRITE_NOT_CONFIGURED",
@@ -695,7 +696,7 @@ export async function updateDomainSettingsViaFunction(
   }
 
   // Fallback to direct write in non-production only
-  if (!isDevelopmentBuild) {
+  if (!canUseDirectSensitiveTableFallback) {
     throw new RestaurantRepositoryError(
       "Production environment requires updateDomainSettingsViaFunction to be configured.",
       "APPWRITE_NOT_CONFIGURED",
