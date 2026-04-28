@@ -1,6 +1,16 @@
-import { AppwriteException, Query, type Models } from "appwrite";
-import { databases } from "../../lib/appwriteClient";
-import { COLLECTIONS, DATABASE_ID, TABLES, hasAppwriteDataConfig, isDevelopmentBuild } from "../../lib/appwriteIds";
+import { AppwriteException, ExecutionMethod, Query, type Models } from "appwrite";
+import { databases, functions } from "../../lib/appwriteClient";
+import {
+  COLLECTIONS,
+  DATABASE_ID,
+  TABLES,
+  UPDATE_CLIENT_CONTROLS_FUNCTION_ID,
+  UPDATE_DOMAIN_SETTINGS_FUNCTION_ID,
+  hasAppwriteDataConfig,
+  hasUpdateClientControlsFunctionConfig,
+  hasUpdateDomainSettingsFunctionConfig,
+  isDevelopmentBuild,
+} from "../../lib/appwriteIds";
 import type {
   BillingStatus,
   BusinessType,
@@ -540,4 +550,157 @@ export async function updateRestaurantContact(restaurantId: string, input: Resta
 
     throw new RestaurantRepositoryError(getWriteErrorMessage(error), "WRITE_FAILED", error);
   }
+}
+
+// Production-hardened version: uses Appwrite Function with agency_admin verification.
+// Fallback to direct SDK write only in non-production for development/testing.
+export async function updateClientControlsViaFunction(
+  restaurantId: string,
+  input: RestaurantAgencyControlsInput,
+): Promise<Restaurant> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  // If Function is configured, use it (production-safe)
+  if (hasUpdateClientControlsFunctionConfig) {
+    try {
+      const execution = await functions.createExecution({
+        functionId: UPDATE_CLIENT_CONTROLS_FUNCTION_ID,
+        body: JSON.stringify({
+          restaurantId,
+          plan: input.plan,
+          status: input.status,
+          billingStatus: input.billingStatus,
+          supportLevel: input.supportLevel,
+          subscriptionEndsAt: input.subscriptionEndsAt,
+          trialEndsAt: input.trialEndsAt,
+        }),
+        async: false,
+        method: ExecutionMethod.POST,
+        headers: {
+          "content-type": "application/json",
+        },
+      });
+
+      if (execution.status !== "completed" || execution.responseStatusCode < 200 || execution.responseStatusCode >= 300) {
+        const body = execution.responseBody;
+        let errorMessage = "Failed to update client controls via Function.";
+
+        try {
+          const response: Record<string, unknown> = JSON.parse(body);
+          if (typeof response.message === "string") {
+            errorMessage = response.message;
+          }
+        } catch {
+          // Use default error message
+        }
+
+        throw new RestaurantRepositoryError(errorMessage, "WRITE_FAILED");
+      }
+
+      // Fetch updated restaurant to return current state
+      const updatedRestaurant = await getRestaurantById(restaurantId);
+      if (updatedRestaurant) {
+        return updatedRestaurant;
+      }
+      throw new RestaurantRepositoryError("Failed to fetch updated restaurant after update.", "READ_FAILED");
+    } catch (error) {
+      if (error instanceof RestaurantRepositoryError) {
+        throw error;
+      }
+
+      throw new RestaurantRepositoryError(
+        "Failed to update client controls via Appwrite Function.",
+        "WRITE_FAILED",
+        error,
+      );
+    }
+  }
+
+  // Fallback to direct write in non-production only
+  if (!isDevelopmentBuild) {
+    throw new RestaurantRepositoryError(
+      "Production environment requires updateClientControlsViaFunction to be configured.",
+      "APPWRITE_NOT_CONFIGURED",
+    );
+  }
+
+  return updateRestaurantAgencyControls(restaurantId, input);
+}
+
+// Production-hardened version: uses Appwrite Function with agency_admin verification.
+// Fallback to direct SDK write only in non-production for development/testing.
+export async function updateDomainSettingsViaFunction(
+  restaurantId: string,
+  input: RestaurantDomainSettingsInput,
+): Promise<Restaurant> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  // If Function is configured, use it (production-safe)
+  if (hasUpdateDomainSettingsFunctionConfig) {
+    try {
+      const execution = await functions.createExecution({
+        functionId: UPDATE_DOMAIN_SETTINGS_FUNCTION_ID,
+        body: JSON.stringify({
+          restaurantId,
+          domainType: input.domainType,
+          subdomain: input.subdomain,
+          customDomain: input.customDomain,
+          dnsTarget: input.dnsTarget,
+          domainStatus: input.domainStatus,
+          domainVerifiedAt: input.domainVerifiedAt,
+          domainNotes: input.domainNotes,
+        }),
+        async: false,
+        method: ExecutionMethod.POST,
+        headers: {
+          "content-type": "application/json",
+        },
+      });
+
+      if (execution.status !== "completed" || execution.responseStatusCode < 200 || execution.responseStatusCode >= 300) {
+        const body = execution.responseBody;
+        let errorMessage = "Failed to update domain settings via Function.";
+
+        try {
+          const response: Record<string, unknown> = JSON.parse(body);
+          if (typeof response.message === "string") {
+            errorMessage = response.message;
+          }
+        } catch {
+          // Use default error message
+        }
+
+        throw new RestaurantRepositoryError(errorMessage, "WRITE_FAILED");
+      }
+
+      // Fetch updated restaurant to return current state
+      const updatedRestaurant = await getRestaurantById(restaurantId);
+      if (updatedRestaurant) {
+        return updatedRestaurant;
+      }
+      throw new RestaurantRepositoryError("Failed to fetch updated restaurant after update.", "READ_FAILED");
+    } catch (error) {
+      if (error instanceof RestaurantRepositoryError) {
+        throw error;
+      }
+
+      throw new RestaurantRepositoryError(
+        "Failed to update domain settings via Appwrite Function.",
+        "WRITE_FAILED",
+        error,
+      );
+    }
+  }
+
+  // Fallback to direct write in non-production only
+  if (!isDevelopmentBuild) {
+    throw new RestaurantRepositoryError(
+      "Production environment requires updateDomainSettingsViaFunction to be configured.",
+      "APPWRITE_NOT_CONFIGURED",
+    );
+  }
+
+  return updateRestaurantDomainSettings(restaurantId, input);
 }

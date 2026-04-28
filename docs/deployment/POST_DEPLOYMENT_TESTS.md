@@ -36,8 +36,12 @@ Run this checklist after deploying staging or production.
 - [ ] `agency_admin` login works.
 - [ ] `/agency` loads.
 - [ ] Creating a client through `createClient` works.
-- [ ] Plan/status management works.
-- [ ] Domain metadata management works.
+- [ ] Plan/status management works (via `updateClientControls` Function).
+- [ ] Domain metadata management works (via `updateDomainSettings` Function).
+- [ ] Updating plan, status, and billingStatus through Function succeeds.
+- [ ] Updating domain type, subdomain, and domainStatus through Function succeeds.
+- [ ] Audit logs show changes from `updateClientControls`.
+- [ ] Audit logs show changes from `updateDomainSettings`.
 - [ ] Preview opens `/r/{slug}`.
 - [ ] Open client dashboard flow works.
 - [ ] Unauthenticated `/agency` redirects to login.
@@ -46,6 +50,14 @@ Run this checklist after deploying staging or production.
 ```bash
 npm run export:client -- --slug demo-restaurant
 ```
+
+- [ ] Run a dry-run import test:
+
+```bash
+npm run import:client
+```
+
+- [ ] Import script shows valid restaurants without writing anything.
 
 ## Security
 
@@ -71,10 +83,23 @@ npm run export:client -- --slug demo-restaurant
 - [ ] `createClient` executes for authenticated `agency_admin`.
 - [ ] `createClient` rejects owner/staff/non-agency users.
 - [ ] `createClient` rejects unauthenticated callers.
+- [ ] `updateClientControls` executes for authenticated `agency_admin`.
+- [ ] `updateClientControls` rejects owner/staff/non-agency users.
+- [ ] `updateClientControls` rejects unauthenticated callers.
+- [ ] `updateClientControls` updates only whitelisted fields.
+- [ ] `updateDomainSettings` executes for authenticated `agency_admin`.
+- [ ] `updateDomainSettings` rejects owner/staff/non-agency users.
+- [ ] `updateDomainSettings` rejects unauthenticated callers.
+- [ ] `updateDomainSettings` validates domain format.
+- [ ] viaSocket webhooks (if configured) are called after order/reservation creation.
 
 ## Operations
 
 - [ ] `npm run build` passes.
 - [ ] `npm audit --omit=dev` has been reviewed.
+- [ ] `node --check` passes for all Functions.
 - [ ] A backup/export exists before major manual production changes.
 - [ ] Domain promises to clients still match the current `/r/:slug` production capability.
+- [ ] Feature flags `VITE_ENABLE_SUBDOMAIN_RESOLVER` and `VITE_ENABLE_CUSTOM_DOMAIN_RESOLVER` are `false` in production.
+- [ ] Code splitting does not break routing (lazy-loaded admin/agency pages load correctly).
+- [ ] No horizontal scroll on mobile.

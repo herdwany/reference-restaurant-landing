@@ -14,6 +14,7 @@ const config = {
   restaurantsTableId: env("APPWRITE_RESTAURANTS_TABLE_ID", "restaurants"),
   reservationsTableId: env("APPWRITE_RESERVATIONS_TABLE_ID", "reservations"),
   siteSettingsTableId: env("APPWRITE_SITE_SETTINGS_TABLE_ID", "site_settings"),
+  viasocketReservationWebhookUrl: env("VIASOCKET_RESERVATION_WEBHOOK_URL", ""),
 };
 
 class HttpError extends Error {
@@ -264,6 +265,40 @@ const createReservationRow = async (tablesDb, restaurant, reservation, settings)
 
 const json = (res, body, status = 200) => res.json(body, status);
 
+const notifyViaSocket = async (reservationSummary, restaurant) => {
+  const webhookUrl = config.viasocketReservationWebhookUrl;
+
+  if (!webhookUrl) {
+    // viaSocket is optional; no warning needed
+    return;
+  }
+
+  try {
+    const payload = {
+      restaurantId: restaurant.$id,
+      reservationId: reservationSummary.reservationId,
+      trackingCode: reservationSummary.trackingCode,
+      date: reservationSummary.reservationDate,
+      time: reservationSummary.reservationTime,
+      peopleCount: reservationSummary.peopleCount,
+      status: reservationSummary.status,
+      createdAt: new Date().toISOString(),
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.warn(`viaSocket webhook failed with status ${response.status}`);
+    }
+  } catch (error) {
+    console.warn(`viaSocket webhook error: ${error.message}`);
+  }
+};
+
 export default async ({ req, res, log, error }) => {
   try {
     assertFunctionConfig();
@@ -274,6 +309,9 @@ export default async ({ req, res, log, error }) => {
     const reservation = validateReservation(input);
     const settings = await getReservationSettings(tablesDb, restaurant.$id);
     const reservationSummary = await createReservationRow(tablesDb, restaurant, reservation, settings);
+
+    // Notify viaSocket (non-blocking, optional)
+    notifyViaSocket(reservationSummary, restaurant);
 
     log(`Created reservation ${reservationSummary.reservationId} for restaurant ${restaurant.$id}`);
 

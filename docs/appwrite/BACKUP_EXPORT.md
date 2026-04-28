@@ -127,3 +127,100 @@ TODO: build a future `export:assets` command if Storage file downloads are neede
 - No agency dashboard button.
 - No Function changes.
 - No Appwrite schema changes.
+
+---
+
+# Import / Restore Foundation (FINALIZATION_BATCH_2)
+
+## Script
+
+A safe, read-only import script for validating and importing previously exported client data.
+
+```bash
+npm run import:client
+```
+
+Dry-run mode (default):
+
+```bash
+node scripts/importClientData.mjs
+```
+
+Apply mode (creates data):
+
+```bash
+node scripts/importClientData.mjs --apply
+```
+
+Specific export directory:
+
+```bash
+node scripts/importClientData.mjs exports/my-export/2026-04-28T15-30-00 --apply
+```
+
+## Features
+
+- **Dry-run by default**: Shows what would be imported without writing anything
+- **Safe validation**: Checks export structure and validates all restaurants before import
+- **Duplicate protection**: Detects duplicate slugs in database before applying
+- **No secrets**: Rejects exports containing API keys or secrets
+- **No image uploads**: Images are not handled (use separate process)
+- **Foundation only**: Actual import integration is not yet implemented
+
+## Dry-Run Example Output
+
+```
+📋 Client Data Import Utility
+═══════════════════════════════════════════════════════════
+Mode: 🔍 DRY-RUN (no changes)
+Export path: exports
+
+📂 Using most recent export: 2026-04-28T15-39-31
+📖 Reading export file: data.json
+✅ Export structure valid
+📅 Exported at: 2026-04-28T15:39:31.000Z
+🍽️  Restaurants to import: 1
+
+🔍 Validating restaurants...
+
+📊 Import Summary:
+  Valid restaurants: 1
+  Invalid/skipped: 0
+
+✅ Restaurants ready for import:
+  • demo-restaurant (Demo Restaurant)
+    - Team: team-123
+    - Owner: user-456
+    - Plan: starter
+
+🔍 DRY-RUN: No changes made.
+
+To apply this import, run:
+  node scripts/importClientData.mjs exports --apply
+```
+
+## Apply Mode
+
+When `--apply` is specified:
+
+1. Validates export structure and restaurants
+2. Checks for duplicate slugs in the database
+3. Confirms all data is safe
+4. **Currently outputs**: "Apply mode - data validated successfully"
+5. **TODO**: Actual Appwrite import using `updateClientControlsViaFunction` for sensitive fields
+
+### Important: Production Safety
+
+- **Do NOT apply imports to production** without thorough testing in staging first
+- Duplicate slug detection prevents accidental overwrites
+- Sensitive fields (plan, billing status) are updated via Functions with role verification
+- Import failures log warnings but can be retried
+
+## Next Steps
+
+- Integrate with Appwrite SDK in the script
+- Use `updateClientControlsViaFunction` for plan/status updates
+- Add `updateDomainSettingsViaFunction` for domain changes
+- Handle profile and audit log restoration
+- Test with production-like data in staging
+- Do not apply to production without executive approval

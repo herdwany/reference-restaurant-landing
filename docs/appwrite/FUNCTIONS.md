@@ -441,3 +441,201 @@ Expected response:
 - If `VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID` is missing, `/agency` shows `إعداد إنشاء العملاء غير مفعّل بعد. أضف Function ID.`
 - There is no direct browser fallback for Auth user, profile, or restaurant creation.
 - No public signup is added.
+
+---
+
+# FINALIZATION_BATCH_2: Server-side Hardening Functions
+
+## updateClientControls
+
+Production-hardened agency operation for updating restaurant plan, billing status, and support level.
+
+Function source: `functions/updateClientControls`
+
+Runtime:
+- Node.js 20+
+- Root directory: `functions/updateClientControls`
+- Entrypoint: `src/main.js`
+- Build command: `npm install`
+- Execute access: `Users` only (authenticated agency admins)
+
+Environment variables:
+
+```env
+APPWRITE_ENDPOINT=https://<REGION>.cloud.appwrite.io/v1
+APPWRITE_PROJECT_ID=
+APPWRITE_API_KEY=
+APPWRITE_DATABASE_ID=
+APPWRITE_RESTAURANTS_TABLE_ID=restaurants
+APPWRITE_PROFILES_TABLE_ID=profiles
+APPWRITE_AUDIT_LOGS_TABLE_ID=audit_logs
+```
+
+Frontend public variable:
+
+```env
+VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID=
+```
+
+### Request Headers
+
+- `x-appwrite-user-id`: Set automatically by Appwrite when user is authenticated.
+
+### Request Body
+
+```json
+{
+  "restaurantId": "restaurant-id",
+  "plan": "pro",
+  "status": "active",
+  "billingStatus": "paid",
+  "supportLevel": "standard",
+  "subscriptionEndsAt": "2026-12-31T23:59:59.000Z",
+  "trialEndsAt": null
+}
+```
+
+Only allowed fields are processed; others are ignored. No immutable fields (`ownerUserId`, `teamId`, `restaurantId`) can be changed.
+
+### Response
+
+```json
+{
+  "ok": true,
+  "restaurantId": "...",
+  "updatedFields": ["plan", "status"],
+  "message": "Client controls updated successfully."
+}
+```
+
+### Security
+
+- Caller must be `agency_admin` with `active=true`
+- All changes are logged to `audit_logs` for compliance
+- Enum values are validated server-side
+- Errors are safe (no data leakage)
+
+## updateDomainSettings
+
+Production-hardened agency operation for managing domain configuration.
+
+Function source: `functions/updateDomainSettings`
+
+Runtime:
+- Node.js 20+
+- Root directory: `functions/updateDomainSettings`
+- Entrypoint: `src/main.js`
+- Build command: `npm install`
+- Execute access: `Users` only
+
+Environment variables:
+
+```env
+APPWRITE_ENDPOINT=https://<REGION>.cloud.appwrite.io/v1
+APPWRITE_PROJECT_ID=
+APPWRITE_API_KEY=
+APPWRITE_DATABASE_ID=
+APPWRITE_RESTAURANTS_TABLE_ID=restaurants
+APPWRITE_PROFILES_TABLE_ID=profiles
+APPWRITE_AUDIT_LOGS_TABLE_ID=audit_logs
+```
+
+Frontend public variable:
+
+```env
+VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID=
+```
+
+### Request Body
+
+```json
+{
+  "restaurantId": "restaurant-id",
+  "domainType": "subdomain",
+  "subdomain": "my-restaurant",
+  "customDomain": null,
+  "dnsTarget": "pixelonevisuals.tech",
+  "domainStatus": "pending",
+  "domainVerifiedAt": null,
+  "domainNotes": "Awaiting DNS verification"
+}
+```
+
+### Response
+
+```json
+{
+  "ok": true,
+  "restaurantId": "...",
+  "updatedFields": ["domainType", "subdomain", "domainStatus"],
+  "message": "Domain settings updated successfully."
+}
+```
+
+### Security
+
+- Caller must be `agency_admin` with `active=true`
+- Domain format is validated (subdomain, custom domain regex)
+- No DNS API calls are made (manual only)
+- No SSL certificate provisioning
+- All changes are logged to `audit_logs`
+
+---
+
+# viaSocket Automations (Optional)
+
+Both `createOrder` and `createReservation` support optional viaSocket webhook notifications.
+
+## Integration Points
+
+### createOrder viaSocket Integration
+
+Environment variable (Function only):
+
+```env
+VIASOCKET_ORDER_WEBHOOK_URL=https://viasocket.example.com/webhooks/orders
+```
+
+When set, after successful order creation, a POST request is sent with:
+
+```json
+{
+  "restaurantId": "restaurant-id",
+  "orderId": "order-id",
+  "trackingCode": "PO-ABC123",
+  "totalAmount": 250.5,
+  "status": "new",
+  "createdAt": "2026-04-28T15:00:00.000Z"
+}
+```
+
+### createReservation viaSocket Integration
+
+Environment variable (Function only):
+
+```env
+VIASOCKET_RESERVATION_WEBHOOK_URL=https://viasocket.example.com/webhooks/reservations
+```
+
+When set, after successful reservation creation, a POST request is sent with:
+
+```json
+{
+  "restaurantId": "restaurant-id",
+  "reservationId": "reservation-id",
+  "trackingCode": "RS-XYZ789",
+  "date": "2026-05-01",
+  "time": "19:00",
+  "peopleCount": 4,
+  "status": "pending_confirmation",
+  "createdAt": "2026-04-28T15:00:00.000Z"
+}
+```
+
+## Important Notes
+
+- viaSocket webhook URLs are **optional** – omit them if not needed
+- Failed webhooks **do not** block order/reservation creation
+- Webhook failures are logged as warnings only
+- No API keys are included in webhook payloads
+- Payloads are minimal and sanitized

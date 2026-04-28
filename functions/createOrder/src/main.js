@@ -15,6 +15,7 @@ const config = {
   dishesTableId: env("APPWRITE_DISHES_TABLE_ID", "dishes"),
   ordersTableId: env("APPWRITE_ORDERS_TABLE_ID", "orders"),
   orderItemsTableId: env("APPWRITE_ORDER_ITEMS_TABLE_ID", "order_items"),
+  viasocketOrderWebhookUrl: env("VIASOCKET_ORDER_WEBHOOK_URL", ""),
 };
 
 class HttpError extends Error {
@@ -295,6 +296,38 @@ const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFe
 
 const json = (res, body, status = 200) => res.json(body, status);
 
+const notifyViaSocket = async (orderSummary, restaurant) => {
+  const webhookUrl = config.viasocketOrderWebhookUrl;
+
+  if (!webhookUrl) {
+    // viaSocket is optional; no warning needed
+    return;
+  }
+
+  try {
+    const payload = {
+      restaurantId: restaurant.$id,
+      orderId: orderSummary.orderId,
+      trackingCode: orderSummary.trackingCode,
+      totalAmount: orderSummary.totalAmount,
+      status: orderSummary.status,
+      createdAt: new Date().toISOString(),
+    };
+
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      console.warn(`viaSocket webhook failed with status ${response.status}`);
+    }
+  } catch (error) {
+    console.warn(`viaSocket webhook error: ${error.message}`);
+  }
+};
+
 export default async ({ req, res, log, error }) => {
   try {
     assertFunctionConfig();
@@ -306,6 +339,9 @@ export default async ({ req, res, log, error }) => {
     const items = await normalizeItems(tablesDb, restaurant.$id, input.items);
     const deliveryFee = getDeliveryFee(input);
     const orderSummary = await createOrderRows(tablesDb, restaurant, customer, items, deliveryFee);
+
+    // Notify viaSocket (non-blocking, optional)
+    notifyViaSocket(orderSummary, restaurant);
 
     log(`Created order ${orderSummary.orderId} for restaurant ${restaurant.$id}`);
 

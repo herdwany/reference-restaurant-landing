@@ -34,6 +34,8 @@ import {
   RestaurantRepositoryError,
   getRestaurantStatsForAgency,
   getRestaurantsForAgency,
+  updateClientControlsViaFunction,
+  updateDomainSettingsViaFunction,
   updateRestaurantAgencyControls,
   updateRestaurantDomainSettings,
 } from "../services/repositories/restaurantRepository";
@@ -609,7 +611,7 @@ export default function AgencyDashboard() {
     try {
       const subscriptionEndsAt = fromDateTimeInputValue(controlsValues.subscriptionEndsAt);
       const trialEndsAt = fromDateTimeInputValue(controlsValues.trialEndsAt);
-      const updatedRestaurant = await updateRestaurantAgencyControls(controlsRestaurant.id, {
+      const updatedRestaurant = await updateClientControlsViaFunction(controlsRestaurant.id, {
         billingStatus: controlsValues.billingStatus,
         plan: controlsValues.plan,
         status: controlsValues.status,
@@ -664,7 +666,7 @@ export default function AgencyDashboard() {
     setDomainSuccess(null);
 
     try {
-      const updatedRestaurant = await updateRestaurantDomainSettings(domainRestaurant.id, {
+      const updatedRestaurant = await updateDomainSettingsViaFunction(domainRestaurant.id, {
         customDomain: normalizedValues.customDomain || null,
         dnsTarget: normalizedValues.dnsTarget || null,
         domainNotes: normalizedValues.domainNotes || null,

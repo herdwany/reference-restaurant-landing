@@ -56,8 +56,10 @@ Deploy each Function from its own root folder:
 | `createOrder` | `functions/createOrder` | `src/main.js` | `npm install` | `Guests` or `Any` |
 | `createReservation` | `functions/createReservation` | `src/main.js` | `npm install` | `Guests` or `Any` |
 | `createClient` | `functions/createClient` | `src/main.js` | `npm install` | `Users` only |
+| `updateClientControls` | `functions/updateClientControls` | `src/main.js` | `npm install` | `Users` only |
+| `updateDomainSettings` | `functions/updateDomainSettings` | `src/main.js` | `npm install` | `Users` only |
 
-`createClient` verifies `agency_admin` server-side through the authenticated caller and the `profiles` table. Do not allow `Guests` or `Any` to execute it.
+`createClient`, `updateClientControls`, and `updateDomainSettings` verify `agency_admin` server-side through the authenticated caller and the `profiles` table. Do not allow `Guests` or `Any` to execute them.
 
 Function environment variables must be configured in Appwrite Console only. Do not put `APPWRITE_API_KEY` in Vite env files or React code.
 
@@ -78,7 +80,11 @@ VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG
 VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID
 VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID
 VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID
+VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID
+VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID
 VITE_ENABLE_ANALYTICS
+VITE_ENABLE_SUBDOMAIN_RESOLVER
+VITE_ENABLE_CUSTOM_DOMAIN_RESOLVER
 ```
 
 Forbidden in frontend env:
@@ -88,6 +94,13 @@ APPWRITE_API_KEY
 VITE_APPWRITE_API_KEY
 ```
 
+Optional Function environment variables (in Appwrite Console only):
+
+```text
+VIASOCKET_ORDER_WEBHOOK_URL
+VIASOCKET_RESERVATION_WEBHOOK_URL
+```
+
 ## Production Safety Guards
 
 The frontend already has production guards for sensitive public writes:
@@ -95,8 +108,23 @@ The frontend already has production guards for sensitive public writes:
 - Production builds block direct browser order creation when `VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID` is missing.
 - Production builds block direct browser reservation creation when `VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID` is missing.
 - `createClient` has no direct browser fallback.
+- Production builds require `VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID` for agency plan/status updates.
+- Production builds require `VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID` for domain management.
 
 In staging, old direct browser fallbacks may still exist for controlled testing. Production should use Functions and closed sensitive table permissions.
+
+### Recommended Production Checklist
+
+- [ ] All Functions deployed and environment variables configured
+- [ ] `updateClientControls` and `updateDomainSettings` Functions deployed for agency operations
+- [ ] Table permissions: close public create for `restaurants`, `orders`, `reservations`, `profiles`
+- [ ] Table permissions: keep public read only for `restaurants`, `dishes`, `offers`, `faqs`, `gallery_items`, `testimonials`, `site_settings`
+- [ ] Remove or disable direct database writes from React
+- [ ] All `VITE_APPWRITE_*_FUNCTION_ID` variables configured in production
+- [ ] No `APPWRITE_API_KEY` in any Vite env file
+- [ ] Run post-deployment tests (see POST_DEPLOYMENT_TESTS.md)
+- [ ] Export backup before going live
+- [ ] Audit logs enabled and monitored
 
 ## Permissions
 

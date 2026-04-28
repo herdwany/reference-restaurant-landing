@@ -333,7 +333,7 @@ Security constraints:
 - No public signup was added.
 - No delete restaurant flow.
 - Security note: `selectedRestaurantId` in `localStorage` is MVP UI context only, not a final security boundary.
-- Security note: `updateRestaurantAgencyControls` is a frontend MVP path only; move agency plan/status updates to an Appwrite Function that verifies `agency_admin`.
+- Security note: `updateRestaurantAgencyControls` and `updateRestaurantDomainSettings` have been moved to Appwrite Functions (`updateClientControls` and `updateDomainSettings`) with `agency_admin` verification.
 - Security note: agency restaurant reads/manage access should later move behind Appwrite Teams, Functions, or backend-enforced rules instead of relying only on React role guards and broad Appwrite read permissions.
 
 ## Future Phase 9 Work

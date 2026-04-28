@@ -8,14 +8,20 @@ Use this checklist after deploying `createOrder`, `createReservation`, `trackReq
 - [ ] `createReservation` Function is deployed from `functions/createReservation`.
 - [ ] `trackRequest` Function is deployed from `functions/trackRequest`.
 - [ ] `createClient` Function is deployed from `functions/createClient`.
+- [ ] `updateClientControls` Function is deployed from `functions/updateClientControls`.
+- [ ] `updateDomainSettings` Function is deployed from `functions/updateDomainSettings`.
 - [ ] `VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID` is set in production frontend env.
 - [ ] `VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID` is set in production frontend env.
 - [ ] `VITE_APPWRITE_TRACK_REQUEST_FUNCTION_ID` is set in production frontend env.
 - [ ] `VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID` is set in production frontend env.
+- [ ] `VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID` is set in production frontend env.
+- [ ] `VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID` is set in production frontend env.
 - [ ] `createOrder` execute access is `Guests` or `Any`.
 - [ ] `createReservation` execute access is `Guests` or `Any`.
 - [ ] `trackRequest` execute access is `Guests` or `Any`.
 - [ ] `createClient` execute access is `Users` only.
+- [ ] `updateClientControls` execute access is `Users` only.
+- [ ] `updateDomainSettings` execute access is `Users` only.
 - [ ] `APPWRITE_API_KEY` exists only in Function environment variables.
 - [ ] `.env.local`, `.env.production`, and Vite env variables do not contain `APPWRITE_API_KEY`.
 - [ ] After changing files under `functions/*`, changes are committed, pushed to GitHub, then redeployed in Appwrite.

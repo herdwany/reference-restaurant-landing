@@ -6,6 +6,8 @@ export const CREATE_ORDER_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREATE_ORD
 export const CREATE_RESERVATION_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID?.trim() ?? "";
 export const TRACK_REQUEST_FUNCTION_ID = import.meta.env.VITE_APPWRITE_TRACK_REQUEST_FUNCTION_ID?.trim() ?? "";
 export const CREATE_CLIENT_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID?.trim() ?? "";
+export const UPDATE_CLIENT_CONTROLS_FUNCTION_ID = import.meta.env.VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID?.trim() ?? "";
+export const UPDATE_DOMAIN_SETTINGS_FUNCTION_ID = import.meta.env.VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID?.trim() ?? "";
 export const DEFAULT_RESTAURANT_SLUG =
   import.meta.env.VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG?.trim() || "demo-restaurant";
 export const ENABLE_ANALYTICS = import.meta.env.VITE_ENABLE_ANALYTICS === "true";
@@ -36,4 +38,6 @@ export const hasCreateOrderFunctionConfig = isAppwriteConfigured && Boolean(CREA
 export const hasCreateReservationFunctionConfig = isAppwriteConfigured && Boolean(CREATE_RESERVATION_FUNCTION_ID);
 export const hasTrackRequestFunctionConfig = isAppwriteConfigured && Boolean(TRACK_REQUEST_FUNCTION_ID);
 export const hasCreateClientFunctionConfig = isAppwriteConfigured && Boolean(CREATE_CLIENT_FUNCTION_ID);
+export const hasUpdateClientControlsFunctionConfig = isAppwriteConfigured && Boolean(UPDATE_CLIENT_CONTROLS_FUNCTION_ID);
+export const hasUpdateDomainSettingsFunctionConfig = isAppwriteConfigured && Boolean(UPDATE_DOMAIN_SETTINGS_FUNCTION_ID);
 export const canUseDirectSensitiveTableFallback = !isProductionBuild;

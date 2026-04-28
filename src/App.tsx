@@ -1,18 +1,22 @@
-import { CSSProperties, useEffect, useMemo, useState } from "react";
+import { CSSProperties, Suspense, lazy, useEffect, useMemo, useState } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
 import AdminOverview from "./admin/AdminOverview";
 import ProtectedAdminRoute from "./admin/components/ProtectedAdminRoute";
-import AdminActivity from "./admin/pages/AdminActivity";
-import AdminDishes from "./admin/pages/AdminDishes";
-import AdminFaqs from "./admin/pages/AdminFaqs";
-import AdminGallery from "./admin/pages/AdminGallery";
-import AdminOffers from "./admin/pages/AdminOffers";
-import AdminOrders from "./admin/pages/AdminOrders";
-import AdminReservations from "./admin/pages/AdminReservations";
-import AdminSettings from "./admin/pages/AdminSettings";
-import AgencyDashboard from "./agency/AgencyDashboard";
+
+// Code splitting: Lazy load admin pages
+const AdminActivity = lazy(() => import("./admin/pages/AdminActivity"));
+const AdminDishes = lazy(() => import("./admin/pages/AdminDishes"));
+const AdminFaqs = lazy(() => import("./admin/pages/AdminFaqs"));
+const AdminGallery = lazy(() => import("./admin/pages/AdminGallery"));
+const AdminOffers = lazy(() => import("./admin/pages/AdminOffers"));
+const AdminOrders = lazy(() => import("./admin/pages/AdminOrders"));
+const AdminReservations = lazy(() => import("./admin/pages/AdminReservations"));
+const AdminSettings = lazy(() => import("./admin/pages/AdminSettings"));
+
+// Code splitting: Lazy load agency dashboard
+const AgencyDashboard = lazy(() => import("./agency/AgencyDashboard"));
 import type { Dish, GalleryImage, MenuItem, Offer } from "./data/restaurantConfig";
 import { restaurantConfig } from "./data/restaurantConfig";
 import BookingForm from "./components/BookingForm";
@@ -92,6 +96,18 @@ const themePresetColors = {
 const scrollToSection = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
+
+// Fallback loading component for code-split routes
+function RouteLoadingFallback() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "60vh" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontSize: "3rem", marginBottom: "1rem" }}>⏳</div>
+        <p style={{ color: "#666", fontSize: "1rem" }}>جاري التحميل...</p>
+      </div>
+    </div>
+  );
+}
 
 function AdminProtectedRoutes() {
   return (
@@ -611,18 +627,81 @@ export default function App() {
         <Route path="/r/:slug/track" element={<PublicTrackingRoute />} />
         <Route path="/r/:slug" element={<PublicRestaurantRoute />} />
         <Route path="/admin/login" element={<AdminLoginRoute />} />
-        <Route path="/agency" element={<AgencyRoute />} />
+        <Route
+          path="/agency"
+          element={
+            <Suspense fallback={<RouteLoadingFallback />}>
+              <AgencyRoute />
+            </Suspense>
+          }
+        />
         <Route path="/admin" element={<AdminProtectedRoutes />}>
           <Route element={<AdminLayout />}>
             <Route index element={<AdminOverview />} />
-            <Route path="dishes" element={<AdminDishes />} />
-            <Route path="offers" element={<AdminOffers />} />
-            <Route path="orders" element={<AdminOrders />} />
-            <Route path="reservations" element={<AdminReservations />} />
-            <Route path="settings" element={<AdminSettings />} />
-            <Route path="faqs" element={<AdminFaqs />} />
-            <Route path="gallery" element={<AdminGallery />} />
-            <Route path="activity" element={<AdminActivity />} />
+            <Route
+              path="dishes"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminDishes />
+                </Suspense>
+              }
+            />
+            <Route
+              path="offers"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminOffers />
+                </Suspense>
+              }
+            />
+            <Route
+              path="orders"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminOrders />
+                </Suspense>
+              }
+            />
+            <Route
+              path="reservations"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminReservations />
+                </Suspense>
+              }
+            />
+            <Route
+              path="settings"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminSettings />
+                </Suspense>
+              }
+            />
+            <Route
+              path="faqs"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminFaqs />
+                </Suspense>
+              }
+            />
+            <Route
+              path="gallery"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminGallery />
+                </Suspense>
+              }
+            />
+            <Route
+              path="activity"
+              element={
+                <Suspense fallback={<RouteLoadingFallback />}>
+                  <AdminActivity />
+                </Suspense>
+              }
+            />
             <Route path="*" element={<AdminOverview />} />
           </Route>
         </Route>
