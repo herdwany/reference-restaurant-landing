@@ -19,7 +19,6 @@ import AdminErrorState from "../admin/components/AdminErrorState";
 import AdminFormModal from "../admin/components/AdminFormModal";
 import AdminLoadingState from "../admin/components/AdminLoadingState";
 import { useAuth } from "../context/AuthContext";
-import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
 import { clientPlans, getDefaultSupportLevelForPlan, planDefinitions } from "../lib/plans";
 import { ADMIN_APPWRITE_REQUIRED_MESSAGE } from "../services/authService";
 import {
@@ -757,8 +756,13 @@ export default function AgencyDashboard() {
                 </div>
 
                 <div className="agency-restaurant-card__actions">
-                  {restaurant.slug === DEFAULT_RESTAURANT_SLUG ? (
-                    <a className="admin-action-button admin-action-button--secondary" href="/" target="_blank" rel="noopener noreferrer">
+                  {restaurant.slug ? (
+                    <a
+                      className="admin-action-button admin-action-button--secondary"
+                      href={`/r/${encodeURIComponent(restaurant.slug)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
                       <ExternalLink size={17} aria-hidden="true" />
                       <span>معاينة الموقع</span>
                     </a>

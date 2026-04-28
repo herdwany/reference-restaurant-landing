@@ -334,6 +334,18 @@ Security constraints:
 - الموقع العام يعرض رسائل `draft/suspended/cancelled` بدل الموقع النشط عند تعطيل العميل.
 - Phase 9D لا يحتوي payment gateway، ولا invoices، ولا billing provider، ولا subscriptions حقيقية، ولا viaSocket، ولا impersonation، ولا domain routing.
 - سلوك `owner` و`staff` بقي عبر `profile.restaurantId`.
-- الخطوة التالية المقترحة: Phase 9E للـ dynamic public routing by slug/domain.
+- الخطوة التالية المقترحة: Phase 9F - Subdomain / Custom Domain Management.
 
 ملاحظة أمنية: واجهة React وحدها لا تكفي لحماية multi-tenant. `selectedRestaurantId` في `localStorage` هو سياق واجهة فقط وليس boundary أمني نهائي، و`updateRestaurantAgencyControls` مسار MVP من الواجهة يجب نقله لاحقًا إلى Appwrite Function تتحقق من `agency_admin`. Feature flags ليست حماية نهائية للبيانات الحساسة. لاحقًا يجب حماية agency access وrestaurant list/manage عبر Teams/Functions/backend rules. `createOrder` و`createReservation` لديهما Appwrite Functions ومسار production guard يمنع direct browser write عند غياب Function IDs. بعد اختبار Functions أزل public create من جداول الطلبات والحجوزات، ولا تفتح public read على بيانات العملاء أو تضع API keys داخل React.
+
+## Phase 9E - Dynamic Public Routing by Slug
+
+- The public site supports `/r/:slug` for tenant-specific restaurant pages.
+- `/` still uses `VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG` for demo/development fallback.
+- `/r/:slug` loads the matching restaurant from Appwrite and shows a visitor-safe not found page when the slug does not exist.
+- `draft`, `suspended`, and `cancelled` restaurants show public status messages instead of the full site.
+- Agency preview opens `/r/{restaurant.slug}` when a slug is available.
+- Public orders and reservations now submit the current route slug to the Appwrite Functions.
+- Custom domains, subdomain routing, DNS management, billing, payment, and viaSocket are not implemented in this phase.
+
+Next planned phase: Phase 9F - Subdomain / Custom Domain Management.

@@ -12,6 +12,7 @@ export type CartSource = "dish" | "offer" | "menu";
 
 export interface RestaurantInfo {
   id?: string;
+  slug?: string;
   name: string;
   slogan: string;
   logoText: string;

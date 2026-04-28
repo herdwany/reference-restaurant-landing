@@ -1,5 +1,5 @@
 import { CSSProperties, useEffect, useState } from "react";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
 import AdminOverview from "./admin/AdminOverview";
@@ -33,7 +33,7 @@ import TrustBadges from "./components/TrustBadges";
 import { AuthProvider } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
-import { getSiteData } from "./services/siteDataService";
+import { getSiteDataBySlug } from "./services/siteDataService";
 import type { RestaurantStatus } from "./types/platform";
 import {
   OrdersRepositoryError,
@@ -41,7 +41,7 @@ import {
   createOrderViaFunction,
   hasCreateOrderFunctionConfig,
 } from "./services/repositories/ordersRepository";
-import { DEFAULT_RESTAURANT_SLUG, canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "./lib/appwriteIds";
+import { canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "./lib/appwriteIds";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
 type ThemeStyle = CSSProperties & Record<string, string>;
@@ -80,35 +80,35 @@ type PublicSiteStatusPageProps = {
   style: ThemeStyle;
 };
 
-function PublicSiteStatusPage({ restaurantName, status, style }: PublicSiteStatusPageProps) {
-  const statusCopy: Record<Exclude<RestaurantStatus, "active">, { body: string; title: string }> = {
-    draft: {
-      title: "الموقع في وضع المسودة.",
-      body: "الموقع قيد التجهيز وسيكون متاحًا قريبًا.",
-    },
-    suspended: {
-      title: "هذا الموقع غير متاح مؤقتًا.",
-      body: "تواصل مع Pixel One لتفعيل الموقع مرة أخرى.",
-    },
-    cancelled: {
-      title: "هذا الموقع غير متاح حاليًا.",
-      body: "تواصل مع Pixel One لمعرفة حالة الموقع.",
-    },
-  };
-  const copy = status === "active" ? null : statusCopy[status];
+type PublicSiteMessagePageProps = {
+  body?: string;
+  eyebrow?: string;
+  isLoading?: boolean;
+  style: ThemeStyle;
+  title: string;
+};
 
-  if (!copy) {
-    return null;
-  }
-
+function PublicSiteMessagePage({ body, eyebrow, isLoading = false, style, title }: PublicSiteMessagePageProps) {
   return (
     <main className="public-status-page" dir="rtl" style={style}>
-      <section className="public-status-card" role="status">
-        <span>{restaurantName}</span>
-        <h1>{copy.title}</h1>
-        <p>{copy.body}</p>
+      <section className="public-status-card" role={isLoading ? "status" : "alert"} aria-busy={isLoading}>
+        {eyebrow ? <span>{eyebrow}</span> : null}
+        <h1>{title}</h1>
+        {body ? <p>{body}</p> : null}
       </section>
     </main>
+  );
+}
+
+function PublicSiteAvailabilityPage({ restaurantName, status, style }: PublicSiteStatusPageProps) {
+  const titleByStatus: Record<Exclude<RestaurantStatus, "active">, string> = {
+    draft: "هذا الموقع قيد التجهيز.",
+    suspended: "هذا الموقع غير متاح مؤقتًا.",
+    cancelled: "هذا الموقع غير متاح.",
+  };
+
+  return status === "active" ? null : (
+    <PublicSiteMessagePage eyebrow={restaurantName} title={titleByStatus[status]} style={style} />
   );
 }
 
@@ -143,9 +143,16 @@ function PublicGalleryCard({ fallbackImage, image, onOpen }: PublicGalleryCardPr
   );
 }
 
-function LandingPage() {
+type LandingPageProps = {
+  slug?: string;
+};
+
+function LandingPage({ slug }: LandingPageProps) {
   const [config, setConfig] = useState(restaurantConfig);
   const [publicStatus, setPublicStatus] = useState<RestaurantStatus>("active");
+  const [restaurantSlug, setRestaurantSlug] = useState("");
+  const [isLoadingSite, setIsLoadingSite] = useState(true);
+  const [isNotFound, setIsNotFound] = useState(false);
   const sections = config.settings.sections;
   const cart = useCart();
   const { toasts, showToast, dismissToast } = useToast();
@@ -159,16 +166,23 @@ function LandingPage() {
 
     const loadSiteData = async () => {
       try {
-        const result = await getSiteData();
+        setIsLoadingSite(true);
+        const result = await getSiteDataBySlug(slug);
 
         if (isMounted) {
           setConfig(result.config);
           setPublicStatus(result.restaurantStatus);
+          setRestaurantSlug(result.resolvedSlug);
+          setIsNotFound(result.isNotFound);
+          setIsLoadingSite(false);
         }
       } catch {
         if (isMounted) {
           setConfig(restaurantConfig);
           setPublicStatus("active");
+          setRestaurantSlug(slug?.trim().toLowerCase() || "");
+          setIsNotFound(Boolean(slug?.trim()));
+          setIsLoadingSite(false);
         }
       }
     };
@@ -178,7 +192,7 @@ function LandingPage() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [slug]);
 
   useEffect(() => {
     document.documentElement.lang = config.settings.language || "ar";
@@ -210,9 +224,19 @@ function LandingPage() {
     "--radius-card": config.brand.borderRadius,
   };
 
-  if (publicStatus !== "active") {
-    return <PublicSiteStatusPage restaurantName={config.restaurant.name} status={publicStatus} style={themeStyle} />;
+  if (isLoadingSite) {
+    return <PublicSiteMessagePage title="جاري تحميل الموقع..." style={themeStyle} isLoading />;
   }
+
+  if (isNotFound) {
+    return <PublicSiteMessagePage title="لم يتم العثور على هذا الموقع." style={themeStyle} />;
+  }
+
+  if (publicStatus !== "active") {
+    return <PublicSiteAvailabilityPage restaurantName={config.restaurant.name} status={publicStatus} style={themeStyle} />;
+  }
+
+  const currentRestaurantSlug = restaurantSlug || config.restaurant.slug || "";
 
   const addDishToCart = (dish: Dish, quantity = 1) => {
     cart.addItem(dish, "dish", quantity);
@@ -322,7 +346,7 @@ function LandingPage() {
     try {
       const baseOrderInput = {
         restaurantId: config.restaurant.id ?? "",
-        restaurantSlug: DEFAULT_RESTAURANT_SLUG,
+        restaurantSlug: currentRestaurantSlug,
         customerName: customer.customerName,
         customerPhone: customer.customerPhone,
         customerAddress: customer.customerAddress,
@@ -419,7 +443,7 @@ function LandingPage() {
             <div className="container">
               <SectionTitle title={config.ui.sectionTitles.actionGrid} />
               <div className="action-grid">
-                <BookingForm config={config} onToast={showToast} />
+                <BookingForm config={config} restaurantSlug={currentRestaurantSlug} onToast={showToast} />
                 <MenuPreview config={config} onAddToCart={addMenuItemToCart} />
                 <LocationCard config={config} onWhatsappClick={handleWhatsappClick} />
               </div>
@@ -478,11 +502,17 @@ function LandingPage() {
   );
 }
 
+function PublicRestaurantRoute() {
+  const { slug } = useParams();
+  return <LandingPage slug={slug} />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/r/:slug" element={<PublicRestaurantRoute />} />
         <Route path="/admin/login" element={<AdminLoginRoute />} />
         <Route path="/agency" element={<AgencyRoute />} />
         <Route path="/admin" element={<AdminProtectedRoutes />}>

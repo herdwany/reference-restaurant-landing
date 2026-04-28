@@ -338,7 +338,7 @@ Security constraints:
 
 ## Future Phase 9 Work
 
-- Phase 9E: Dynamic public routing by slug/domain.
+- Phase 9F: Subdomain / Custom Domain Management.
 - Create client repair flow for incomplete default settings, if needed.
 - ربط Teams والصلاحيات والاشتراكات.
 - تقوية restaurant list/manage عبر Function أو backend rules.
@@ -354,3 +354,18 @@ Security constraints:
 - لا يجب query all dishes/offers/faqs بدون `restaurantId`.
 - لا يجب السماح بتعديل `status` أو `teamId` أو `ownerUserId` من صفحة settings.
 - لا تضع API keys داخل React أو `.env.local`.
+
+## Phase 9E - Completed
+
+- Public site supports `/r/:slug` for tenant-specific restaurant pages.
+- `/` keeps using `VITE_APPWRITE_DEFAULT_RESTAURANT_SLUG` for demo/development fallback.
+- Explicit `/r/:slug` requests do not fall back to the demo restaurant when the slug is missing.
+- Agency preview opens `/r/{restaurant.slug}` when the restaurant has a slug.
+- Orders and reservations submit the current public route slug to the Appwrite Functions.
+- Public `draft`, `suspended`, and `cancelled` statuses block the full site and show visitor-safe messages.
+- Custom domains, subdomains, DNS management, billing, payment, and viaSocket were not implemented.
+
+## Phase 9F - Next
+
+- Subdomain / Custom Domain Management.
+- Domain verification and DNS guidance should be designed separately from Phase 9E.

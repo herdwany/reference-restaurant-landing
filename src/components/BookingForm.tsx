@@ -8,7 +8,7 @@ import {
   hasCreateReservationFunctionConfig,
   type CreateReservationInput,
 } from "../services/repositories/reservationsRepository";
-import { DEFAULT_RESTAURANT_SLUG, canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "../lib/appwriteIds";
+import { canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "../lib/appwriteIds";
 import { createBookingMessage, createWhatsappUrl } from "../utils/formatters";
 import { hasValidationErrors, validateBookingForm } from "../utils/validators";
 import type { BookingErrors } from "../utils/validators";
@@ -16,6 +16,7 @@ import Modal from "./Modal";
 
 interface BookingFormProps {
   config: RestaurantConfig;
+  restaurantSlug: string;
   onToast: (message: string, type?: "success" | "error" | "info") => void;
 }
 
@@ -34,7 +35,7 @@ const saveBooking = (booking: BookingFormData) => {
   window.localStorage.setItem("restaurant-bookings", JSON.stringify([...bookings, booking]));
 };
 
-export default function BookingForm({ config, onToast }: BookingFormProps) {
+export default function BookingForm({ config, restaurantSlug, onToast }: BookingFormProps) {
   const [values, setValues] = useState(initialBooking);
   const [errors, setErrors] = useState<BookingErrors>({});
   const [lastBooking, setLastBooking] = useState<BookingFormData | null>(null);
@@ -87,7 +88,7 @@ export default function BookingForm({ config, onToast }: BookingFormProps) {
 
   const toReservationInput = (booking: BookingFormData): CreateReservationInput => ({
     restaurantId: config.restaurant.id ?? "",
-    restaurantSlug: DEFAULT_RESTAURANT_SLUG,
+    restaurantSlug,
     customerName: booking.fullName,
     customerPhone: booking.phone,
     reservationDate: booking.date,

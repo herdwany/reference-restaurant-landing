@@ -7,7 +7,7 @@ import {
   type RestaurantConfig,
 } from "../data/restaurantConfig";
 import { isAppwriteConfigured } from "../lib/appwriteClient";
-import { DEFAULT_RESTAURANT_SLUG } from "../lib/appwriteIds";
+import { DEFAULT_RESTAURANT_SLUG, isDevelopmentBuild } from "../lib/appwriteIds";
 import { isPublicRestaurantUnavailable } from "../lib/featureAccess";
 import type {
   Dish as AppwriteDish,
@@ -32,15 +32,33 @@ export interface SiteDataResult {
   config: RestaurantConfig;
   source: SiteDataSource;
   isFallback: boolean;
+  isNotFound: boolean;
   restaurantStatus: RestaurantStatus;
+  resolvedSlug: string;
 }
 
-const withFallback = (): SiteDataResult => ({
+const normalizeSlug = (slug: string | undefined) => slug?.trim().toLowerCase() || "";
+
+const withFallback = (resolvedSlug = DEFAULT_RESTAURANT_SLUG): SiteDataResult => ({
   config: defaultRestaurantConfig,
   source: "config",
   isFallback: true,
+  isNotFound: false,
   restaurantStatus: "active",
+  resolvedSlug,
 });
+
+const withNotFound = (resolvedSlug: string): SiteDataResult => ({
+  config: defaultRestaurantConfig,
+  source: "config",
+  isFallback: false,
+  isNotFound: true,
+  restaurantStatus: "active",
+  resolvedSlug,
+});
+
+const canUseConfigFallbackForSlug = (slug: string, hasExplicitSlug: boolean) =>
+  !hasExplicitSlug || (isDevelopmentBuild && slug === DEFAULT_RESTAURANT_SLUG);
 
 const isAcceptableImageUrl = (value: string | undefined) => {
   if (!value) {
@@ -139,6 +157,7 @@ const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): Restau
   return {
     ...base.restaurant,
     id: restaurant.id,
+    slug: restaurant.slug,
     name: displayName,
     slogan: restaurant.tagline || base.restaurant.slogan,
     logoText: displayName,
@@ -198,16 +217,29 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
 const getSettledValue = <Value,>(result: PromiseSettledResult<Value>, fallback: Value) =>
   result.status === "fulfilled" ? result.value : fallback;
 
-export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteDataResult> {
+export async function getSiteDataBySlug(slug?: string): Promise<SiteDataResult> {
+  const explicitSlug = normalizeSlug(slug);
+  const hasExplicitSlug = Boolean(explicitSlug);
+  const resolvedSlug = explicitSlug || DEFAULT_RESTAURANT_SLUG;
+  const canUseFallback = canUseConfigFallbackForSlug(resolvedSlug, hasExplicitSlug);
+
   if (!isAppwriteConfigured) {
-    return withFallback();
+    if (canUseFallback) {
+      if (hasExplicitSlug && isDevelopmentBuild) {
+        console.warn(`Using local restaurantConfig.ts fallback for public slug "${resolvedSlug}".`);
+      }
+
+      return withFallback(resolvedSlug);
+    }
+
+    return withNotFound(resolvedSlug);
   }
 
   try {
-    const restaurant = await getRestaurantBySlug(slug);
+    const restaurant = await getRestaurantBySlug(resolvedSlug);
 
     if (!restaurant) {
-      return withFallback();
+      return canUseFallback ? withFallback(resolvedSlug) : withNotFound(resolvedSlug);
     }
 
     const mergedRestaurant = {
@@ -229,7 +261,9 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
         },
         source: "appwrite",
         isFallback: false,
+        isNotFound: false,
         restaurantStatus: restaurant.status,
+        resolvedSlug: restaurant.slug,
       };
     }
 
@@ -282,9 +316,15 @@ export async function getSiteData(slug = DEFAULT_RESTAURANT_SLUG): Promise<SiteD
       },
       source: "appwrite",
       isFallback: false,
+      isNotFound: false,
       restaurantStatus: restaurant.status,
+      resolvedSlug: restaurant.slug,
     };
   } catch {
-    return withFallback();
+    return canUseFallback ? withFallback(resolvedSlug) : withNotFound(resolvedSlug);
   }
+}
+
+export async function getSiteData(slug?: string): Promise<SiteDataResult> {
+  return getSiteDataBySlug(slug);
 }
