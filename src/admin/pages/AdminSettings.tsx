@@ -120,6 +120,7 @@ type HomepageTranslationField =
   | "depositPolicyText"
   | "cancellationPolicyText";
 type HomepageTranslations = Record<HomepageTranslationLanguage, Record<HomepageTranslationField, string>>;
+type Translate = ReturnType<typeof useI18n>["t"];
 
 const orderModes = ["whatsapp", "database", "both"] as const satisfies readonly OrderMode[];
 const reservationModes = ["whatsapp", "database", "both"] as const satisfies readonly ReservationMode[];
@@ -155,45 +156,6 @@ const emptyHomepageTranslations = homepageTranslationLanguages.reduce((translati
   return translations;
 }, {} as HomepageTranslations);
 
-const modeLabels: Record<OrderMode | ReservationMode, string> = {
-  whatsapp: "واتساب",
-  database: "قاعدة البيانات",
-  both: "واتساب + قاعدة البيانات",
-};
-
-const heroMediaTypeLabels: Record<HeroMediaType, string> = {
-  image: "صورة",
-  video_url: "رابط فيديو",
-};
-
-const heroLayoutLabels: Record<HeroLayoutPreset, string> = {
-  split: "نص وصورة",
-  background: "خلفية كبيرة",
-  centered: "مركزي",
-};
-
-const themePresetLabels: Record<ThemePreset, string> = {
-  classic_red: "مطعم كلاسيكي",
-  black_gold: "أسود وذهبي",
-  coffee: "قهوة دافئة",
-  fresh: "طازج",
-  minimal: "بسيط",
-};
-
-const homepageTranslationLabels: Record<HomepageTranslationField, string> = {
-  heroTitle: "Hero title",
-  heroSubtitle: "Hero subtitle",
-  primaryCtaText: "Primary CTA",
-  secondaryCtaText: "Secondary CTA",
-  featuredSectionTitle: "Featured dishes title",
-  offersSectionTitle: "Offers title",
-  gallerySectionTitle: "Gallery title",
-  testimonialsSectionTitle: "Testimonials title",
-  contactSectionTitle: "Contact title",
-  faqSectionTitle: "FAQ title",
-  depositPolicyText: "Deposit policy",
-  cancellationPolicyText: "Cancellation policy",
-};
 
 const cloneEmptyHomepageTranslations = (): HomepageTranslations => ({
   fr: { ...emptyHomepageTranslations.fr },
@@ -216,24 +178,6 @@ const getHomepageTranslations = (value: string | undefined): HomepageTranslation
 const hasHomepageTranslationsChanged = (current: SettingsFormValues, persisted: SettingsFormValues) =>
   JSON.stringify(current.translations) !== JSON.stringify(persisted.translations);
 
-const sectionToggles = [
-  { key: "showHero", label: "Hero" },
-  { key: "showFeatured", label: "الأطباق المميزة" },
-  { key: "showOffers", label: "العروض" },
-  { key: "showGallery", label: "المعرض" },
-  { key: "showTestimonials", label: "آراء العملاء" },
-  { key: "showContact", label: "الحجز والتواصل" },
-  { key: "showFaq", label: "الأسئلة الشائعة" },
-] as const satisfies readonly { key: keyof Pick<
-  SettingsFormValues,
-  | "showHero"
-  | "showFeatured"
-  | "showOffers"
-  | "showGallery"
-  | "showTestimonials"
-  | "showContact"
-  | "showFaq"
->; label: string }[];
 
 const emptySettingsFormValues: SettingsFormValues = {
   name: defaultRestaurantConfig.restaurant.name,
@@ -519,70 +463,71 @@ const validateSettingsForm = (
     canSaveDepositWorkflow: boolean;
     canSaveReservationPolicies: boolean;
   },
+  t: Translate,
 ): SettingsFormErrors => {
   const errors: SettingsFormErrors = {};
 
   if (!values.name.trim() && !values.nameAr.trim()) {
-    errors.nameAr = "اسم المطعم مطلوب";
+    errors.nameAr = t("requiredField");
   }
 
   if (!values.whatsappNumber.trim()) {
-    errors.whatsappNumber = "رقم واتساب مطلوب";
+    errors.whatsappNumber = t("requiredField");
   }
 
   if (values.email.trim() && !isAcceptableEmail(values.email.trim())) {
-    errors.email = "البريد الإلكتروني غير صالح";
+    errors.email = t("invalidValue");
   }
 
   if (values.mapsUrl.trim() && !isAcceptableUrl(values.mapsUrl.trim())) {
-    errors.mapsUrl = "رابط الخريطة يجب أن يكون URL صالحًا";
+    errors.mapsUrl = t("invalidValue");
   }
 
   if (options.canSaveBrand && values.heroImageUrl.trim() && !isAcceptableUrl(values.heroImageUrl.trim())) {
-    errors.heroImageUrl = "رابط صورة الواجهة يجب أن يكون URL صالحًا";
+    errors.heroImageUrl = t("invalidValue");
   }
 
   if (options.canSaveBrand) {
     for (const colorKey of ["primaryColor", "secondaryColor", "accentColor", "successColor"] as const) {
       if (values[colorKey].trim() && !isHexColor(values[colorKey].trim())) {
-        errors[colorKey] = "اللون يجب أن يكون hex مثل #E51B2B";
+        errors[colorKey] = t("invalidValue");
       }
     }
   }
 
   if (options.canSaveAdvancedTheme) {
     if (!directions.includes(values.direction)) {
-      errors.direction = "اتجاه الموقع يجب أن يكون rtl أو ltr";
+      errors.direction = t("invalidValue");
     }
 
     if (!orderModes.includes(values.orderMode)) {
-      errors.orderMode = "وضع الطلب غير صالح";
+      errors.orderMode = t("invalidValue");
     }
 
     if (!reservationModes.includes(values.reservationMode)) {
-      errors.reservationMode = "وضع الحجز غير صالح";
+      errors.reservationMode = t("invalidValue");
     }
 
     if (!heroMediaTypes.includes(values.heroMediaType)) {
-      errors.heroMediaType = "نوع الوسيط غير صالح";
+      errors.heroMediaType = t("invalidValue");
     }
 
     if (values.heroVideoUrl.trim() && !isAcceptableUrl(values.heroVideoUrl.trim())) {
-      errors.heroVideoUrl = "رابط الفيديو يجب أن يكون URL صالحًا";
+      errors.heroVideoUrl = t("invalidValue");
     }
 
     if (!heroLayouts.includes(values.heroLayout)) {
-      errors.heroLayout = "تخطيط الواجهة غير صالح";
+      errors.heroLayout = t("invalidValue");
     }
 
     if (!themePresets.includes(values.themePreset)) {
-      errors.themePreset = "نمط التصميم غير صالح";
+      errors.themePreset = t("invalidValue");
     }
   }
 
   const maxPeople = parseOptionalPositiveNumber(values.maxPeoplePerReservation);
   if (values.maxPeoplePerReservation.trim() && !Number.isFinite(maxPeople)) {
-    errors.maxPeoplePerReservation = "عدد الأشخاص يجب أن يكون رقمًا أكبر من 0";
+    errors.maxPeoplePerReservation = t("invalidValue");
   }
 
   if (options.canSaveDepositWorkflow) {
@@ -590,11 +535,11 @@ const validateSettingsForm = (
     const amount = parseOptionalPositiveNumber(values.depositAmount);
 
     if (values.depositThresholdPeople.trim() && !Number.isFinite(threshold)) {
-      errors.depositThresholdPeople = "حد الأشخاص يجب أن يكون رقمًا أكبر من 0";
+      errors.depositThresholdPeople = t("invalidValue");
     }
 
     if (values.depositAmount.trim() && !Number.isFinite(amount)) {
-      errors.depositAmount = "مبلغ العربون يجب أن يكون رقمًا أكبر من 0";
+      errors.depositAmount = t("invalidValue");
     }
   }
 
@@ -603,11 +548,11 @@ const validateSettingsForm = (
     const reservationArchiveHours = parseOptionalPositiveNumber(values.reservationAutoArchiveAfterHours);
 
     if (values.orderAutoArchiveAfterHours.trim() && !Number.isFinite(orderArchiveHours)) {
-      errors.orderAutoArchiveAfterHours = "مدة أرشفة الطلبات يجب أن تكون رقمًا أكبر من 0";
+      errors.orderAutoArchiveAfterHours = t("invalidValue");
     }
 
     if (values.reservationAutoArchiveAfterHours.trim() && !Number.isFinite(reservationArchiveHours)) {
-      errors.reservationAutoArchiveAfterHours = "مدة أرشفة الحجوزات يجب أن تكون رقمًا أكبر من 0";
+      errors.reservationAutoArchiveAfterHours = t("invalidValue");
     }
   }
 
@@ -735,6 +680,67 @@ const getErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => 
 
 export default function AdminSettings() {
   const { t } = useI18n();
+  const modeLabels: Record<OrderMode | ReservationMode, string> = {
+    whatsapp: t("whatsapp"),
+    database: t("orderModeDatabase"),
+    both: t("orderModeBoth"),
+  };
+  const heroMediaTypeLabels: Record<HeroMediaType, string> = {
+    image: t("heroMediaImage"),
+    video_url: t("heroMediaVideoUrl"),
+  };
+  const heroLayoutLabels: Record<HeroLayoutPreset, string> = {
+    split: t("heroLayoutSplit"),
+    background: t("heroLayoutBackground"),
+    centered: t("heroLayoutCentered"),
+  };
+  const themePresetLabels: Record<ThemePreset, string> = {
+    classic_red: t("themeClassicRed"),
+    black_gold: t("themeBlackGold"),
+    coffee: t("themeCoffee"),
+    fresh: t("themeFresh"),
+    minimal: t("themeMinimal"),
+  };
+  const homepageTranslationLabels: Record<HomepageTranslationField, string> = {
+    heroTitle: t("heroTitle"),
+    heroSubtitle: t("heroSubtitle"),
+    primaryCtaText: t("primaryCtaText"),
+    secondaryCtaText: t("secondaryCtaText"),
+    featuredSectionTitle: t("featuredDishes"),
+    offersSectionTitle: t("offers"),
+    gallerySectionTitle: t("gallery"),
+    testimonialsSectionTitle: t("testimonials"),
+    contactSectionTitle: t("sectionContact"),
+    faqSectionTitle: t("faq"),
+    depositPolicyText: t("depositPolicyTextLabel"),
+    cancellationPolicyText: t("cancellationPolicyTextLabel"),
+  };
+  const sectionToggles = [
+    { key: "showHero", label: t("sectionHero") },
+    { key: "showFeatured", label: t("sectionFeaturedDishes") },
+    { key: "showOffers", label: t("sectionOffers") },
+    { key: "showGallery", label: t("sectionGallery") },
+    { key: "showTestimonials", label: t("sectionTestimonials") },
+    { key: "showContact", label: t("sectionContact") },
+    { key: "showFaq", label: t("sectionFaq") },
+  ] as const satisfies readonly {
+    key: keyof Pick<
+      SettingsFormValues,
+      | "showHero"
+      | "showFeatured"
+      | "showOffers"
+      | "showGallery"
+      | "showTestimonials"
+      | "showContact"
+      | "showFaq"
+    >; label: string
+  }[];
+  const colorLabels: Record<"primaryColor" | "secondaryColor" | "accentColor" | "successColor", string> = {
+    primaryColor: t("primaryColorLabel"),
+    secondaryColor: t("secondaryColorLabel"),
+    accentColor: t("accentColorLabel"),
+    successColor: t("successColorLabel"),
+  };
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -829,7 +835,7 @@ export default function AdminSettings() {
       canSaveBrand,
       canSaveDepositWorkflow,
       canSaveReservationPolicies,
-    });
+    }, t);
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0) {
@@ -958,12 +964,12 @@ export default function AdminSettings() {
           {pageError ? <div className="admin-feedback admin-feedback--error">{pageError}</div> : null}
           {!canSaveBrand ? (
             <div className="admin-feedback admin-feedback--error">
-              تخصيص الهوية غير متاح في باقتك الحالية. يمكنك تعديل الأساسيات فقط. تواصل مع Pixel One لتفعيل هذه الميزة.
+              {t("brandUpgradeNotice")}
             </div>
           ) : null}
           {isAgencyAdminBypass && (!clientCanCustomizeBrand || !clientCanUseAdvancedTheme) ? (
             <div className="admin-feedback admin-feedback--success">
-              وضع الوكالة مفعّل: يمكنك تعديل الإعدادات، مع أن بعض ميزات التخصيص غير مفعلة في باقة العميل.
+              {t("agencyBypassNotice")}
             </div>
           ) : null}
 
@@ -971,27 +977,27 @@ export default function AdminSettings() {
             <div className="admin-settings-section__header">
               <Settings size={20} aria-hidden="true" />
               <div>
-                <h3>معلومات المطعم</h3>
-                <p>الاسم والسطر التعريفي والوصف العام.</p>
+                <h3>{t("restaurantIdentity")}</h3>
+                <p>{t("restaurantIdentityDescription")}</p>
               </div>
             </div>
             <div className="admin-form-grid">
               <label>
-                <span>اسم المطعم بالعربية</span>
+                <span>{t("restaurantNameArabic")}</span>
                 <input value={formValues.nameAr} onChange={(event) => updateFormValue("nameAr", event.target.value)} aria-invalid={Boolean(formErrors.nameAr)} />
                 {renderFieldError("nameAr")}
               </label>
               <label>
-                <span>اسم المطعم</span>
+                <span>{t("restaurantName")}</span>
                 <input value={formValues.name} onChange={(event) => updateFormValue("name", event.target.value)} aria-invalid={Boolean(formErrors.name)} />
                 {renderFieldError("name")}
               </label>
               <label className="admin-form-grid__wide">
-                <span>السطر التعريفي</span>
+                <span>{t("tagline")}</span>
                 <input value={formValues.tagline} onChange={(event) => updateFormValue("tagline", event.target.value)} />
               </label>
               <label className="admin-form-grid__wide">
-                <span>الوصف</span>
+                <span>{t("restaurantDescription")}</span>
                 <textarea value={formValues.description} onChange={(event) => updateFormValue("description", event.target.value)} rows={3} />
               </label>
             </div>
@@ -1001,17 +1007,17 @@ export default function AdminSettings() {
             <div className="admin-settings-section__header">
               <Settings size={20} aria-hidden="true" />
               <div>
-                <h3>التواصل</h3>
-                <p>هذه البيانات تظهر في الموقع العام وروابط واتساب والخرائط.</p>
+                <h3>{t("contactInfo")}</h3>
+                <p>{t("contactSectionDescription")}</p>
               </div>
             </div>
             <div className="admin-form-grid">
               <label>
-                <span>رقم الهاتف</span>
+                <span>{t("phone")}</span>
                 <input value={formValues.phone} onChange={(event) => updateFormValue("phone", event.target.value)} inputMode="tel" />
               </label>
               <label>
-                <span>رقم واتساب</span>
+                <span>{t("whatsappNumber")}</span>
                 <input
                   value={formValues.whatsappNumber}
                   onChange={(event) => updateFormValue("whatsappNumber", event.target.value)}
@@ -1021,7 +1027,7 @@ export default function AdminSettings() {
                 {renderFieldError("whatsappNumber")}
               </label>
               <label>
-                <span>البريد الإلكتروني</span>
+                <span>{t("email")}</span>
                 <input
                   value={formValues.email}
                   onChange={(event) => updateFormValue("email", event.target.value)}
@@ -1031,7 +1037,7 @@ export default function AdminSettings() {
                 {renderFieldError("email")}
               </label>
               <label>
-                <span>رابط Google Maps</span>
+                <span>{t("mapLink")}</span>
                 <input
                   value={formValues.mapsUrl}
                   onChange={(event) => updateFormValue("mapsUrl", event.target.value)}
@@ -1041,11 +1047,11 @@ export default function AdminSettings() {
                 {renderFieldError("mapsUrl")}
               </label>
               <label className="admin-form-grid__wide">
-                <span>العنوان</span>
+                <span>{t("address")}</span>
                 <input value={formValues.address} onChange={(event) => updateFormValue("address", event.target.value)} />
               </label>
               <label className="admin-form-grid__wide">
-                <span>أوقات العمل</span>
+                <span>{t("openingHours")}</span>
                 <input value={formValues.workingHours} onChange={(event) => updateFormValue("workingHours", event.target.value)} />
               </label>
             </div>
@@ -1055,30 +1061,30 @@ export default function AdminSettings() {
             <div className="admin-settings-section__header">
               <Settings size={20} aria-hidden="true" />
               <div>
-                <h3>تخصيص الصفحة الرئيسية</h3>
-                <p>النصوص والأزرار والأقسام الخاصة بواجهة المطعم العامة.</p>
+                <h3>{t("homepageContent")}</h3>
+                <p>{t("homepageContentDescription")}</p>
               </div>
             </div>
 
             <div className="admin-form-grid">
               <label className="admin-form-grid__wide">
-                <span>Hero title</span>
+                <span>{t("heroTitle")}</span>
                 <input value={formValues.heroTitle} onChange={(event) => updateFormValue("heroTitle", event.target.value)} />
               </label>
               <label className="admin-form-grid__wide">
-                <span>Hero subtitle</span>
+                <span>{t("heroSubtitle")}</span>
                 <textarea value={formValues.heroSubtitle} onChange={(event) => updateFormValue("heroSubtitle", event.target.value)} rows={3} />
               </label>
               <label>
-                <span>Primary CTA text</span>
+                <span>{t("primaryCtaText")}</span>
                 <input value={formValues.primaryCtaText} onChange={(event) => updateFormValue("primaryCtaText", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>Secondary CTA text</span>
+                <span>{t("secondaryCtaText")}</span>
                 <input value={formValues.secondaryCtaText} onChange={(event) => updateFormValue("secondaryCtaText", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>Hero image URL</span>
+                <span>{t("heroImageUrlLabel")}</span>
                 <input
                   value={formValues.heroImageUrl}
                   onChange={(event) => updateFormValue("heroImageUrl", event.target.value)}
@@ -1090,7 +1096,7 @@ export default function AdminSettings() {
                 {renderFieldError("heroImageUrl")}
               </label>
               <label>
-                <span>Hero media type</span>
+                <span>{t("heroMediaTypeLabel")}</span>
                 <select
                   value={formValues.heroMediaType}
                   onChange={(event) => updateFormValue("heroMediaType", event.target.value as HeroMediaType)}
@@ -1106,7 +1112,7 @@ export default function AdminSettings() {
                 {renderFieldError("heroMediaType")}
               </label>
               <label className="admin-form-grid__wide">
-                <span>Hero video URL</span>
+                <span>{t("heroVideoUrl")}</span>
                 <input
                   value={formValues.heroVideoUrl}
                   onChange={(event) => updateFormValue("heroVideoUrl", event.target.value)}
@@ -1118,7 +1124,7 @@ export default function AdminSettings() {
                 {renderFieldError("heroVideoUrl")}
               </label>
               <label>
-                <span>Hero layout</span>
+                <span>{t("heroLayout")}</span>
                 <select
                   value={formValues.heroLayout}
                   onChange={(event) => updateFormValue("heroLayout", event.target.value as HeroLayoutPreset)}
@@ -1134,7 +1140,7 @@ export default function AdminSettings() {
                 {renderFieldError("heroLayout")}
               </label>
               <label>
-                <span>Theme preset</span>
+                <span>{t("themePreset")}</span>
                 <select
                   value={formValues.themePreset}
                   onChange={(event) => updateFormValue("themePreset", event.target.value as ThemePreset)}
@@ -1150,34 +1156,34 @@ export default function AdminSettings() {
                 {renderFieldError("themePreset")}
               </label>
               <label>
-                <span>عنوان الأطباق المميزة</span>
+                <span>{t("featuredDishes")}</span>
                 <input value={formValues.featuredSectionTitle} onChange={(event) => updateFormValue("featuredSectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>عنوان العروض</span>
+                <span>{t("offers")}</span>
                 <input value={formValues.offersSectionTitle} onChange={(event) => updateFormValue("offersSectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>عنوان المعرض</span>
+                <span>{t("gallery")}</span>
                 <input value={formValues.gallerySectionTitle} onChange={(event) => updateFormValue("gallerySectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>عنوان آراء العملاء</span>
+                <span>{t("testimonials")}</span>
                 <input value={formValues.testimonialsSectionTitle} onChange={(event) => updateFormValue("testimonialsSectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>عنوان الحجز والتواصل</span>
+                <span>{t("sectionContact")}</span>
                 <input value={formValues.contactSectionTitle} onChange={(event) => updateFormValue("contactSectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
               <label>
-                <span>عنوان FAQ</span>
+                <span>{t("faq")}</span>
                 <input value={formValues.faqSectionTitle} onChange={(event) => updateFormValue("faqSectionTitle", event.target.value)} disabled={!canSaveBrand} />
               </label>
             </div>
 
             {canSaveBrand ? (
               <details className="admin-translation-panel">
-                <summary>ترجمات الصفحة الرئيسية</summary>
+                <summary>{t("homepageTranslations")}</summary>
                 <div className="admin-translation-panel__grid">
                   {homepageTranslationLanguages.map((language) => (
                     <div className="admin-translation-panel__group" key={language}>
@@ -1207,7 +1213,7 @@ export default function AdminSettings() {
               </details>
             ) : null}
 
-            <div className="admin-toggle-grid admin-toggle-grid--compact">
+            <div className="admin-toggle-grid admin-toggle-grid--compact" aria-label={t("homepageSections")}>
               {sectionToggles.map((item) => (
                 <label className="admin-toggle-row" key={item.key}>
                   <input
@@ -1226,13 +1232,13 @@ export default function AdminSettings() {
             <div className="admin-settings-section__header">
               <Settings size={20} aria-hidden="true" />
               <div>
-                <h3>إعدادات الحجوزات والعربون</h3>
-                <p>تأكيد الحجوزات وسياسات الإلغاء والعربون اليدوي بدون دفع إلكتروني.</p>
+                <h3>{t("reservationSettings")}</h3>
+                <p>{t("reservationSettingsDescription")}</p>
               </div>
             </div>
             <div className="admin-form-grid">
               <label>
-                <span>أقصى عدد أشخاص للحجز</span>
+                <span>{t("reservationMaxPeople")}</span>
                 <input
                   value={formValues.maxPeoplePerReservation}
                   onChange={(event) => updateFormValue("maxPeoplePerReservation", event.target.value)}
@@ -1249,10 +1255,10 @@ export default function AdminSettings() {
                   onChange={(event) => updateFormValue("requireManualReservationConfirmation", event.target.checked)}
                   disabled={!canSaveReservationPolicies}
                 />
-                <span>تأكيد يدوي للحجوزات</span>
+                <span>{t("manualReservationConfirmation")}</span>
               </label>
               <label className="admin-form-grid__wide">
-                <span>نص سياسة العربون</span>
+                <span>{t("depositPolicyTextLabel")}</span>
                 <textarea
                   value={formValues.depositPolicyText}
                   onChange={(event) => updateFormValue("depositPolicyText", event.target.value)}
@@ -1261,7 +1267,7 @@ export default function AdminSettings() {
                 />
               </label>
               <label className="admin-form-grid__wide">
-                <span>نص سياسة الإلغاء</span>
+                <span>{t("cancellationPolicyTextLabel")}</span>
                 <textarea
                   value={formValues.cancellationPolicyText}
                   onChange={(event) => updateFormValue("cancellationPolicyText", event.target.value)}
@@ -1276,10 +1282,10 @@ export default function AdminSettings() {
                   onChange={(event) => updateFormValue("requireDepositForLargeGroups", event.target.checked)}
                   disabled={!canSaveDepositWorkflow}
                 />
-                <span>تفعيل العربون للمجموعات الكبيرة</span>
+                <span>{t("enableDepositForLargeGroups")}</span>
               </label>
               <label>
-                <span>حد الأشخاص للعربون</span>
+                <span>{t("depositThresholdPeopleLabel")}</span>
                 <input
                   value={formValues.depositThresholdPeople}
                   onChange={(event) => updateFormValue("depositThresholdPeople", event.target.value)}
@@ -1291,7 +1297,7 @@ export default function AdminSettings() {
                 {renderFieldError("depositThresholdPeople")}
               </label>
               <label>
-                <span>مبلغ العربون اليدوي</span>
+                <span>{t("depositAmountManualLabel")}</span>
                 <input
                   value={formValues.depositAmount}
                   onChange={(event) => updateFormValue("depositAmount", event.target.value)}
@@ -1305,7 +1311,7 @@ export default function AdminSettings() {
             </div>
             {!canSaveReservationPolicies || !canSaveDepositWorkflow ? (
               <div className="admin-feedback admin-feedback--warning">
-                إعدادات السياسات متاحة من Pro، والعربون اليدوي متاح في Premium/Managed. وضع الوكالة يتجاوز هذا القيد.
+                {t("reservationSettingsPlanNotice")}
               </div>
             ) : null}
           </AdminCard>
@@ -1315,8 +1321,8 @@ export default function AdminSettings() {
               <div className="admin-settings-section__header">
                 <Archive size={20} aria-hidden="true" />
                 <div>
-                  <h3>إعدادات الأرشفة والتنظيف</h3>
-                  <p>إخفاء السجلات المنتهية من القوائم الرئيسية مع إبقائها قابلة للاستعادة والرجوع إليها.</p>
+                  <h3>{t("archiveSettings")}</h3>
+                  <p>{t("archiveSettingsDescription")}</p>
                 </div>
               </div>
               <div className="admin-toggle-grid admin-toggle-grid--compact">
@@ -1326,7 +1332,7 @@ export default function AdminSettings() {
                     checked={formValues.enableManualArchiveActions}
                     onChange={(event) => updateFormValue("enableManualArchiveActions", event.target.checked)}
                   />
-                  <span>تفعيل أزرار الأرشفة والاستعادة اليدوية</span>
+                  <span>{t("enableManualArchiveActionsLabel")}</span>
                 </label>
                 <label className="admin-toggle-row">
                   <input
@@ -1334,7 +1340,7 @@ export default function AdminSettings() {
                     checked={formValues.hideCompletedOrdersFromMainList}
                     onChange={(event) => updateFormValue("hideCompletedOrdersFromMainList", event.target.checked)}
                   />
-                  <span>إخفاء الطلبات المكتملة من قائمة الطلبات الحالية</span>
+                  <span>{t("hideCompletedOrdersLabel")}</span>
                 </label>
                 <label className="admin-toggle-row">
                   <input
@@ -1342,7 +1348,7 @@ export default function AdminSettings() {
                     checked={formValues.hideCancelledOrdersFromMainList}
                     onChange={(event) => updateFormValue("hideCancelledOrdersFromMainList", event.target.checked)}
                   />
-                  <span>إخفاء الطلبات الملغاة أو المرفوضة من القائمة الحالية</span>
+                  <span>{t("hideCancelledOrdersLabel")}</span>
                 </label>
                 <label className="admin-toggle-row">
                   <input
@@ -1350,7 +1356,7 @@ export default function AdminSettings() {
                     checked={formValues.showPastReservationsInSeparateTab}
                     onChange={(event) => updateFormValue("showPastReservationsInSeparateTab", event.target.checked)}
                   />
-                  <span>عرض الحجوزات السابقة في تبويب منفصل</span>
+                  <span>{t("showPastReservationsLabel")}</span>
                 </label>
               </div>
               <div className="admin-form-grid">
@@ -1360,10 +1366,10 @@ export default function AdminSettings() {
                     checked={formValues.autoArchiveCompletedOrders}
                     onChange={(event) => updateFormValue("autoArchiveCompletedOrders", event.target.checked)}
                   />
-                  <span>أرشفة الطلبات المكتملة تلقائيًا لاحقًا</span>
+                  <span>{t("autoArchiveCompletedOrdersLabel")}</span>
                 </label>
                 <label>
-                  <span>بعد كم ساعة للطلبات</span>
+                  <span>{t("autoArchiveOrdersAfterHoursLabel")}</span>
                   <input
                     value={formValues.orderAutoArchiveAfterHours}
                     onChange={(event) => updateFormValue("orderAutoArchiveAfterHours", event.target.value)}
@@ -1379,10 +1385,10 @@ export default function AdminSettings() {
                     checked={formValues.autoArchiveCompletedReservations}
                     onChange={(event) => updateFormValue("autoArchiveCompletedReservations", event.target.checked)}
                   />
-                  <span>أرشفة الحجوزات المنتهية تلقائيًا لاحقًا</span>
+                  <span>{t("autoArchiveCompletedReservationsLabel")}</span>
                 </label>
                 <label>
-                  <span>بعد كم ساعة للحجوزات</span>
+                  <span>{t("autoArchiveReservationsAfterHoursLabel")}</span>
                   <input
                     value={formValues.reservationAutoArchiveAfterHours}
                     onChange={(event) => updateFormValue("reservationAutoArchiveAfterHours", event.target.value)}
@@ -1394,7 +1400,7 @@ export default function AdminSettings() {
                 </label>
               </div>
               <div className="admin-feedback admin-feedback--warning">
-                الأرشفة التلقائية هنا إعداد مؤجل فقط، وتحتاج Scheduled Function لاحقًا قبل تشغيلها.
+                {t("archiveAutoNote")}
               </div>
             </AdminCard>
           ) : null}
@@ -1405,22 +1411,14 @@ export default function AdminSettings() {
                 <div className="admin-settings-section__header">
                   <Settings size={20} aria-hidden="true" />
                   <div>
-                    <h3>الهوية</h3>
-                    <p>ألوان الموقع الأساسية بصيغة hex.</p>
+                    <h3>{t("brandSettings")}</h3>
+                    <p>{t("brandColorsDescription")}</p>
                   </div>
                 </div>
                 <div className="admin-form-grid">
                   {(["primaryColor", "secondaryColor", "accentColor", "successColor"] as const).map((key) => (
                     <label key={key}>
-                      <span>
-                        {key === "primaryColor"
-                          ? "اللون الأساسي"
-                          : key === "secondaryColor"
-                            ? "اللون الثانوي"
-                            : key === "accentColor"
-                              ? "لون التمييز"
-                              : "لون النجاح"}
-                      </span>
+                      <span>{colorLabels[key]}</span>
                       <span className="admin-color-field">
                         <span style={{ background: formValues[key] }} aria-hidden="true" />
                         <input value={formValues[key]} onChange={(event) => updateFormValue(key, event.target.value)} aria-invalid={Boolean(formErrors[key])} />
@@ -1435,13 +1433,13 @@ export default function AdminSettings() {
                 <div className="admin-settings-section__header">
                   <ImageIcon size={20} aria-hidden="true" />
                   <div>
-                    <h3>صور الهوية</h3>
-                    <p>الشعار وصورة الواجهة الرئيسية للموقع العام.</p>
+                    <h3>{t("brandImagesTitle")}</h3>
+                    <p>{t("brandImagesDescription")}</p>
                   </div>
                 </div>
                 <div className="admin-form-grid">
                   <div className="admin-form-grid__wide">
-                    <span className="admin-field-label">شعار المطعم</span>
+                    <span className="admin-field-label">{t("restaurantLogoLabel")}</span>
                     <AdminImageUploader
                       restaurantId={activeRestaurantId ?? ""}
                       type="logo"
@@ -1458,7 +1456,7 @@ export default function AdminSettings() {
                   </div>
 
                   <div className="admin-form-grid__wide">
-                    <span className="admin-field-label">صورة الواجهة الرئيسية</span>
+                    <span className="admin-field-label">{t("heroImageLabel")}</span>
                     <AdminImageUploader
                       restaurantId={activeRestaurantId ?? ""}
                       type="hero"
@@ -1482,14 +1480,11 @@ export default function AdminSettings() {
               <div className="admin-settings-section__header">
                 <ImageIcon size={20} aria-hidden="true" />
                 <div>
-                  <h3>الهوية</h3>
-                  <p>الألوان والشعار وصورة الواجهة الرئيسية.</p>
+                  <h3>{t("brandSettings")}</h3>
+                  <p>{t("brandOverviewDescription")}</p>
                 </div>
               </div>
-              <AdminErrorState
-                title="تخصيص الهوية غير متاح في باقتك الحالية."
-                message="تواصل مع Pixel One لتفعيل هذه الميزة."
-              />
+              <AdminErrorState title={t("featureUnavailable")} message={t("contactSupport")} />
             </AdminCard>
           )}
 
@@ -1499,21 +1494,21 @@ export default function AdminSettings() {
                 <div className="admin-settings-section__header">
                   <Settings size={20} aria-hidden="true" />
                   <div>
-                    <h3>إعدادات الموقع</h3>
-                    <p>العملة واللغة واتجاه الواجهة وأنماط الطلب والحجز.</p>
+                    <h3>{t("languageSettings")}</h3>
+                    <p>{t("siteSettingsDescription")}</p>
                   </div>
                 </div>
                 <div className="admin-form-grid">
                   <label>
-                    <span>العملة</span>
+                    <span>{t("currencyLabel")}</span>
                     <input value={formValues.currency} onChange={(event) => updateFormValue("currency", event.target.value)} placeholder="د.م" />
                   </label>
                   <label>
-                    <span>اللغة</span>
+                    <span>{t("language")}</span>
                     <input value={formValues.language} onChange={(event) => updateFormValue("language", event.target.value)} placeholder="ar" />
                   </label>
                   <label>
-                    <span>اتجاه الموقع</span>
+                    <span>{t("directionLabel")}</span>
                     <select value={formValues.direction} onChange={(event) => updateFormValue("direction", event.target.value as SiteDirection)} aria-invalid={Boolean(formErrors.direction)}>
                       {directions.map((direction) => (
                         <option value={direction} key={direction}>
@@ -1524,7 +1519,7 @@ export default function AdminSettings() {
                     {renderFieldError("direction")}
                   </label>
                   <label>
-                    <span>وضع الطلب</span>
+                    <span>{t("orderSettings")}</span>
                     <select value={formValues.orderMode} onChange={(event) => updateFormValue("orderMode", event.target.value as OrderMode)} aria-invalid={Boolean(formErrors.orderMode)}>
                       {orderModes.map((mode) => (
                         <option value={mode} key={mode}>
@@ -1535,7 +1530,7 @@ export default function AdminSettings() {
                     {renderFieldError("orderMode")}
                   </label>
                   <label>
-                    <span>وضع الحجز</span>
+                    <span>{t("reservationModeLabel")}</span>
                     <select
                       value={formValues.reservationMode}
                       onChange={(event) => updateFormValue("reservationMode", event.target.value as ReservationMode)}
@@ -1557,14 +1552,11 @@ export default function AdminSettings() {
               <div className="admin-settings-section__header">
                 <Settings size={20} aria-hidden="true" />
                 <div>
-                  <h3>الإعدادات المتقدمة</h3>
-                  <p>أنماط الموقع وإظهار وإخفاء الأقسام.</p>
+                  <h3>{t("advancedSettingsTitle")}</h3>
+                  <p>{t("advancedSettingsDescription")}</p>
                 </div>
               </div>
-              <AdminErrorState
-                title="هذه الميزة غير متاحة في باقتك الحالية."
-                message="تواصل مع Pixel One لتفعيل هذه الميزة."
-              />
+              <AdminErrorState title={t("featureUnavailable")} message={t("contactSupport")} />
             </AdminCard>
           )}
 

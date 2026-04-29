@@ -13,8 +13,9 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import {
-  GalleryRepositoryError,
   createGalleryItem,
   deleteGalleryItem,
   getGalleryItemsByRestaurant,
@@ -35,6 +36,7 @@ type GalleryFormValues = {
 
 type GalleryFormErrors = Partial<Record<keyof GalleryFormValues, string>>;
 type GalleryFormMode = { type: "create" } | { type: "edit"; item: GalleryItem };
+type Translate = ReturnType<typeof useI18n>["t"];
 
 const emptyGalleryFormValues: GalleryFormValues = {
   alt: "",
@@ -72,24 +74,24 @@ const isAcceptableUrl = (value: string) => {
   }
 };
 
-const validateGalleryForm = (values: GalleryFormValues): GalleryFormErrors => {
+const validateGalleryForm = (values: GalleryFormValues, t: Translate): GalleryFormErrors => {
   const errors: GalleryFormErrors = {};
   const sortOrder = parseOptionalNumber(values.sortOrder);
 
   if (!values.title.trim()) {
-    errors.title = "عنوان الصورة مطلوب";
+    errors.title = t("requiredField");
   }
 
   if (!values.imageFileId.trim() && !values.imageUrl.trim()) {
-    errors.imageUrl = "يجب رفع صورة أو وضع رابط صورة";
+    errors.imageUrl = t("requiredField");
   }
 
   if (values.imageUrl.trim() && !isAcceptableUrl(values.imageUrl.trim())) {
-    errors.imageUrl = "رابط الصورة غير صحيح";
+    errors.imageUrl = t("invalidValue");
   }
 
   if (sortOrder !== undefined && !Number.isFinite(sortOrder)) {
-    errors.sortOrder = "ترتيب الظهور يجب أن يكون رقمًا";
+    errors.sortOrder = t("invalidValue");
   }
 
   return errors;
@@ -110,15 +112,10 @@ const sortGalleryItems = (items: GalleryItem[]) =>
     return orderDiff || first.title.localeCompare(second.title, "ar");
   });
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof GalleryRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تنفيذ العملية. تحقق من الاتصال أو الصلاحيات.";
-};
+const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendlyMessage(error, t);
 
 export default function AdminGallery() {
+  const { t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -154,11 +151,11 @@ export default function AdminGallery() {
       const loadedItems = await getGalleryItemsByRestaurant(activeRestaurantId);
       setGalleryItems(sortGalleryItems(loadedItems));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseGallery]);
+  }, [activeRestaurantId, canUseGallery, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseGallery || !activeRestaurantId) {
@@ -171,7 +168,7 @@ export default function AdminGallery() {
 
   const openCreateModal = () => {
     if (!canUseGallery) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(`${t("featureUnavailable")} ${t("contactSupport")}`);
       return;
     }
 
@@ -183,7 +180,7 @@ export default function AdminGallery() {
 
   const openEditModal = (item: GalleryItem) => {
     if (!canUseGallery) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(`${t("featureUnavailable")} ${t("contactSupport")}`);
       return;
     }
 
@@ -213,7 +210,7 @@ export default function AdminGallery() {
     setFormError(null);
     setSuccessMessage(null);
 
-    const nextErrors = validateGalleryForm(formValues);
+    const nextErrors = validateGalleryForm(formValues, t);
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
@@ -221,12 +218,12 @@ export default function AdminGallery() {
     }
 
     if (!canUseGallery) {
-      setFormError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setFormError(`${t("featureUnavailable")} ${t("contactSupport")}`);
       return;
     }
 
     if (!activeRestaurantId) {
-      setFormError("تعذر تحديد المطعم الحالي.");
+      setFormError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -257,10 +254,10 @@ export default function AdminGallery() {
           isVisible: savedItem.isVisible,
         },
       });
-      setSuccessMessage("تم حفظ صورة المعرض بنجاح");
+      setSuccessMessage(t("galleryImageSaved"));
       setFormMode(null);
     } catch (error) {
-      setFormError(getErrorMessage(error));
+      setFormError(getErrorMessage(error, t));
     } finally {
       setIsSaving(false);
     }
@@ -268,12 +265,12 @@ export default function AdminGallery() {
 
   const handleToggleVisibility = async (item: GalleryItem) => {
     if (!canUseGallery) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(`${t("featureUnavailable")} ${t("contactSupport")}`);
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -290,9 +287,9 @@ export default function AdminGallery() {
         entityId: updatedItem.id,
         metadata: { name: updatedItem.title },
       });
-      setSuccessMessage(updatedItem.isVisible ? "تم إظهار الصورة في الموقع" : "تم إخفاء الصورة من الموقع");
+      setSuccessMessage(t("changesSaved"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyItemId(null);
     }
@@ -304,12 +301,12 @@ export default function AdminGallery() {
     }
 
     if (!canUseGallery) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(`${t("featureUnavailable")} ${t("contactSupport")}`);
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -326,10 +323,10 @@ export default function AdminGallery() {
         entityId: pendingDeleteItem.id,
         metadata: { name: pendingDeleteItem.title },
       });
-      setSuccessMessage("تم حذف صورة المعرض نهائيًا");
+      setSuccessMessage(t("galleryImageDeleted"));
       setPendingDeleteItem(null);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyItemId(null);
     }
@@ -337,15 +334,15 @@ export default function AdminGallery() {
 
   const renderContent = () => {
     if (scopeError) {
-      return <AdminErrorState title="لا يمكن فتح معرض الصور" message={scopeError} />;
+      return <AdminErrorState title={t("galleryTitle")} message={scopeError} />;
     }
 
     if (!canUseGallery) {
-      return <AdminFeatureUnavailable featureName="معرض الصور" />;
+      return <AdminFeatureUnavailable featureName={t("galleryTitle")} />;
     }
 
     if (isLoading) {
-      return <AdminLoadingState label="جارٍ تحميل صور المعرض..." />;
+      return <AdminLoadingState label={t("loading")} />;
     }
 
     if (pageError) {
@@ -354,7 +351,7 @@ export default function AdminGallery() {
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadGalleryItems()}>
-              إعادة المحاولة
+              {t("retry")}
             </AdminActionButton>
           }
         />
@@ -365,11 +362,11 @@ export default function AdminGallery() {
       return (
         <AdminEmptyState
           icon={<ImageIcon size={30} aria-hidden="true" />}
-          title="لا توجد صور في المعرض بعد"
-          body="أضف أول صورة لتظهر في قسم أجواء المطعم."
+          title={t("galleryEmptyTitle")}
+          body={t("galleryEmptyBody")}
           action={
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة صورة
+              {t("addGalleryImage")}
             </AdminActionButton>
           }
         />
@@ -388,7 +385,7 @@ export default function AdminGallery() {
                   <ImageIcon size={34} aria-hidden="true" />
                 </div>
               )}
-              <span>{item.isVisible ? "ظاهر" : "مخفي"}</span>
+              <span>{item.isVisible ? t("visible") : t("hidden")}</span>
             </div>
 
             <div className="admin-dish-card__body">
@@ -397,16 +394,24 @@ export default function AdminGallery() {
                   <h3>{item.title}</h3>
                   {item.alt ? <p>{item.alt}</p> : null}
                 </div>
-                <AdminStatusBadge tone={item.isVisible ? "success" : "warning"}>{item.isVisible ? "ظاهرة" : "مخفية"}</AdminStatusBadge>
+                <AdminStatusBadge tone={item.isVisible ? "success" : "warning"}>
+                  {item.isVisible ? t("imageVisible") : t("imageHidden")}
+                </AdminStatusBadge>
               </div>
 
               <div className="admin-dish-card__flags">
-                {typeof item.sortOrder === "number" ? <span>ترتيب {item.sortOrder}</span> : <span>بدون ترتيب</span>}
+                {typeof item.sortOrder === "number" ? (
+                  <span>
+                    {t("sortOrder")}: {item.sortOrder}
+                  </span>
+                ) : (
+                  <span>{t("noSortOrder")}</span>
+                )}
               </div>
 
               <div className="admin-dish-card__actions">
                 <AdminActionButton variant="secondary" icon={<Pencil size={17} aria-hidden="true" />} onClick={() => openEditModal(item)}>
-                  تعديل
+                  {t("edit")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="primary"
@@ -414,7 +419,7 @@ export default function AdminGallery() {
                   onClick={() => void handleToggleVisibility(item)}
                   disabled={busyItemId === item.id}
                 >
-                  {item.isVisible ? "إخفاء" : "إظهار"}
+                  {item.isVisible ? t("hide") : t("show")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="ghost"
@@ -422,7 +427,7 @@ export default function AdminGallery() {
                   onClick={() => setPendingDeleteItem(item)}
                   disabled={busyItemId === item.id}
                 >
-                  حذف
+                  {t("delete")}
                 </AdminActionButton>
               </div>
             </div>
@@ -436,22 +441,28 @@ export default function AdminGallery() {
     <section className="admin-gallery-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="معرض الصور"
-        description="أدر الصور التي تظهر في قسم أجواء المطعم."
+        title={t("galleryTitle")}
+        description={t("featureGalleryDescription")}
         actions={
           canManageRestaurantContent && canUseGallery ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة صورة
+              {t("addGalleryImage")}
             </AdminActionButton>
           ) : null
         }
       />
 
       {canManageRestaurantContent && canUseGallery && galleryItems.length > 0 ? (
-        <div className="admin-dishes-summary" aria-label="ملخص معرض الصور">
-          <span>{galleryItems.length} صورة</span>
-          <span>{visibleCount} ظاهرة</span>
-          <span>{galleryItems.length - visibleCount} مخفية</span>
+        <div className="admin-dishes-summary" aria-label={`${t("summary")} - ${t("galleryTitle")}`}>
+          <span>
+            {t("galleryTitle")}: {galleryItems.length}
+          </span>
+          <span>
+            {t("imageVisible")}: {visibleCount}
+          </span>
+          <span>
+            {t("imageHidden")}: {galleryItems.length - visibleCount}
+          </span>
         </div>
       ) : null}
 
@@ -461,8 +472,8 @@ export default function AdminGallery() {
 
       <AdminFormModal
         isOpen={Boolean(formMode)}
-        title={formMode?.type === "edit" ? "تعديل صورة" : "إضافة صورة"}
-        description="أدخل بيانات الصورة كما تريد أن تظهر في معرض الموقع العام."
+        title={formMode?.type === "edit" ? t("editGalleryImage") : t("addGalleryImage")}
+        description={t("galleryImageFormDescription")}
         onClose={closeFormModal}
         size="lg"
       >
@@ -471,7 +482,7 @@ export default function AdminGallery() {
 
           <div className="admin-form-grid">
             <label>
-              <span>عنوان الصورة</span>
+              <span>{t("imageTitle")}</span>
               <input
                 value={formValues.title}
                 onChange={(event) => updateFormValue("title", event.target.value)}
@@ -481,12 +492,12 @@ export default function AdminGallery() {
             </label>
 
             <label>
-              <span>النص البديل</span>
+              <span>{t("imageAlt")}</span>
               <input value={formValues.alt} onChange={(event) => updateFormValue("alt", event.target.value)} />
             </label>
 
             <label>
-              <span>رابط الصورة</span>
+              <span>{t("imageUrl")}</span>
               <input
                 value={formValues.imageUrl}
                 onChange={(event) => updateFormValue("imageUrl", event.target.value)}
@@ -498,7 +509,7 @@ export default function AdminGallery() {
             </label>
 
             <label>
-              <span>ترتيب الظهور</span>
+              <span>{t("sortOrder")}</span>
               <input
                 value={formValues.sortOrder}
                 onChange={(event) => updateFormValue("sortOrder", event.target.value)}
@@ -509,7 +520,7 @@ export default function AdminGallery() {
             </label>
 
             <div className="admin-form-grid__wide">
-              <span className="admin-field-label">رفع صورة للمعرض</span>
+              <span className="admin-field-label">{t("imageUpload")}</span>
               <AdminImageUploader
                 restaurantId={activeRestaurantId ?? ""}
                 type="gallery"
@@ -544,16 +555,16 @@ export default function AdminGallery() {
                 checked={formValues.isVisible}
                 onChange={(event) => updateFormValue("isVisible", event.target.checked)}
               />
-              <span>ظاهرة في الموقع</span>
+              <span>{t("imageVisible")}</span>
             </label>
           </div>
 
           <div className="admin-dish-form__actions">
             <AdminActionButton variant="ghost" onClick={closeFormModal} disabled={isSaving}>
-              إلغاء
+              {t("cancel")}
             </AdminActionButton>
             <AdminActionButton variant="primary" type="submit" disabled={isSaving}>
-              {isSaving ? "جارٍ الحفظ..." : "حفظ الصورة"}
+              {isSaving ? t("saving") : t("save")}
             </AdminActionButton>
           </div>
         </form>
@@ -561,9 +572,9 @@ export default function AdminGallery() {
 
       <AdminConfirmDialog
         isOpen={Boolean(pendingDeleteItem)}
-        title="حذف صورة المعرض نهائيًا"
-        message="هل أنت متأكد؟ لا يمكن التراجع عن حذف هذه الصورة من المعرض."
-        confirmLabel="حذف الصورة"
+        title={t("confirmDeleteTitle")}
+        message={t("confirmDeleteMessage")}
+        confirmLabel={t("confirmDeleteLabel")}
         isDanger
         isSubmitting={Boolean(pendingDeleteItem && busyItemId === pendingDeleteItem.id)}
         onCancel={() => setPendingDeleteItem(null)}

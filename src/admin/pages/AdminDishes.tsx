@@ -13,9 +13,10 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
-  DishesRepositoryError,
   createDish,
   deleteDish,
   getDishesByRestaurant,
@@ -47,8 +48,7 @@ type DishFormValues = {
 
 type DishFormErrors = Partial<Record<keyof DishFormValues, string>>;
 type DishFormMode = { type: "create" } | { type: "edit"; dish: Dish };
-
-const adminCurrency = "ر.س";
+type Translate = ReturnType<typeof useI18n>["t"];
 
 const emptyDishFormValues: DishFormValues = {
   badge: "",
@@ -70,7 +70,8 @@ const emptyDishFormValues: DishFormValues = {
   sortOrder: "",
 };
 
-const formatPrice = (value: number) => `${new Intl.NumberFormat("ar-SA").format(value)} ${adminCurrency}`;
+const formatPrice = (value: number, currency: string, locale: string) =>
+  `${new Intl.NumberFormat(locale).format(value)} ${currency}`;
 const formatOptionalNumber = (value: number | undefined) => (typeof value === "number" ? String(value) : "");
 const parseOptionalNumber = (value: string) => (value.trim() ? Number(value) : undefined);
 
@@ -111,41 +112,41 @@ const isAcceptableUrl = (value: string) => {
   }
 };
 
-const validateDishForm = (values: DishFormValues): DishFormErrors => {
+const validateDishForm = (values: DishFormValues, t: Translate): DishFormErrors => {
   const errors: DishFormErrors = {};
   const price = Number(values.price);
   const oldPrice = parseOptionalNumber(values.oldPrice);
   const rating = parseOptionalNumber(values.rating);
 
   if (!values.name.trim()) {
-    errors.name = "اسم الطبق مطلوب";
+    errors.name = t("requiredField");
   }
 
   if (!values.category.trim()) {
-    errors.category = "التصنيف مطلوب";
+    errors.category = t("requiredField");
   }
 
   if (!values.price.trim()) {
-    errors.price = "السعر مطلوب";
+    errors.price = t("requiredField");
   } else if (!Number.isFinite(price) || price <= 0) {
-    errors.price = "السعر يجب أن يكون رقمًا أكبر من 0";
+    errors.price = t("invalidValue");
   }
 
   if (oldPrice !== undefined && (!Number.isFinite(oldPrice) || oldPrice <= 0)) {
-    errors.oldPrice = "السعر القديم يجب أن يكون رقمًا صحيحًا إذا تم إدخاله";
+    errors.oldPrice = t("invalidValue");
   }
 
   if (rating !== undefined && (!Number.isFinite(rating) || rating < 0 || rating > 5)) {
-    errors.rating = "التقييم يجب أن يكون بين 0 و 5";
+    errors.rating = t("invalidValue");
   }
 
   if (values.imageUrl.trim() && !isAcceptableUrl(values.imageUrl.trim())) {
-    errors.imageUrl = "رابط الصورة غير صحيح";
+    errors.imageUrl = t("invalidValue");
   }
 
   const sortOrder = parseOptionalNumber(values.sortOrder);
   if (sortOrder !== undefined && !Number.isFinite(sortOrder)) {
-    errors.sortOrder = "ترتيب الظهور يجب أن يكون رقمًا";
+    errors.sortOrder = t("invalidValue");
   }
 
   return errors;
@@ -157,15 +158,15 @@ const toDishMutationInput = (values: DishFormValues, canSaveTranslations: boolea
   description: values.description.trim(),
   translations: canSaveTranslations
     ? stringifyTranslations({
-        fr: {
-          name: values.frName,
-          description: values.frDescription,
-        },
-        en: {
-          name: values.enName,
-          description: values.enDescription,
-        },
-      })
+      fr: {
+        name: values.frName,
+        description: values.frDescription,
+      },
+      en: {
+        name: values.enName,
+        description: values.enDescription,
+      },
+    })
     : undefined,
   imageFileId: values.imageFileId.trim() || undefined,
   imageUrl: values.imageUrl.trim() || undefined,
@@ -188,15 +189,10 @@ const sortDishes = (dishes: Dish[]) =>
     return orderDiff || first.name.localeCompare(second.name, "ar");
   });
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof DishesRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تنفيذ العملية. تحقق من الاتصال أو الصلاحيات.";
-};
+const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendlyMessage(error, t);
 
 export default function AdminDishes() {
+  const { currentLanguage, t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -220,6 +216,8 @@ export default function AdminDishes() {
   const [busyDishId, setBusyDishId] = useState<string | null>(null);
   const [pendingDeleteDish, setPendingDeleteDish] = useState<Dish | null>(null);
   const availableCount = useMemo(() => dishes.filter((dish) => dish.isAvailable).length, [dishes]);
+  const currencyLabel = t("adminCurrency");
+  const featureUnavailableMessage = `${t("featureUnavailable")} ${t("contactSupport")}`;
 
   const loadDishes = useCallback(async () => {
     if (!canUseDishes || !activeRestaurantId) {
@@ -233,11 +231,11 @@ export default function AdminDishes() {
       const loadedDishes = await getDishesByRestaurant(activeRestaurantId);
       setDishes(sortDishes(loadedDishes));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseDishes]);
+  }, [activeRestaurantId, canUseDishes, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseDishes || !activeRestaurantId) {
@@ -250,7 +248,7 @@ export default function AdminDishes() {
 
   const openCreateModal = () => {
     if (!canUseDishes) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
@@ -262,7 +260,7 @@ export default function AdminDishes() {
 
   const openEditModal = (dish: Dish) => {
     if (!canUseDishes) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
@@ -292,7 +290,7 @@ export default function AdminDishes() {
     setFormError(null);
     setSuccessMessage(null);
 
-    const nextErrors = validateDishForm(formValues);
+    const nextErrors = validateDishForm(formValues, t);
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
@@ -300,12 +298,12 @@ export default function AdminDishes() {
     }
 
     if (!canUseDishes) {
-      setFormError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setFormError(featureUnavailableMessage);
       return;
     }
 
     if (!activeRestaurantId) {
-      setFormError("تعذر تحديد المطعم الحالي.");
+      setFormError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -339,10 +337,10 @@ export default function AdminDishes() {
           isAvailable: savedDish.isAvailable,
         },
       });
-      setSuccessMessage("تم حفظ الطبق بنجاح");
+      setSuccessMessage(formMode.type === "edit" ? t("dishUpdated") : t("dishSaved"));
       setFormMode(null);
     } catch (error) {
-      setFormError(getErrorMessage(error));
+      setFormError(getErrorMessage(error, t));
     } finally {
       setIsSaving(false);
     }
@@ -350,12 +348,12 @@ export default function AdminDishes() {
 
   const handleToggleAvailability = async (dish: Dish) => {
     if (!canUseDishes) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -372,9 +370,9 @@ export default function AdminDishes() {
         entityId: updatedDish.id,
         metadata: { name: updatedDish.name },
       });
-      setSuccessMessage(updatedDish.isAvailable ? "تم إظهار الطبق في الموقع" : "تم إخفاء الطبق من الموقع");
+      setSuccessMessage(updatedDish.isAvailable ? t("dishAvailable") : t("dishArchivedOrHidden"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyDishId(null);
     }
@@ -386,12 +384,12 @@ export default function AdminDishes() {
     }
 
     if (!canUseDishes) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -408,10 +406,10 @@ export default function AdminDishes() {
         entityId: pendingDeleteDish.id,
         metadata: { name: pendingDeleteDish.name },
       });
-      setSuccessMessage("تم حذف الطبق نهائيًا");
+      setSuccessMessage(t("dishDeleted"));
       setPendingDeleteDish(null);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyDishId(null);
     }
@@ -419,15 +417,15 @@ export default function AdminDishes() {
 
   const renderContent = () => {
     if (scopeError) {
-      return <AdminErrorState title="لا يمكن فتح إدارة الأطباق" message={scopeError} />;
+      return <AdminErrorState title={t("dishesTitle")} message={scopeError} />;
     }
 
     if (!canUseDishes) {
-      return <AdminFeatureUnavailable featureName="الأطباق" />;
+      return <AdminFeatureUnavailable featureName={t("dishes")} />;
     }
 
     if (isLoading) {
-      return <AdminLoadingState label="جارٍ تحميل الأطباق..." />;
+      return <AdminLoadingState label={t("loading")} />;
     }
 
     if (pageError) {
@@ -436,7 +434,7 @@ export default function AdminDishes() {
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadDishes()}>
-              إعادة المحاولة
+              {t("retry")}
             </AdminActionButton>
           }
         />
@@ -447,11 +445,11 @@ export default function AdminDishes() {
       return (
         <AdminEmptyState
           icon={<Utensils size={30} aria-hidden="true" />}
-          title="لا توجد أطباق بعد"
-          body="ابدأ بإضافة أول طبق ليظهر هنا داخل لوحة التحكم."
+          title={t("dishesEmptyTitle")}
+          body={t("dishesEmptyBody")}
           action={
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة طبق
+              {t("addDish")}
             </AdminActionButton>
           }
         />
@@ -480,7 +478,7 @@ export default function AdminDishes() {
                   <p>{dish.category}</p>
                 </div>
                 <AdminStatusBadge tone={dish.isAvailable ? "success" : "warning"}>
-                  {dish.isAvailable ? "متاح في الموقع" : "مخفي من الموقع"}
+                  {dish.isAvailable ? t("dishAvailable") : t("dishUnavailable")}
                 </AdminStatusBadge>
               </div>
 
@@ -488,8 +486,8 @@ export default function AdminDishes() {
 
               <div className="admin-dish-card__meta">
                 <div>
-                  <strong>{formatPrice(dish.price)}</strong>
-                  {dish.oldPrice ? <del>{formatPrice(dish.oldPrice)}</del> : null}
+                  <strong>{formatPrice(dish.price, currencyLabel, currentLanguage)}</strong>
+                  {dish.oldPrice ? <del>{formatPrice(dish.oldPrice, currencyLabel, currentLanguage)}</del> : null}
                 </div>
                 {typeof dish.rating === "number" ? (
                   <span>
@@ -500,13 +498,17 @@ export default function AdminDishes() {
               </div>
 
               <div className="admin-dish-card__flags">
-                {dish.isPopular ? <span>الأكثر طلبًا</span> : null}
-                {typeof dish.sortOrder === "number" ? <span>ترتيب {dish.sortOrder}</span> : null}
+                {dish.isPopular ? <span>{t("dishPopular")}</span> : null}
+                {typeof dish.sortOrder === "number" ? (
+                  <span>
+                    {t("sortOrder")}: {dish.sortOrder}
+                  </span>
+                ) : null}
               </div>
 
               <div className="admin-dish-card__actions">
                 <AdminActionButton variant="secondary" icon={<Pencil size={17} aria-hidden="true" />} onClick={() => openEditModal(dish)}>
-                  تعديل
+                  {t("edit")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="primary"
@@ -514,7 +516,7 @@ export default function AdminDishes() {
                   onClick={() => void handleToggleAvailability(dish)}
                   disabled={busyDishId === dish.id}
                 >
-                  {dish.isAvailable ? "إخفاء الطبق" : "إظهار الطبق"}
+                  {dish.isAvailable ? t("hide") : t("show")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="ghost"
@@ -522,7 +524,7 @@ export default function AdminDishes() {
                   onClick={() => setPendingDeleteDish(dish)}
                   disabled={busyDishId === dish.id}
                 >
-                  حذف نهائي
+                  {t("delete")}
                 </AdminActionButton>
               </div>
             </div>
@@ -536,22 +538,28 @@ export default function AdminDishes() {
     <section className="admin-dishes-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="الأطباق والمنيو"
-        description="أدر الأطباق التي تظهر في موقع مطعمك."
+        title={t("dishesTitle")}
+        description={t("featureDishesDescription")}
         actions={
           canManageRestaurantContent && canUseDishes ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة طبق
+              {t("addDish")}
             </AdminActionButton>
           ) : null
         }
       />
 
       {canManageRestaurantContent && canUseDishes && dishes.length > 0 ? (
-        <div className="admin-dishes-summary" aria-label="ملخص الأطباق">
-          <span>{dishes.length} طبق</span>
-          <span>{availableCount} متاح</span>
-          <span>{dishes.length - availableCount} مخفي</span>
+        <div className="admin-dishes-summary" aria-label={`${t("summary")} - ${t("dishes")}`}>
+          <span>
+            {t("dishes")}: {dishes.length}
+          </span>
+          <span>
+            {t("available")}: {availableCount}
+          </span>
+          <span>
+            {t("hidden")}: {dishes.length - availableCount}
+          </span>
         </div>
       ) : null}
 
@@ -561,8 +569,8 @@ export default function AdminDishes() {
 
       <AdminFormModal
         isOpen={Boolean(formMode)}
-        title={formMode?.type === "edit" ? "تعديل الطبق" : "إضافة طبق"}
-        description="أدخل بيانات الطبق كما تريد أن تظهر للعميل."
+        title={formMode?.type === "edit" ? t("editDish") : t("addDish")}
+        description={t("dishFormDescription")}
         onClose={closeFormModal}
         size="lg"
       >
@@ -571,7 +579,7 @@ export default function AdminDishes() {
 
           <div className="admin-form-grid">
             <label>
-              <span>اسم الطبق</span>
+              <span>{t("dishName")}</span>
               <input
                 value={formValues.name}
                 onChange={(event) => updateFormValue("name", event.target.value)}
@@ -581,18 +589,18 @@ export default function AdminDishes() {
             </label>
 
             <label>
-              <span>التصنيف</span>
+              <span>{t("dishCategory")}</span>
               <input
                 value={formValues.category}
                 onChange={(event) => updateFormValue("category", event.target.value)}
                 aria-invalid={Boolean(formErrors.category)}
-                placeholder="الأطباق الرئيسية"
+                placeholder={t("dishCategoryPlaceholder")}
               />
               {formErrors.category ? <small>{formErrors.category}</small> : null}
             </label>
 
             <label>
-              <span>السعر</span>
+              <span>{t("dishPrice")}</span>
               <input
                 value={formValues.price}
                 onChange={(event) => updateFormValue("price", event.target.value)}
@@ -603,7 +611,7 @@ export default function AdminDishes() {
             </label>
 
             <label>
-              <span>السعر القديم</span>
+              <span>{t("oldPrice")}</span>
               <input
                 value={formValues.oldPrice}
                 onChange={(event) => updateFormValue("oldPrice", event.target.value)}
@@ -614,7 +622,7 @@ export default function AdminDishes() {
             </label>
 
             <label>
-              <span>رابط الصورة</span>
+              <span>{t("imageUrl")}</span>
               <input
                 value={formValues.imageUrl}
                 onChange={(event) => updateFormValue("imageUrl", event.target.value)}
@@ -626,7 +634,7 @@ export default function AdminDishes() {
             </label>
 
             <div className="admin-form-grid__wide">
-              <span className="admin-field-label">رفع الصورة</span>
+              <span className="admin-field-label">{t("dishImage")}</span>
               <AdminImageUploader
                 restaurantId={activeRestaurantId ?? ""}
                 type="dish"
@@ -643,12 +651,12 @@ export default function AdminDishes() {
             </div>
 
             <label>
-              <span>شارة قصيرة</span>
+              <span>{t("dishBadge")}</span>
               <input value={formValues.badge} onChange={(event) => updateFormValue("badge", event.target.value)} />
             </label>
 
             <label>
-              <span>التقييم</span>
+              <span>{t("dishRating")}</span>
               <input
                 value={formValues.rating}
                 onChange={(event) => updateFormValue("rating", event.target.value)}
@@ -660,7 +668,7 @@ export default function AdminDishes() {
             </label>
 
             <label>
-              <span>ترتيب الظهور</span>
+              <span>{t("sortOrder")}</span>
               <input
                 value={formValues.sortOrder}
                 onChange={(event) => updateFormValue("sortOrder", event.target.value)}
@@ -671,28 +679,28 @@ export default function AdminDishes() {
             </label>
 
             <label className="admin-form-grid__wide">
-              <span>الوصف</span>
+              <span>{t("dishDescription")}</span>
               <textarea value={formValues.description} onChange={(event) => updateFormValue("description", event.target.value)} rows={3} />
             </label>
 
             {canSaveTranslations ? (
               <details className="admin-form-grid__wide admin-translation-panel">
-                <summary>ترجمات اختيارية</summary>
+                <summary>{t("dishTranslations")}</summary>
                 <div className="admin-form-grid">
                   <label>
-                    <span>Fr name</span>
+                    <span>{t("dishName")} (FR)</span>
                     <input value={formValues.frName} onChange={(event) => updateFormValue("frName", event.target.value)} />
                   </label>
                   <label>
-                    <span>En name</span>
+                    <span>{t("dishName")} (EN)</span>
                     <input value={formValues.enName} onChange={(event) => updateFormValue("enName", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>Fr description</span>
+                    <span>{t("dishDescription")} (FR)</span>
                     <textarea value={formValues.frDescription} onChange={(event) => updateFormValue("frDescription", event.target.value)} rows={2} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>En description</span>
+                    <span>{t("dishDescription")} (EN)</span>
                     <textarea value={formValues.enDescription} onChange={(event) => updateFormValue("enDescription", event.target.value)} rows={2} />
                   </label>
                 </div>
@@ -700,12 +708,12 @@ export default function AdminDishes() {
             ) : null}
 
             <label className="admin-form-grid__wide">
-              <span>المكونات</span>
+              <span>{t("dishIngredients")}</span>
               <textarea
                 value={formValues.ingredients}
                 onChange={(event) => updateFormValue("ingredients", event.target.value)}
                 rows={3}
-                placeholder="اكتب كل مكون في سطر"
+                placeholder={t("dishIngredientsPlaceholder")}
               />
             </label>
           </div>
@@ -717,7 +725,7 @@ export default function AdminDishes() {
                 checked={formValues.isPopular}
                 onChange={(event) => updateFormValue("isPopular", event.target.checked)}
               />
-              <span>الأكثر طلبًا</span>
+              <span>{t("dishPopular")}</span>
             </label>
             <label>
               <input
@@ -725,16 +733,16 @@ export default function AdminDishes() {
                 checked={formValues.isAvailable}
                 onChange={(event) => updateFormValue("isAvailable", event.target.checked)}
               />
-              <span>متاح في الموقع</span>
+              <span>{t("dishAvailable")}</span>
             </label>
           </div>
 
           <div className="admin-dish-form__actions">
             <AdminActionButton variant="ghost" onClick={closeFormModal} disabled={isSaving}>
-              إلغاء
+              {t("cancel")}
             </AdminActionButton>
             <AdminActionButton variant="primary" type="submit" disabled={isSaving}>
-              {isSaving ? "جارٍ الحفظ..." : "حفظ الطبق"}
+              {isSaving ? t("saving") : t("save")}
             </AdminActionButton>
           </div>
         </form>
@@ -742,9 +750,9 @@ export default function AdminDishes() {
 
       <AdminConfirmDialog
         isOpen={Boolean(pendingDeleteDish)}
-        title="حذف الطبق نهائيًا"
-        message="هل أنت متأكد؟ لا يمكن التراجع عن حذف هذا الطبق."
-        confirmLabel="حذف نهائي"
+        title={t("confirmDeleteTitle")}
+        message={t("confirmDeleteMessage")}
+        confirmLabel={t("confirmDeleteLabel")}
         isDanger
         isSubmitting={Boolean(pendingDeleteDish && busyDishId === pendingDeleteDish.id)}
         onCancel={() => setPendingDeleteDish(null)}

@@ -13,9 +13,10 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
-  OffersRepositoryError,
   createOffer,
   deleteOffer,
   getOffersByRestaurant,
@@ -49,17 +50,18 @@ type OfferFormValues = {
 type OfferFormErrors = Partial<Record<keyof OfferFormValues, string>>;
 type OfferFormMode = { type: "create" } | { type: "edit"; offer: Offer };
 
-const adminCurrency = "ر.س";
 const colorThemes = ["orange", "red", "gold"] as const satisfies readonly ColorTheme[];
-const colorThemeLabels: Record<ColorTheme, string> = {
-  orange: "برتقالي",
-  red: "أحمر",
-  gold: "ذهبي",
-};
+type Translate = ReturnType<typeof useI18n>["t"];
 
-const emptyOfferFormValues: OfferFormValues = {
+const getOfferThemeLabels = (t: Translate): Record<ColorTheme, string> => ({
+  orange: t("offerThemeOrange"),
+  red: t("offerThemeRed"),
+  gold: t("offerThemeGold"),
+});
+
+const getEmptyOfferFormValues = (t: Translate): OfferFormValues => ({
   colorTheme: "red",
-  ctaText: "اطلب الآن",
+  ctaText: t("orderNow"),
   description: "",
   endsAt: "",
   imageFileId: "",
@@ -76,9 +78,10 @@ const emptyOfferFormValues: OfferFormValues = {
   enTitle: "",
   enDescription: "",
   enCtaText: "",
-};
+});
 
-const formatPrice = (value: number) => `${new Intl.NumberFormat("ar-SA").format(value)} ${adminCurrency}`;
+const formatPrice = (value: number, currency: string, locale: string) =>
+  `${new Intl.NumberFormat(locale).format(value)} ${currency}`;
 const formatOptionalNumber = (value: number | undefined) => (typeof value === "number" ? String(value) : "");
 const parseOptionalNumber = (value: string) => (value.trim() ? Number(value) : undefined);
 const isKnownColorTheme = (value: string): value is ColorTheme => colorThemes.includes(value as ColorTheme);
@@ -98,16 +101,16 @@ const toLocalInputValue = (value: string | undefined) => {
   return localDate.toISOString().slice(0, 16);
 };
 
-const getOfferFormValues = (offer?: Offer): OfferFormValues => {
+const getOfferFormValues = (offer: Offer | undefined, t: Translate): OfferFormValues => {
   if (!offer) {
-    return emptyOfferFormValues;
+    return getEmptyOfferFormValues(t);
   }
 
   const translations = parseTranslationString(offer.translations);
 
   return {
     colorTheme: offer.colorTheme,
-    ctaText: offer.ctaText || "اطلب الآن",
+    ctaText: offer.ctaText || t("orderNow"),
     description: offer.description,
     endsAt: toLocalInputValue(offer.endsAt),
     imageFileId: offer.imageFileId ?? "",
@@ -136,7 +139,7 @@ const isAcceptableUrl = (value: string) => {
   }
 };
 
-const validateOfferForm = (values: OfferFormValues): OfferFormErrors => {
+const validateOfferForm = (values: OfferFormValues, t: Translate): OfferFormErrors => {
   const errors: OfferFormErrors = {};
   const price = Number(values.price);
   const oldPrice = parseOptionalNumber(values.oldPrice);
@@ -145,41 +148,41 @@ const validateOfferForm = (values: OfferFormValues): OfferFormErrors => {
   const endsAt = values.endsAt ? Date.parse(values.endsAt) : null;
 
   if (!values.title.trim()) {
-    errors.title = "عنوان العرض مطلوب";
+    errors.title = t("requiredField");
   }
 
   if (!values.price.trim()) {
-    errors.price = "السعر مطلوب";
+    errors.price = t("requiredField");
   } else if (!Number.isFinite(price) || price <= 0) {
-    errors.price = "السعر يجب أن يكون رقمًا أكبر من 0";
+    errors.price = t("invalidValue");
   }
 
   if (oldPrice !== undefined && (!Number.isFinite(oldPrice) || oldPrice <= 0)) {
-    errors.oldPrice = "السعر القديم يجب أن يكون رقمًا صحيحًا إذا تم إدخاله";
+    errors.oldPrice = t("invalidValue");
   }
 
   if (values.imageUrl.trim() && !isAcceptableUrl(values.imageUrl.trim())) {
-    errors.imageUrl = "رابط الصورة غير صحيح";
+    errors.imageUrl = t("invalidValue");
   }
 
   if (!isKnownColorTheme(values.colorTheme)) {
-    errors.colorTheme = "لون العرض يجب أن يكون orange أو red أو gold";
+    errors.colorTheme = t("invalidValue");
   }
 
   if (sortOrder !== undefined && !Number.isFinite(sortOrder)) {
-    errors.sortOrder = "ترتيب الظهور يجب أن يكون رقمًا";
+    errors.sortOrder = t("invalidValue");
   }
 
   if (startsAt !== null && Number.isNaN(startsAt)) {
-    errors.startsAt = "تاريخ البداية غير صحيح";
+    errors.startsAt = t("invalidValue");
   }
 
   if (endsAt !== null && Number.isNaN(endsAt)) {
-    errors.endsAt = "تاريخ النهاية غير صحيح";
+    errors.endsAt = t("invalidValue");
   }
 
   if (startsAt !== null && endsAt !== null && Number.isFinite(startsAt) && Number.isFinite(endsAt) && endsAt < startsAt) {
-    errors.endsAt = "تاريخ النهاية لا يجب أن يكون قبل تاريخ البداية";
+    errors.endsAt = t("invalidValue");
   }
 
   return errors;
@@ -191,17 +194,17 @@ const toOfferMutationInput = (values: OfferFormValues, canSaveTranslations: bool
   description: values.description.trim(),
   translations: canSaveTranslations
     ? stringifyTranslations({
-        fr: {
-          title: values.frTitle,
-          description: values.frDescription,
-          ctaText: values.frCtaText,
-        },
-        en: {
-          title: values.enTitle,
-          description: values.enDescription,
-          ctaText: values.enCtaText,
-        },
-      })
+      fr: {
+        title: values.frTitle,
+        description: values.frDescription,
+        ctaText: values.frCtaText,
+      },
+      en: {
+        title: values.enTitle,
+        description: values.enDescription,
+        ctaText: values.enCtaText,
+      },
+    })
     : undefined,
   endsAt: values.endsAt || undefined,
   imageFileId: values.imageFileId.trim() || undefined,
@@ -220,15 +223,10 @@ const sortOffers = (offers: Offer[]) =>
     return orderDiff || first.title.localeCompare(second.title, "ar");
   });
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof OffersRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تنفيذ العملية. تحقق من الاتصال أو الصلاحيات.";
-};
+const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendlyMessage(error, t);
 
 export default function AdminOffers() {
+  const { currentLanguage, t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -242,7 +240,7 @@ export default function AdminOffers() {
   const canSaveTranslations = canAccessFeature("canCustomizeBrand");
   const [offers, setOffers] = useState<Offer[]>([]);
   const [formMode, setFormMode] = useState<OfferFormMode | null>(null);
-  const [formValues, setFormValues] = useState<OfferFormValues>(emptyOfferFormValues);
+  const [formValues, setFormValues] = useState<OfferFormValues>(() => getEmptyOfferFormValues(t));
   const [formErrors, setFormErrors] = useState<OfferFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -252,6 +250,9 @@ export default function AdminOffers() {
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
   const [pendingDeleteOffer, setPendingDeleteOffer] = useState<Offer | null>(null);
   const activeCount = useMemo(() => offers.filter((offer) => offer.isActive).length, [offers]);
+  const currencyLabel = t("adminCurrency");
+  const featureUnavailableMessage = `${t("featureUnavailable")} ${t("contactSupport")}`;
+  const colorThemeLabels = getOfferThemeLabels(t);
 
   const loadOffers = useCallback(async () => {
     if (!canUseOffers || !activeRestaurantId) {
@@ -265,11 +266,11 @@ export default function AdminOffers() {
       const loadedOffers = await getOffersByRestaurant(activeRestaurantId);
       setOffers(sortOffers(loadedOffers));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseOffers]);
+  }, [activeRestaurantId, canUseOffers, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseOffers || !activeRestaurantId) {
@@ -282,24 +283,24 @@ export default function AdminOffers() {
 
   const openCreateModal = () => {
     if (!canUseOffers) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
     setFormMode({ type: "create" });
-    setFormValues(emptyOfferFormValues);
+    setFormValues(getEmptyOfferFormValues(t));
     setFormErrors({});
     setFormError(null);
   };
 
   const openEditModal = (offer: Offer) => {
     if (!canUseOffers) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
     setFormMode({ type: "edit", offer });
-    setFormValues(getOfferFormValues(offer));
+    setFormValues(getOfferFormValues(offer, t));
     setFormErrors({});
     setFormError(null);
   };
@@ -324,7 +325,7 @@ export default function AdminOffers() {
     setFormError(null);
     setSuccessMessage(null);
 
-    const nextErrors = validateOfferForm(formValues);
+    const nextErrors = validateOfferForm(formValues, t);
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
@@ -332,12 +333,12 @@ export default function AdminOffers() {
     }
 
     if (!canUseOffers) {
-      setFormError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setFormError(featureUnavailableMessage);
       return;
     }
 
     if (!activeRestaurantId) {
-      setFormError("تعذر تحديد المطعم الحالي.");
+      setFormError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -371,10 +372,10 @@ export default function AdminOffers() {
           isActive: savedOffer.isActive,
         },
       });
-      setSuccessMessage("تم حفظ العرض بنجاح");
+      setSuccessMessage(formMode.type === "edit" ? t("offerUpdated") : t("offerSaved"));
       setFormMode(null);
     } catch (error) {
-      setFormError(getErrorMessage(error));
+      setFormError(getErrorMessage(error, t));
     } finally {
       setIsSaving(false);
     }
@@ -382,12 +383,12 @@ export default function AdminOffers() {
 
   const handleToggleActive = async (offer: Offer) => {
     if (!canUseOffers) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -404,9 +405,9 @@ export default function AdminOffers() {
         entityId: updatedOffer.id,
         metadata: { name: updatedOffer.title },
       });
-      setSuccessMessage(updatedOffer.isActive ? "تم تفعيل العرض" : "تم إيقاف العرض");
+      setSuccessMessage(updatedOffer.isActive ? t("offerActive") : t("offerInactive"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyOfferId(null);
     }
@@ -418,12 +419,12 @@ export default function AdminOffers() {
     }
 
     if (!canUseOffers) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(featureUnavailableMessage);
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -440,10 +441,10 @@ export default function AdminOffers() {
         entityId: pendingDeleteOffer.id,
         metadata: { name: pendingDeleteOffer.title },
       });
-      setSuccessMessage("تم حذف العرض نهائيًا");
+      setSuccessMessage(t("offerDeleted"));
       setPendingDeleteOffer(null);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyOfferId(null);
     }
@@ -451,15 +452,15 @@ export default function AdminOffers() {
 
   const renderContent = () => {
     if (scopeError) {
-      return <AdminErrorState title="لا يمكن فتح إدارة العروض" message={scopeError} />;
+      return <AdminErrorState title={t("offersTitle")} message={scopeError} />;
     }
 
     if (!canUseOffers) {
-      return <AdminFeatureUnavailable featureName="العروض" />;
+      return <AdminFeatureUnavailable featureName={t("offers")} />;
     }
 
     if (isLoading) {
-      return <AdminLoadingState label="جارٍ تحميل العروض..." />;
+      return <AdminLoadingState label={t("loading")} />;
     }
 
     if (pageError) {
@@ -468,7 +469,7 @@ export default function AdminOffers() {
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadOffers()}>
-              إعادة المحاولة
+              {t("retry")}
             </AdminActionButton>
           }
         />
@@ -479,11 +480,11 @@ export default function AdminOffers() {
       return (
         <AdminEmptyState
           icon={<Tag size={30} aria-hidden="true" />}
-          title="لا توجد عروض بعد"
-          body="ابدأ بإضافة أول عرض ليظهر هنا داخل لوحة التحكم."
+          title={t("offersEmptyTitle")}
+          body={t("offersEmptyBody")}
           action={
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة عرض
+              {t("addOffer")}
             </AdminActionButton>
           }
         />
@@ -511,26 +512,34 @@ export default function AdminOffers() {
                   <h3>{offer.title}</h3>
                   <p>{offer.ctaText}</p>
                 </div>
-                <AdminStatusBadge tone={offer.isActive ? "success" : "warning"}>{offer.isActive ? "نشط" : "متوقف"}</AdminStatusBadge>
+                <AdminStatusBadge tone={offer.isActive ? "success" : "warning"}>
+                  {offer.isActive ? t("offerActive") : t("offerInactive")}
+                </AdminStatusBadge>
               </div>
 
               {offer.description ? <p className="admin-dish-card__description">{offer.description}</p> : null}
 
               <div className="admin-dish-card__meta">
                 <div>
-                  <strong>{formatPrice(offer.price)}</strong>
-                  {offer.oldPrice ? <del>{formatPrice(offer.oldPrice)}</del> : null}
+                  <strong>{formatPrice(offer.price, currencyLabel, currentLanguage)}</strong>
+                  {offer.oldPrice ? <del>{formatPrice(offer.oldPrice, currencyLabel, currentLanguage)}</del> : null}
                 </div>
               </div>
 
               <div className="admin-dish-card__flags">
-                <span>لون العرض: {colorThemeLabels[offer.colorTheme]}</span>
-                {typeof offer.sortOrder === "number" ? <span>ترتيب {offer.sortOrder}</span> : null}
+                <span>
+                  {t("offerTheme")}: {colorThemeLabels[offer.colorTheme]}
+                </span>
+                {typeof offer.sortOrder === "number" ? (
+                  <span>
+                    {t("sortOrder")}: {offer.sortOrder}
+                  </span>
+                ) : null}
               </div>
 
               <div className="admin-dish-card__actions">
                 <AdminActionButton variant="secondary" icon={<Pencil size={17} aria-hidden="true" />} onClick={() => openEditModal(offer)}>
-                  تعديل
+                  {t("edit")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="primary"
@@ -538,7 +547,7 @@ export default function AdminOffers() {
                   onClick={() => void handleToggleActive(offer)}
                   disabled={busyOfferId === offer.id}
                 >
-                  {offer.isActive ? "إيقاف العرض" : "تفعيل العرض"}
+                  {offer.isActive ? t("deactivateOffer") : t("activateOffer")}
                 </AdminActionButton>
                 <AdminActionButton
                   variant="ghost"
@@ -546,7 +555,7 @@ export default function AdminOffers() {
                   onClick={() => setPendingDeleteOffer(offer)}
                   disabled={busyOfferId === offer.id}
                 >
-                  حذف العرض
+                  {t("delete")}
                 </AdminActionButton>
               </div>
             </div>
@@ -560,22 +569,28 @@ export default function AdminOffers() {
     <section className="admin-dishes-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="العروض"
-        description="أدر العروض التي تظهر لعملاء مطعمك."
+        title={t("offersTitle")}
+        description={t("featureOffersDescription")}
         actions={
           canManageRestaurantContent && canUseOffers ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة عرض
+              {t("addOffer")}
             </AdminActionButton>
           ) : null
         }
       />
 
       {canManageRestaurantContent && canUseOffers && offers.length > 0 ? (
-        <div className="admin-dishes-summary" aria-label="ملخص العروض">
-          <span>{offers.length} عرض</span>
-          <span>{activeCount} نشط</span>
-          <span>{offers.length - activeCount} متوقف</span>
+        <div className="admin-dishes-summary" aria-label={`${t("summary")} - ${t("offers")}`}>
+          <span>
+            {t("offers")}: {offers.length}
+          </span>
+          <span>
+            {t("offerActive")}: {activeCount}
+          </span>
+          <span>
+            {t("offerInactive")}: {offers.length - activeCount}
+          </span>
         </div>
       ) : null}
 
@@ -585,8 +600,8 @@ export default function AdminOffers() {
 
       <AdminFormModal
         isOpen={Boolean(formMode)}
-        title={formMode?.type === "edit" ? "تعديل العرض" : "إضافة عرض"}
-        description="أدخل بيانات العرض كما تريد أن تظهر لاحقًا للعميل."
+        title={formMode?.type === "edit" ? t("editOffer") : t("addOffer")}
+        description={t("offerFormDescription")}
         onClose={closeFormModal}
         size="lg"
       >
@@ -595,7 +610,7 @@ export default function AdminOffers() {
 
           <div className="admin-form-grid">
             <label>
-              <span>عنوان العرض</span>
+              <span>{t("offerTitle")}</span>
               <input
                 value={formValues.title}
                 onChange={(event) => updateFormValue("title", event.target.value)}
@@ -605,7 +620,7 @@ export default function AdminOffers() {
             </label>
 
             <label>
-              <span>لون العرض</span>
+              <span>{t("offerTheme")}</span>
               <select
                 value={formValues.colorTheme}
                 onChange={(event) => updateFormValue("colorTheme", event.target.value as ColorTheme)}
@@ -621,7 +636,7 @@ export default function AdminOffers() {
             </label>
 
             <label>
-              <span>السعر بعد التخفيض</span>
+              <span>{t("offerPrice")}</span>
               <input
                 value={formValues.price}
                 onChange={(event) => updateFormValue("price", event.target.value)}
@@ -632,7 +647,7 @@ export default function AdminOffers() {
             </label>
 
             <label>
-              <span>السعر قبل التخفيض</span>
+              <span>{t("oldPrice")}</span>
               <input
                 value={formValues.oldPrice}
                 onChange={(event) => updateFormValue("oldPrice", event.target.value)}
@@ -643,7 +658,7 @@ export default function AdminOffers() {
             </label>
 
             <label>
-              <span>رابط الصورة</span>
+              <span>{t("imageUrl")}</span>
               <input
                 value={formValues.imageUrl}
                 onChange={(event) => updateFormValue("imageUrl", event.target.value)}
@@ -655,7 +670,7 @@ export default function AdminOffers() {
             </label>
 
             <div className="admin-form-grid__wide">
-              <span className="admin-field-label">رفع الصورة</span>
+              <span className="admin-field-label">{t("imageUpload")}</span>
               <AdminImageUploader
                 restaurantId={activeRestaurantId ?? ""}
                 type="offer"
@@ -672,12 +687,12 @@ export default function AdminOffers() {
             </div>
 
             <label>
-              <span>نص زر العرض</span>
+              <span>{t("offerCtaText")}</span>
               <input value={formValues.ctaText} onChange={(event) => updateFormValue("ctaText", event.target.value)} />
             </label>
 
             <label>
-              <span>تاريخ البداية</span>
+              <span>{t("startDate")}</span>
               <input
                 type="datetime-local"
                 value={formValues.startsAt}
@@ -688,7 +703,7 @@ export default function AdminOffers() {
             </label>
 
             <label>
-              <span>تاريخ النهاية</span>
+              <span>{t("endDate")}</span>
               <input
                 type="datetime-local"
                 value={formValues.endsAt}
@@ -699,7 +714,7 @@ export default function AdminOffers() {
             </label>
 
             <label>
-              <span>ترتيب الظهور</span>
+              <span>{t("sortOrder")}</span>
               <input
                 value={formValues.sortOrder}
                 onChange={(event) => updateFormValue("sortOrder", event.target.value)}
@@ -710,36 +725,36 @@ export default function AdminOffers() {
             </label>
 
             <label className="admin-form-grid__wide">
-              <span>الوصف</span>
+              <span>{t("offerDescription")}</span>
               <textarea value={formValues.description} onChange={(event) => updateFormValue("description", event.target.value)} rows={3} />
             </label>
 
             {canSaveTranslations ? (
               <details className="admin-form-grid__wide admin-translation-panel">
-                <summary>ترجمات اختيارية</summary>
+                <summary>{t("offerTranslations")}</summary>
                 <div className="admin-form-grid">
                   <label>
-                    <span>Fr title</span>
+                    <span>{t("offerTitle")} (FR)</span>
                     <input value={formValues.frTitle} onChange={(event) => updateFormValue("frTitle", event.target.value)} />
                   </label>
                   <label>
-                    <span>En title</span>
+                    <span>{t("offerTitle")} (EN)</span>
                     <input value={formValues.enTitle} onChange={(event) => updateFormValue("enTitle", event.target.value)} />
                   </label>
                   <label>
-                    <span>Fr CTA</span>
+                    <span>{t("offerCtaText")} (FR)</span>
                     <input value={formValues.frCtaText} onChange={(event) => updateFormValue("frCtaText", event.target.value)} />
                   </label>
                   <label>
-                    <span>En CTA</span>
+                    <span>{t("offerCtaText")} (EN)</span>
                     <input value={formValues.enCtaText} onChange={(event) => updateFormValue("enCtaText", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>Fr description</span>
+                    <span>{t("offerDescription")} (FR)</span>
                     <textarea value={formValues.frDescription} onChange={(event) => updateFormValue("frDescription", event.target.value)} rows={2} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>En description</span>
+                    <span>{t("offerDescription")} (EN)</span>
                     <textarea value={formValues.enDescription} onChange={(event) => updateFormValue("enDescription", event.target.value)} rows={2} />
                   </label>
                 </div>
@@ -750,16 +765,16 @@ export default function AdminOffers() {
           <div className="admin-dish-form__checks">
             <label>
               <input type="checkbox" checked={formValues.isActive} onChange={(event) => updateFormValue("isActive", event.target.checked)} />
-              <span>العرض نشط</span>
+              <span>{t("offerActive")}</span>
             </label>
           </div>
 
           <div className="admin-dish-form__actions">
             <AdminActionButton variant="ghost" onClick={closeFormModal} disabled={isSaving}>
-              إلغاء
+              {t("cancel")}
             </AdminActionButton>
             <AdminActionButton variant="primary" type="submit" disabled={isSaving}>
-              {isSaving ? "جارٍ الحفظ..." : "حفظ العرض"}
+              {isSaving ? t("saving") : t("save")}
             </AdminActionButton>
           </div>
         </form>
@@ -767,9 +782,9 @@ export default function AdminOffers() {
 
       <AdminConfirmDialog
         isOpen={Boolean(pendingDeleteOffer)}
-        title="حذف العرض نهائيًا"
-        message="هل أنت متأكد؟ لا يمكن التراجع عن حذف هذا العرض."
-        confirmLabel="حذف العرض"
+        title={t("confirmDeleteTitle")}
+        message={t("confirmDeleteMessage")}
+        confirmLabel={t("confirmDeleteLabel")}
         isDanger
         isSubmitting={Boolean(pendingDeleteOffer && busyOfferId === pendingDeleteOffer.id)}
         onCancel={() => setPendingDeleteOffer(null)}

@@ -11,9 +11,10 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
-  FaqRepositoryError,
   createFaq,
   deleteFaq,
   getFaqsByRestaurant,
@@ -36,6 +37,7 @@ type FaqFormValues = {
 
 type FaqFormErrors = Partial<Record<keyof FaqFormValues, string>>;
 type FaqFormMode = { type: "create" } | { type: "edit"; faq: FAQItem };
+type Translate = ReturnType<typeof useI18n>["t"];
 
 const emptyFaqFormValues: FaqFormValues = {
   answer: "",
@@ -70,20 +72,20 @@ const getFaqFormValues = (faq?: FAQItem): FaqFormValues => {
   };
 };
 
-const validateFaqForm = (values: FaqFormValues): FaqFormErrors => {
+const validateFaqForm = (values: FaqFormValues, t: Translate): FaqFormErrors => {
   const errors: FaqFormErrors = {};
   const sortOrder = parseOptionalNumber(values.sortOrder);
 
   if (!values.question.trim()) {
-    errors.question = "السؤال مطلوب";
+    errors.question = t("requiredField");
   }
 
   if (!values.answer.trim()) {
-    errors.answer = "الجواب مطلوب";
+    errors.answer = t("requiredField");
   }
 
   if (sortOrder !== undefined && !Number.isFinite(sortOrder)) {
-    errors.sortOrder = "ترتيب الظهور يجب أن يكون رقمًا";
+    errors.sortOrder = t("invalidValue");
   }
 
   return errors;
@@ -93,15 +95,15 @@ const toFaqMutationInput = (values: FaqFormValues, canSaveTranslations: boolean)
   answer: values.answer.trim(),
   translations: canSaveTranslations
     ? stringifyTranslations({
-        fr: {
-          question: values.frQuestion,
-          answer: values.frAnswer,
-        },
-        en: {
-          question: values.enQuestion,
-          answer: values.enAnswer,
-        },
-      })
+      fr: {
+        question: values.frQuestion,
+        answer: values.frAnswer,
+      },
+      en: {
+        question: values.enQuestion,
+        answer: values.enAnswer,
+      },
+    })
     : undefined,
   isVisible: values.isVisible,
   question: values.question.trim(),
@@ -114,15 +116,10 @@ const sortFaqs = (faqs: FAQItem[]) =>
     return orderDiff || first.question.localeCompare(second.question, "ar");
   });
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof FaqRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تنفيذ العملية. تحقق من الاتصال أو الصلاحيات.";
-};
+const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendlyMessage(error, t);
 
 export default function AdminFaqs() {
+  const { t } = useI18n();
   const { activeRestaurant, activeRestaurantId, activeRestaurantName, canAccessFeature, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const canSaveTranslations = canAccessFeature("canCustomizeBrand");
@@ -151,11 +148,11 @@ export default function AdminFaqs() {
       const loadedFaqs = await getFaqsByRestaurant(activeRestaurantId);
       setFaqs(sortFaqs(loadedFaqs));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId]);
+  }, [activeRestaurantId, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !activeRestaurantId) {
@@ -200,7 +197,7 @@ export default function AdminFaqs() {
     setFormError(null);
     setSuccessMessage(null);
 
-    const nextErrors = validateFaqForm(formValues);
+    const nextErrors = validateFaqForm(formValues, t);
     setFormErrors(nextErrors);
 
     if (Object.keys(nextErrors).length > 0 || !formMode) {
@@ -208,7 +205,7 @@ export default function AdminFaqs() {
     }
 
     if (!activeRestaurantId) {
-      setFormError("تعذر تحديد المطعم الحالي.");
+      setFormError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -239,10 +236,10 @@ export default function AdminFaqs() {
         entityId: savedFaq.id,
         metadata: { name: savedFaq.question },
       });
-      setSuccessMessage("تم حفظ السؤال بنجاح");
+      setSuccessMessage(formMode.type === "edit" ? t("faqUpdated") : t("faqSaved"));
       setFormMode(null);
     } catch (error) {
-      setFormError(getErrorMessage(error));
+      setFormError(getErrorMessage(error, t));
     } finally {
       setIsSaving(false);
     }
@@ -250,7 +247,7 @@ export default function AdminFaqs() {
 
   const handleToggleVisibility = async (faq: FAQItem) => {
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -267,9 +264,9 @@ export default function AdminFaqs() {
         entityId: updatedFaq.id,
         metadata: { name: updatedFaq.question },
       });
-      setSuccessMessage(updatedFaq.isVisible ? "تم إظهار السؤال في الموقع" : "تم إخفاء السؤال من الموقع");
+      setSuccessMessage(t("changesSaved"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyFaqId(null);
     }
@@ -281,7 +278,7 @@ export default function AdminFaqs() {
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -298,10 +295,10 @@ export default function AdminFaqs() {
         entityId: pendingDeleteFaq.id,
         metadata: { name: pendingDeleteFaq.question },
       });
-      setSuccessMessage("تم حذف السؤال نهائيًا");
+      setSuccessMessage(t("faqDeleted"));
       setPendingDeleteFaq(null);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyFaqId(null);
     }
@@ -309,11 +306,11 @@ export default function AdminFaqs() {
 
   const renderContent = () => {
     if (scopeError) {
-      return <AdminErrorState title="لا يمكن فتح الأسئلة الشائعة" message={scopeError} />;
+      return <AdminErrorState title={t("faqsTitle")} message={scopeError} />;
     }
 
     if (isLoading) {
-      return <AdminLoadingState label="جارٍ تحميل الأسئلة الشائعة..." />;
+      return <AdminLoadingState label={t("loading")} />;
     }
 
     if (pageError) {
@@ -322,7 +319,7 @@ export default function AdminFaqs() {
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadFaqs()}>
-              إعادة المحاولة
+              {t("retry")}
             </AdminActionButton>
           }
         />
@@ -333,11 +330,11 @@ export default function AdminFaqs() {
       return (
         <AdminEmptyState
           icon={<CircleHelp size={30} aria-hidden="true" />}
-          title="لا توجد أسئلة بعد"
-          body="ابدأ بإضافة أول سؤال ليظهر هنا داخل لوحة التحكم."
+          title={t("faqsEmptyTitle")}
+          body={t("faqsEmptyBody")}
           action={
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة سؤال
+              {t("addFaq")}
             </AdminActionButton>
           }
         />
@@ -351,14 +348,20 @@ export default function AdminFaqs() {
             <div className="admin-faq-card__header">
               <div>
                 <h3>{faq.question}</h3>
-                {typeof faq.sortOrder === "number" ? <span>ترتيب {faq.sortOrder}</span> : null}
+                {typeof faq.sortOrder === "number" ? (
+                  <span>
+                    {t("sortOrder")}: {faq.sortOrder}
+                  </span>
+                ) : null}
               </div>
-              <AdminStatusBadge tone={faq.isVisible ? "success" : "warning"}>{faq.isVisible ? "ظاهر" : "مخفي"}</AdminStatusBadge>
+              <AdminStatusBadge tone={faq.isVisible ? "success" : "warning"}>
+                {faq.isVisible ? t("visible") : t("hidden")}
+              </AdminStatusBadge>
             </div>
             <p>{faq.answer}</p>
             <div className="admin-faq-card__actions">
               <AdminActionButton variant="secondary" icon={<Pencil size={17} aria-hidden="true" />} onClick={() => openEditModal(faq)}>
-                تعديل
+                {t("edit")}
               </AdminActionButton>
               <AdminActionButton
                 variant="primary"
@@ -366,7 +369,7 @@ export default function AdminFaqs() {
                 onClick={() => void handleToggleVisibility(faq)}
                 disabled={busyFaqId === faq.id}
               >
-                {faq.isVisible ? "إخفاء" : "إظهار"}
+                {faq.isVisible ? t("hideFaq") : t("showFaq")}
               </AdminActionButton>
               <AdminActionButton
                 variant="ghost"
@@ -374,7 +377,7 @@ export default function AdminFaqs() {
                 onClick={() => setPendingDeleteFaq(faq)}
                 disabled={busyFaqId === faq.id}
               >
-                حذف
+                {t("delete")}
               </AdminActionButton>
             </div>
           </AdminCard>
@@ -387,22 +390,28 @@ export default function AdminFaqs() {
     <section className="admin-faqs-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="الأسئلة الشائعة"
-        description="أدر الأسئلة التي تظهر في موقع مطعمك."
+        title={t("faqsTitle")}
+        description={t("featureFaqsDescription")}
         actions={
           canManageRestaurantContent ? (
             <AdminActionButton variant="primary" icon={<Plus size={18} aria-hidden="true" />} onClick={openCreateModal}>
-              إضافة سؤال
+              {t("addFaq")}
             </AdminActionButton>
           ) : null
         }
       />
 
       {canManageRestaurantContent && faqs.length > 0 ? (
-        <div className="admin-dishes-summary" aria-label="ملخص الأسئلة الشائعة">
-          <span>{faqs.length} سؤال</span>
-          <span>{visibleCount} ظاهر</span>
-          <span>{faqs.length - visibleCount} مخفي</span>
+        <div className="admin-dishes-summary" aria-label={`${t("summary")} - ${t("faqs")}`}>
+          <span>
+            {t("faqs")}: {faqs.length}
+          </span>
+          <span>
+            {t("visible")}: {visibleCount}
+          </span>
+          <span>
+            {t("hidden")}: {faqs.length - visibleCount}
+          </span>
         </div>
       ) : null}
 
@@ -412,8 +421,8 @@ export default function AdminFaqs() {
 
       <AdminFormModal
         isOpen={Boolean(formMode)}
-        title={formMode?.type === "edit" ? "تعديل سؤال" : "إضافة سؤال"}
-        description="أدخل السؤال والجواب كما تريد أن يظهرا في الموقع العام."
+        title={formMode?.type === "edit" ? t("editFaq") : t("addFaq")}
+        description={t("faqFormDescription")}
         onClose={closeFormModal}
         size="lg"
       >
@@ -422,7 +431,7 @@ export default function AdminFaqs() {
 
           <div className="admin-form-grid">
             <label className="admin-form-grid__wide">
-              <span>السؤال</span>
+              <span>{t("question")}</span>
               <input
                 value={formValues.question}
                 onChange={(event) => updateFormValue("question", event.target.value)}
@@ -432,7 +441,7 @@ export default function AdminFaqs() {
             </label>
 
             <label className="admin-form-grid__wide">
-              <span>الجواب</span>
+              <span>{t("answer")}</span>
               <textarea
                 value={formValues.answer}
                 onChange={(event) => updateFormValue("answer", event.target.value)}
@@ -444,22 +453,22 @@ export default function AdminFaqs() {
 
             {canSaveTranslations ? (
               <details className="admin-form-grid__wide admin-translation-panel">
-                <summary>ترجمات اختيارية</summary>
+                <summary>{t("optionalTranslations")}</summary>
                 <div className="admin-form-grid">
                   <label className="admin-form-grid__wide">
-                    <span>Fr question</span>
+                    <span>{t("question")} (FR)</span>
                     <input value={formValues.frQuestion} onChange={(event) => updateFormValue("frQuestion", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>Fr answer</span>
+                    <span>{t("answer")} (FR)</span>
                     <textarea value={formValues.frAnswer} onChange={(event) => updateFormValue("frAnswer", event.target.value)} rows={2} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>En question</span>
+                    <span>{t("question")} (EN)</span>
                     <input value={formValues.enQuestion} onChange={(event) => updateFormValue("enQuestion", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>En answer</span>
+                    <span>{t("answer")} (EN)</span>
                     <textarea value={formValues.enAnswer} onChange={(event) => updateFormValue("enAnswer", event.target.value)} rows={2} />
                   </label>
                 </div>
@@ -467,7 +476,7 @@ export default function AdminFaqs() {
             ) : null}
 
             <label>
-              <span>ترتيب الظهور</span>
+              <span>{t("sortOrder")}</span>
               <input
                 value={formValues.sortOrder}
                 onChange={(event) => updateFormValue("sortOrder", event.target.value)}
@@ -485,16 +494,16 @@ export default function AdminFaqs() {
                 checked={formValues.isVisible}
                 onChange={(event) => updateFormValue("isVisible", event.target.checked)}
               />
-              <span>ظاهر في الموقع</span>
+              <span>{t("visible")}</span>
             </label>
           </div>
 
           <div className="admin-dish-form__actions">
             <AdminActionButton variant="ghost" onClick={closeFormModal} disabled={isSaving}>
-              إلغاء
+              {t("cancel")}
             </AdminActionButton>
             <AdminActionButton variant="primary" type="submit" disabled={isSaving}>
-              {isSaving ? "جارٍ الحفظ..." : "حفظ السؤال"}
+              {isSaving ? t("saving") : t("save")}
             </AdminActionButton>
           </div>
         </form>
@@ -502,9 +511,9 @@ export default function AdminFaqs() {
 
       <AdminConfirmDialog
         isOpen={Boolean(pendingDeleteFaq)}
-        title="حذف السؤال نهائيًا"
-        message="هل أنت متأكد؟ لا يمكن التراجع عن حذف هذا السؤال."
-        confirmLabel="حذف السؤال"
+        title={t("confirmDeleteTitle")}
+        message={t("confirmDeleteMessage")}
+        confirmLabel={t("confirmDeleteLabel")}
         isDanger
         isSubmitting={Boolean(pendingDeleteFaq && busyFaqId === pendingDeleteFaq.id)}
         onCancel={() => setPendingDeleteFaq(null)}

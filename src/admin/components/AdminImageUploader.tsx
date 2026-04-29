@@ -1,5 +1,7 @@
 import { ImagePlus, Trash2, Upload } from "lucide-react";
 import { useEffect, useState } from "react";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import {
   StorageServiceError,
   uploadRestaurantAsset,
@@ -22,12 +24,43 @@ type AdminImageUploaderProps = {
   value: AdminImageValue;
 };
 
-const getErrorMessage = (error: unknown) => {
+type Translate = ReturnType<typeof useI18n>["t"];
+
+const getUploadErrorMessage = (error: unknown, t: Translate) => {
   if (error instanceof StorageServiceError) {
-    return error.message;
+    const normalizedMessage = error.message.toLowerCase();
+
+    if (
+      normalizedMessage.includes("jpg") ||
+      normalizedMessage.includes("png") ||
+      normalizedMessage.includes("webp") ||
+      normalizedMessage.includes("صيغة")
+    ) {
+      return t("invalidImageType");
+    }
+
+    if (normalizedMessage.includes("3mb") || normalizedMessage.includes("mb") || normalizedMessage.includes("حجم")) {
+      return t("imageTooLarge");
+    }
+
+    if (error.code === "APPWRITE_NOT_CONFIGURED") {
+      return t("appwriteSetupRequired");
+    }
+
+    if (error.code === "AUTH_REQUIRED") {
+      return t("accessDenied");
+    }
+
+    if (error.code === "INVALID_INPUT") {
+      return t("invalidValue");
+    }
+
+    if (error.code === "UPLOAD_FAILED") {
+      return t("uploadFailed");
+    }
   }
 
-  return "تعذر رفع الصورة. تحقق من الاتصال أو صلاحيات التخزين.";
+  return mapKnownErrorToFriendlyMessage(error, t);
 };
 
 export default function AdminImageUploader({
@@ -38,6 +71,7 @@ export default function AdminImageUploader({
   type,
   value,
 }: AdminImageUploaderProps) {
+  const { t } = useI18n();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [selectedFilePreviewUrl, setSelectedFilePreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -74,13 +108,13 @@ export default function AdminImageUploader({
       setSelectedFile(file);
     } catch (error) {
       setSelectedFile(null);
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getUploadErrorMessage(error, t));
     }
   };
 
   const handleUpload = async () => {
     if (!selectedFile) {
-      setErrorMessage("اختر صورة أولًا قبل الرفع.");
+      setErrorMessage(t("chooseImage"));
       return;
     }
 
@@ -100,9 +134,9 @@ export default function AdminImageUploader({
       });
       onUploaded?.(uploadedAsset);
       setSelectedFile(null);
-      setSuccessMessage("تم رفع الصورة بنجاح.");
+      setSuccessMessage(t("imageUploaded"));
     } catch (error) {
-      setErrorMessage(getErrorMessage(error));
+      setErrorMessage(getUploadErrorMessage(error, t));
     } finally {
       setIsUploading(false);
     }
@@ -111,7 +145,7 @@ export default function AdminImageUploader({
   const handleRemoveFromForm = () => {
     setSelectedFile(null);
     setErrorMessage(null);
-    setSuccessMessage("تمت إزالة الصورة من النموذج.");
+    setSuccessMessage(t("removeImage"));
     onChange({
       imageFileId: undefined,
       imageUrl: undefined,
@@ -122,18 +156,18 @@ export default function AdminImageUploader({
     <div className="admin-image-uploader">
       <div className="admin-image-uploader__preview">
         {previewImageUrl ? (
-          <img src={previewImageUrl} alt="معاينة الصورة" loading="lazy" />
+          <img src={previewImageUrl} alt={t("previewImage")} loading="lazy" />
         ) : (
           <div className="admin-image-uploader__placeholder">
             <ImagePlus size={28} aria-hidden="true" />
-            <span>لا توجد صورة</span>
+            <span>{t("noImage")}</span>
           </div>
         )}
       </div>
 
       <div className="admin-image-uploader__controls">
         <label className="admin-image-uploader__picker">
-          <span>اختر صورة</span>
+          <span>{t("chooseImage")}</span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -152,7 +186,7 @@ export default function AdminImageUploader({
             disabled={disabled || isUploading || !selectedFile}
           >
             <Upload size={16} aria-hidden="true" />
-            <span>{isUploading ? "جارٍ الرفع..." : "رفع الصورة"}</span>
+            <span>{isUploading ? t("uploadingImage") : t("uploadImage")}</span>
           </button>
 
           {(value.imageUrl || selectedFile) ? (
@@ -163,7 +197,7 @@ export default function AdminImageUploader({
               disabled={disabled || isUploading}
             >
               <Trash2 size={16} aria-hidden="true" />
-              <span>إزالة الصورة</span>
+              <span>{t("removeImage")}</span>
             </button>
           ) : null}
         </div>
