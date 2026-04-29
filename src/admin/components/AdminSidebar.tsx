@@ -31,14 +31,16 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
   };
 
   const getFeatureLabel = (featureId: string, fallback: string) => {
-    if (featureId === "overview") return t("dashboard");
+    if (featureId === "overview") return t("overview");
     if (featureId === "dishes") return t("dishes");
     if (featureId === "offers") return t("offers");
     if (featureId === "orders") return t("orders");
     if (featureId === "reservations") return t("reservations");
     if (featureId === "settings") return t("settings");
+    if (featureId === "faqs") return t("faqs");
     if (featureId === "gallery") return t("galleryManager");
     if (featureId === "activity") return t("activity");
+    if (featureId === "preview") return t("previewSite");
     return fallback;
   };
 
@@ -48,11 +50,11 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
         <button className="admin-sidebar__overlay is-visible" type="button" aria-label={t("closeMenu")} onClick={onClose} />
       ) : null}
 
-      <aside className={`admin-sidebar${isOpen ? " is-open" : ""}`} aria-label="قائمة لوحة التحكم">
+      <aside className={`admin-sidebar${isOpen ? " is-open" : ""}`} aria-label={t("restaurantDashboard")}>
         <div className="admin-sidebar__header">
           <Link className="admin-sidebar__brand" to="/admin" onClick={onClose}>
-            <span>ر</span>
-            <strong>لوحة المطعم</strong>
+            <span>{t("restaurantDashboard").slice(0, 1)}</span>
+            <strong>{t("restaurantDashboard")}</strong>
           </Link>
           <button className="admin-sidebar__close" type="button" aria-label={t("closeMenu")} onClick={onClose}>
             <X size={20} aria-hidden="true" />
@@ -72,13 +74,13 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                 <button
                   className="admin-sidebar__link admin-sidebar__link--disabled"
                   type="button"
-                  title={feature.status === "coming_soon" ? "هذه الميزة ستتوفر لاحقًا." : "هذه الميزة غير متاحة في باقتك الحالية."}
+                  title={feature.status === "coming_soon" ? t("featureComingSoon") : t("featureNotInPlan")}
                   key={feature.id}
                   disabled
                 >
                   <Icon size={19} aria-hidden="true" />
                   <span>{getFeatureLabel(feature.id, feature.label)}</span>
-                  <small>{feature.status === "coming_soon" ? "قريبًا" : t("upgradeRequired")}</small>
+                  <small>{feature.status === "coming_soon" ? t("soon") : t("upgradeRequired")}</small>
                 </button>
               );
             }
@@ -87,8 +89,8 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
               <NavLink className="admin-sidebar__link" to={feature.path} end={feature.path === "/admin"} onClick={onClose} key={feature.id}>
                 <Icon size={19} aria-hidden="true" />
                 <span>{getFeatureLabel(feature.id, feature.label)}</span>
-                {showAgencyClientBadge ? <small>غير مفعلة</small> : null}
-                {!hasPlanAccess && feature.allowWhenFeatureDisabled ? <small>ترقية</small> : null}
+                {showAgencyClientBadge ? <small>{t("inactive")}</small> : null}
+                {!hasPlanAccess && feature.allowWhenFeatureDisabled ? <small>{t("upgradeRequired")}</small> : null}
               </NavLink>
             );
           })}

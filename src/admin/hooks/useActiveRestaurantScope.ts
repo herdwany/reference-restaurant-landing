@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { getAgencySelectedRestaurant } from "../../agency/agencySelection";
 import { useAuth } from "../../context/AuthContext";
 import { canAccessAdminFeature, hasFeature, isRestaurantSuspended } from "../../lib/featureAccess";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import type { ClientPlan, FeatureFlagKey, Restaurant, RestaurantStatus, UserRole } from "../../types/platform";
 
 type ActiveRestaurantScope = {
@@ -19,10 +20,9 @@ type ActiveRestaurantScope = {
   scopeError: string | null;
 };
 
-export const AGENCY_RESTAURANT_SELECTION_REQUIRED_MESSAGE = "اختر مطعمًا من لوحة الوكالة أولًا.";
-
 export function useActiveRestaurantScope() {
   const { restaurant, restaurantId, role } = useAuth();
+  const { t } = useI18n();
 
   return useMemo<ActiveRestaurantScope>(() => {
     if (role === "agency_admin") {
@@ -58,7 +58,7 @@ export function useActiveRestaurantScope() {
         clientHasFeature: () => false,
         canManageRestaurantContent: false,
         requiresAgencySelection: true,
-        scopeError: AGENCY_RESTAURANT_SELECTION_REQUIRED_MESSAGE,
+        scopeError: t("agencySelectionRequired"),
       };
     }
 
@@ -76,7 +76,7 @@ export function useActiveRestaurantScope() {
           clientHasFeature: () => false,
           canManageRestaurantContent: false,
           requiresAgencySelection: false,
-          scopeError: "لم يتم ربط هذا الحساب بمطعم بعد.",
+          scopeError: t("restaurantScopeMissing"),
         };
       }
 
@@ -95,8 +95,8 @@ export function useActiveRestaurantScope() {
           requiresAgencySelection: false,
           scopeError:
             restaurant?.status === "cancelled"
-              ? "هذا الحساب غير متاح حاليًا. تواصل مع Pixel One لتفعيله."
-              : "هذا الموقع غير متاح مؤقتًا. تواصل مع Pixel One لتفعيل الإدارة.",
+              ? t("siteCancelled")
+              : t("siteSuspended"),
         };
       }
 
@@ -129,7 +129,7 @@ export function useActiveRestaurantScope() {
       clientHasFeature: () => false,
       canManageRestaurantContent: false,
       requiresAgencySelection: false,
-      scopeError: "لا يمكن تحديد صلاحية إدارة محتوى المطعم لهذا الحساب.",
+      scopeError: t("accessDenied"),
     };
-  }, [restaurant, restaurantId, role]);
+  }, [restaurant, restaurantId, role, t]);
 }

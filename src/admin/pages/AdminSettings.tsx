@@ -11,15 +11,15 @@ import { useAuditLogger } from "../hooks/useAuditLogger";
 import { useAuth } from "../../context/AuthContext";
 import { defaultRestaurantConfig } from "../../data/restaurantConfig";
 import { canCurrentUserBypassFeatureGate } from "../../lib/featureAccess";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import { parseTranslationString, stringifyTranslations } from "../../lib/i18n/localizedContent";
 import {
-  RestaurantRepositoryError,
   getRestaurantById,
   updateRestaurantContact,
   type RestaurantContactInput,
 } from "../../services/repositories/restaurantRepository";
 import {
-  SettingsRepositoryError,
   getSiteSettings,
   upsertSiteSettings,
   type SiteSettingsMutationInput,
@@ -731,15 +731,10 @@ const mergeAllowedSettingsValues = (
   return nextValues;
 };
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof RestaurantRepositoryError || error instanceof SettingsRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر حفظ الإعدادات. تحقق من الاتصال أو الصلاحيات.";
-};
+const getErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => mapKnownErrorToFriendlyMessage(error, t);
 
 export default function AdminSettings() {
+  const { t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -784,11 +779,11 @@ export default function AdminSettings() {
       setFormValues(nextValues);
       setPersistedValues(nextValues);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurant, activeRestaurantId]);
+  }, [activeRestaurant, activeRestaurantId, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !activeRestaurantId) {
@@ -842,32 +837,32 @@ export default function AdminSettings() {
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
     if (!canSaveBrand && hasChangedFields(brandSettingKeys, formValues, persistedValues)) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
     if (!canSaveBrand && hasChangedFields(proHomepageSettingKeys, formValues, persistedValues)) {
-      setPageError("لا يمكن حفظ تخصيصات الصفحة الرئيسية المتقدمة لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
     if (!canSaveBrand && hasHomepageTranslationsChanged(formValues, persistedValues)) {
-      setPageError("لا يمكن حفظ ترجمات المحتوى لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
     if (!canSaveReservationPolicies && hasChangedFields(proReservationSettingKeys, formValues, persistedValues)) {
-      setPageError("لا يمكن حفظ سياسات الحجز لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
     if (!canSaveArchivePreferences && hasChangedFields(archivePreferenceSettingKeys, formValues, persistedValues)) {
-      setPageError("لا يمكن حفظ إعدادات الأرشفة لأن الطلبات أو الحجوزات غير مفعلة في هذه الباقة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
@@ -875,7 +870,7 @@ export default function AdminSettings() {
       !canSaveAdvancedTheme &&
       hasChangedFields([...advancedSettingKeys, ...advancedHomepageSettingKeys, ...depositWorkflowSettingKeys], formValues, persistedValues)
     ) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
@@ -911,10 +906,10 @@ export default function AdminSettings() {
           },
         });
       }
-      setSuccessMessage("تم حفظ الإعدادات بنجاح");
+      setSuccessMessage(t("settingsSaved"));
       void refreshProfile();
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsSaving(false);
     }
@@ -927,10 +922,10 @@ export default function AdminSettings() {
       <section className="admin-settings-page">
         <AdminPageHeader
           eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-          title="الإعدادات"
-          description="أدر بيانات التواصل وإعدادات ظهور الموقع."
+          title={t("settingsTitle")}
+          description={t("settingsDescription")}
         />
-        <AdminErrorState title="لا يمكن فتح الإعدادات" message={scopeError} />
+        <AdminErrorState title={t("settingsTitle")} message={scopeError} />
       </section>
     );
   }
@@ -939,8 +934,8 @@ export default function AdminSettings() {
     <section className="admin-settings-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="الإعدادات"
-        description="أدر بيانات المطعم والتواصل والهوية وإظهار الأقسام من مكان واحد."
+        title={t("settingsTitle")}
+        description={t("settingsDescription")}
         actions={
           canManageRestaurantContent ? (
             <AdminActionButton
@@ -949,13 +944,13 @@ export default function AdminSettings() {
               onClick={() => void loadSettings()}
               disabled={isLoading || isSaving}
             >
-              تحديث البيانات
+              {t("refresh")}
             </AdminActionButton>
           ) : null
         }
       />
 
-      {isLoading ? <AdminLoadingState label="جارٍ تحميل الإعدادات..." /> : null}
+      {isLoading ? <AdminLoadingState label={t("loading")} /> : null}
 
       {!isLoading ? (
         <form className="admin-settings-form" onSubmit={handleSubmit} noValidate>
@@ -1575,7 +1570,7 @@ export default function AdminSettings() {
 
           <div className="admin-settings-form__actions">
             <AdminActionButton variant="primary" type="submit" icon={<Save size={18} aria-hidden="true" />} disabled={isSaving}>
-              {isSaving ? "جارٍ الحفظ..." : "حفظ الإعدادات"}
+              {isSaving ? t("saving") : t("saveSettings")}
             </AdminActionButton>
           </div>
         </form>

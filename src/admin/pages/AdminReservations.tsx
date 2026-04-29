@@ -12,9 +12,9 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import {
-  ReservationsRepositoryError,
   archiveReservation,
   getArchivedReservationsByRestaurant,
   getReservationById,
@@ -24,7 +24,7 @@ import {
 } from "../../services/repositories/reservationsRepository";
 import { getSiteSettings } from "../../services/repositories/settingsRepository";
 import type { Reservation, ReservationStatus } from "../../types/platform";
-import { createWhatsappUrl } from "../../utils/formatters";
+import { createWhatsappUrl, formatPrice } from "../../utils/formatters";
 
 type ReservationFilter = ReservationStatus | "all";
 type ReservationView = "upcoming" | "past" | "archive";
@@ -48,10 +48,10 @@ const defaultReservationArchivePreferences = {
   enableManualArchiveActions: true,
   showPastReservationsInSeparateTab: true,
 };
-const reservationViewLabels: Record<ReservationView, string> = {
-  upcoming: "القادمة/النشطة",
-  past: "السابقة/تحتاج مراجعة",
-  archive: "الأرشيف",
+const reservationViewLabelKeys: Record<ReservationView, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+  upcoming: "upcomingReservations",
+  past: "pastReservations",
+  archive: "archivedReservations",
 };
 
 const statusLabelKeys: Record<ReservationStatus, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
@@ -67,6 +67,12 @@ const statusLabelKeys: Record<ReservationStatus, Parameters<ReturnType<typeof us
   rejected: "reservationStatusRejected",
 };
 
+const depositStatusLabelKeys: Record<string, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+  none: "depositStatusNone",
+  paid: "depositStatusPaid",
+  required: "depositStatusRequired",
+};
+
 const statusTones: Record<ReservationStatus, StatusTone> = {
   new: "neutral",
   pending_confirmation: "warning",
@@ -80,53 +86,47 @@ const statusTones: Record<ReservationStatus, StatusTone> = {
   rejected: "danger",
 };
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof ReservationsRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تنفيذ العملية. تحقق من الاتصال أو صلاحيات Appwrite.";
-};
+const getErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => mapKnownErrorToFriendlyMessage(error, t);
 
 const formatReservationId = (reservationId: string) => `#${reservationId.slice(-6).toUpperCase()}`;
 
-const formatCreatedAt = (value: string | undefined) => {
+const formatCreatedAt = (value: string | undefined, language: string, fallback: string) => {
   if (!value) {
-    return "غير متوفر";
+    return fallback;
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "غير متوفر";
+    return fallback;
   }
 
-  return new Intl.DateTimeFormat("ar", {
+  return new Intl.DateTimeFormat(language, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
 };
 
-const formatReservationDate = (value: string) => {
+const formatReservationDate = (value: string, language: string, fallback: string) => {
   const date = new Date(`${value}T12:00:00`);
 
   if (Number.isNaN(date.getTime())) {
-    return value || "غير متوفر";
+    return value || fallback;
   }
 
-  return new Intl.DateTimeFormat("ar", {
+  return new Intl.DateTimeFormat(language, {
     dateStyle: "medium",
   }).format(date);
 };
 
-const formatReservationTime = (value: string) => {
+const formatReservationTime = (value: string, language: string, fallback: string) => {
   const date = new Date(`1970-01-01T${value}`);
 
   if (Number.isNaN(date.getTime())) {
-    return value || "غير متوفر";
+    return value || fallback;
   }
 
-  return new Intl.DateTimeFormat("ar", {
+  return new Intl.DateTimeFormat(language, {
     timeStyle: "short",
   }).format(date);
 };
@@ -142,7 +142,7 @@ const isPastReservation = (reservation: Reservation) => {
 };
 
 export default function AdminReservations() {
-  const { t } = useI18n();
+  const { currentLanguage, t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -239,11 +239,11 @@ export default function AdminReservations() {
           settings?.showPastReservationsInSeparateTab ?? defaultReservationArchivePreferences.showPastReservationsInSeparateTab,
       });
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseReservations, reservationView]);
+  }, [activeRestaurantId, canUseReservations, reservationView, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseReservations || !activeRestaurantId) {
@@ -258,12 +258,12 @@ export default function AdminReservations() {
 
   const loadReservationDetails = async (reservation: Reservation) => {
     if (!canUseReservations) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -276,14 +276,14 @@ export default function AdminReservations() {
       const details = await getReservationById(reservation.id, activeRestaurantId);
 
       if (!details) {
-        setPageError("تعذر العثور على هذا الحجز داخل نطاق المطعم الحالي.");
+        setPageError(t("operationFailed"));
         setSelectedReservationId(null);
         return;
       }
 
       setReservationDetails(details);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
       setSelectedReservationId(null);
     } finally {
       setIsDetailsLoading(false);
@@ -292,12 +292,12 @@ export default function AdminReservations() {
 
   const handleStatusChange = async (reservation: Reservation, status: ReservationStatus) => {
     if (reservation.isArchived) {
-      setPageError("لا يمكن تغيير حالة حجز مؤرشف. استعده أولًا.");
+      setPageError(t("cannotChangeArchivedReservation"));
       return;
     }
 
     if (!canUseReservations) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
@@ -306,7 +306,7 @@ export default function AdminReservations() {
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -330,9 +330,9 @@ export default function AdminReservations() {
           toStatus: updatedReservation.status,
         },
       });
-      setSuccessMessage("تم تحديث حالة الحجز بنجاح.");
+      setSuccessMessage(t("reservationStatusUpdatedSuccess"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyReservationId(null);
     }
@@ -361,10 +361,10 @@ export default function AdminReservations() {
           status: archivedReservation.status,
         },
       });
-      setSuccessMessage("تم نقل الحجز إلى الأرشيف بنجاح.");
+      setSuccessMessage(t("reservationArchivedSuccess"));
       setPendingArchiveReservation(null);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyReservationId(null);
     }
@@ -372,7 +372,7 @@ export default function AdminReservations() {
 
   const handleRestoreReservation = async (reservation: Reservation) => {
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -397,9 +397,9 @@ export default function AdminReservations() {
           status: restoredReservation.status,
         },
       });
-      setSuccessMessage("تمت استعادة الحجز بنجاح.");
+      setSuccessMessage(t("reservationRestoredSuccess"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyReservationId(null);
     }
@@ -407,14 +407,14 @@ export default function AdminReservations() {
 
   const handleArchiveCompletedReservations = async () => {
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
     const candidates = reservations.filter(canArchiveReservationRecord);
 
     if (candidates.length === 0) {
-      setSuccessMessage("لا توجد حجوزات منتهية جاهزة للأرشفة.");
+      setSuccessMessage(t("noReservationsForFilter"));
       return;
     }
 
@@ -440,26 +440,32 @@ export default function AdminReservations() {
           },
         });
       });
-      setSuccessMessage(`تمت أرشفة ${archivedReservations.length} حجز منتهي بنجاح.`);
+      setSuccessMessage(t("reservationArchivedSuccess"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyReservationId(null);
     }
   };
 
   const openWhatsappReply = (reservation: Reservation) => {
-    const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
+    const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || t("restaurantFallbackName");
     const trackUrl = activeRestaurantSlug ? `${window.location.origin}/r/${activeRestaurantSlug}/track` : "";
-    const message = `مرحبًا ${reservation.customerName}، بخصوص حجزك في ${restaurantName} بتاريخ ${formatReservationDate(
-      reservation.reservationDate,
-    )} الساعة ${formatReservationTime(reservation.reservationTime)}، حالة الحجز الآن: ${t(statusLabelKeys[reservation.status])}.${
-      reservation.trackingCode ? `\nرمز التتبع: ${reservation.trackingCode}` : ""
-    }${trackUrl ? `\nرابط التتبع: ${trackUrl}` : ""}${
+    const message = [
+      t("whatsappReservationGreeting")
+        .replace("{customerName}", reservation.customerName)
+        .replace("{restaurantName}", restaurantName)
+        .replace("{date}", formatReservationDate(reservation.reservationDate, currentLanguage, t("notAvailable")))
+        .replace("{time}", formatReservationTime(reservation.reservationTime, currentLanguage, t("notAvailable"))),
+      t("whatsappStatusLine").replace("{status}", t(statusLabelKeys[reservation.status])),
+      reservation.trackingCode ? t("whatsappTrackingCodeLine").replace("{trackingCode}", reservation.trackingCode) : null,
+      trackUrl ? t("whatsappTrackingLinkLine").replace("{trackUrl}", trackUrl) : null,
       reservation.depositStatus === "required" && reservation.depositAmount
-        ? `\nالعربون المطلوب: ${reservation.depositAmount} د.م.`
-        : ""
-    }`;
+        ? `${t("depositAmount")}: ${formatPrice(reservation.depositAmount, "MAD")}.`
+        : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
 
     window.open(createWhatsappUrl(reservation.customerPhone, message), "_blank", "noopener,noreferrer");
   };
@@ -482,7 +488,7 @@ export default function AdminReservations() {
         </div>
         <div className="admin-order-card__badges">
           <AdminStatusBadge tone={statusTones[reservation.status]}>{t(statusLabelKeys[reservation.status])}</AdminStatusBadge>
-          {needsReview(reservation) ? <AdminStatusBadge tone="warning">تحتاج مراجعة</AdminStatusBadge> : null}
+          {needsReview(reservation) ? <AdminStatusBadge tone="warning">{t("needsReview")}</AdminStatusBadge> : null}
         </div>
       </div>
 
@@ -492,43 +498,43 @@ export default function AdminReservations() {
           <strong>{reservation.trackingCode || formatReservationId(reservation.id)}</strong>
         </div>
         <div>
-          <span>الهاتف</span>
+          <span>{t("customerPhone")}</span>
           <strong>{reservation.customerPhone}</strong>
         </div>
         <div>
-          <span>التاريخ</span>
-          <strong>{formatReservationDate(reservation.reservationDate)}</strong>
+          <span>{t("reservationDate")}</span>
+          <strong>{formatReservationDate(reservation.reservationDate, currentLanguage, t("notAvailable"))}</strong>
         </div>
         <div>
-          <span>الوقت</span>
-          <strong>{formatReservationTime(reservation.reservationTime)}</strong>
+          <span>{t("reservationTime")}</span>
+          <strong>{formatReservationTime(reservation.reservationTime, currentLanguage, t("notAvailable"))}</strong>
         </div>
         <div>
-          <span>عدد الأشخاص</span>
+          <span>{t("peopleCount")}</span>
           <strong>{reservation.peopleCount}</strong>
         </div>
         <div>
-          <span>الحالة</span>
+          <span>{t("status")}</span>
           <strong>{t(statusLabelKeys[reservation.status])}</strong>
         </div>
         <div>
-          <span>العربون</span>
+          <span>{t("deposit")}</span>
           <strong>
-            {reservation.depositStatus || "none"}
-            {reservation.depositAmount ? ` - ${reservation.depositAmount} د.م` : ""}
+            {t(depositStatusLabelKeys[reservation.depositStatus || "none"] ?? "depositStatusNone")}
+            {reservation.depositAmount ? ` - ${formatPrice(reservation.depositAmount, "MAD")}` : ""}
           </strong>
         </div>
         <div>
-          <span>تاريخ الإنشاء</span>
-          <strong>{formatCreatedAt(reservation.createdAt)}</strong>
+          <span>{t("createdAt")}</span>
+          <strong>{formatCreatedAt(reservation.createdAt, currentLanguage, t("notAvailable"))}</strong>
         </div>
       </div>
 
       {isArchiveView ? (
-        <div className="admin-feedback admin-feedback--warning">هذا الحجز مؤرشف، لذلك لا يمكن تغيير حالته قبل استعادته.</div>
+        <div className="admin-feedback admin-feedback--warning">{t("cannotChangeArchivedReservation")}</div>
       ) : (
         <label className="admin-order-card__status">
-          <span>تغيير الحالة</span>
+          <span>{t("changeStatus")}</span>
           <select
             value={reservation.status}
             onChange={(event) => void handleStatusChange(reservation, event.target.value as ReservationStatus)}
@@ -549,7 +555,7 @@ export default function AdminReservations() {
           icon={<Eye size={17} aria-hidden="true" />}
           onClick={() => void loadReservationDetails(reservation)}
         >
-          عرض التفاصيل
+          {t("view")}
         </AdminActionButton>
         {isArchiveView ? (
           canUseManualArchiveActions ? (
@@ -559,7 +565,7 @@ export default function AdminReservations() {
               onClick={() => void handleRestoreReservation(reservation)}
               disabled={busyReservationId === reservation.id}
             >
-              استعادة
+              {t("restore")}
             </AdminActionButton>
           ) : null
         ) : (
@@ -569,7 +575,7 @@ export default function AdminReservations() {
               icon={<MessageCircle size={17} aria-hidden="true" />}
               onClick={() => openWhatsappReply(reservation)}
             >
-              الرد عبر واتساب
+              {t("replyWhatsapp")}
             </AdminActionButton>
             {canUseManualArchiveActions && canArchiveReservationRecord(reservation) ? (
               <AdminActionButton
@@ -578,7 +584,7 @@ export default function AdminReservations() {
                 onClick={() => setPendingArchiveReservation(reservation)}
                 disabled={busyReservationId === reservation.id}
               >
-                أرشفة
+                {t("archive")}
               </AdminActionButton>
             ) : null}
           </>
@@ -589,15 +595,15 @@ export default function AdminReservations() {
 
   const renderContent = () => {
     if (scopeError) {
-      return <AdminErrorState title="لا يمكن فتح الحجوزات" message={scopeError} />;
+      return <AdminErrorState title={t("reservationsTitle")} message={scopeError} />;
     }
 
     if (!canUseReservations) {
-      return <AdminFeatureUnavailable featureName="الحجوزات" />;
+      return <AdminFeatureUnavailable featureName={t("reservations")} />;
     }
 
     if (isLoading) {
-      return <AdminLoadingState label="جارٍ تحميل الحجوزات..." />;
+      return <AdminLoadingState label={t("loading")} />;
     }
 
     if (pageError) {
@@ -606,7 +612,7 @@ export default function AdminReservations() {
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadReservations()}>
-              إعادة المحاولة
+              {t("tryAgain")}
             </AdminActionButton>
           }
         />
@@ -617,8 +623,8 @@ export default function AdminReservations() {
       return (
         <AdminEmptyState
           icon={<CalendarCheck size={30} aria-hidden="true" />}
-          title="لا توجد حجوزات بعد"
-          body="ستظهر حجوزات الطاولات الواردة من الموقع هنا بعد إرسال العميل لنموذج الحجز."
+          title={t("noReservationsYet")}
+          body={t("noData")}
         />
       );
     }
@@ -627,8 +633,8 @@ export default function AdminReservations() {
       return (
         <AdminEmptyState
           icon={<CalendarCheck size={30} aria-hidden="true" />}
-          title="لا توجد حجوزات بهذه الحالة"
-          body="غيّر الفلتر لعرض حالات أخرى."
+          title={t("noReservationsForFilter")}
+          body={t("noData")}
         />
       );
     }
@@ -640,8 +646,8 @@ export default function AdminReservations() {
     <section className="admin-orders-page admin-reservations-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="الحجوزات"
-        description="تابع حجوزات الطاولات الواردة من موقع مطعمك."
+        title={t("reservationsTitle")}
+        description={t("reservationsDescription")}
         actions={
           canManageRestaurantContent && canUseReservations ? (
             <>
@@ -652,7 +658,7 @@ export default function AdminReservations() {
                   onClick={() => void handleArchiveCompletedReservations()}
                   disabled={isLoading || busyReservationId === "bulk-archive"}
                 >
-                  أرشفة الحجوزات المنتهية
+                  {t("archiveCompletedReservations")}
                 </AdminActionButton>
               ) : null}
               <AdminActionButton
@@ -661,7 +667,7 @@ export default function AdminReservations() {
                 onClick={() => void loadReservations()}
                 disabled={isLoading}
               >
-                تحديث الحجوزات
+                {t("refresh")}
               </AdminActionButton>
             </>
           ) : null
@@ -670,26 +676,26 @@ export default function AdminReservations() {
 
       {canManageRestaurantContent && canUseReservations ? (
         <>
-          <div className="admin-orders-stats" aria-label="ملخص الحجوزات">
+          <div className="admin-orders-stats" aria-label={t("reservationsTitle")}>
             <div>
-              <span>جديد</span>
+              <span>{t("reservationStatusNew")}</span>
               <strong>{stats.new}</strong>
             </div>
             <div>
-              <span>مؤكد</span>
+              <span>{t("reservationStatusConfirmed")}</span>
               <strong>{stats.confirmed}</strong>
             </div>
             <div>
-              <span>مكتمل</span>
+              <span>{t("reservationStatusCompleted")}</span>
               <strong>{stats.completed}</strong>
             </div>
             <div>
-              <span>تحتاج مراجعة</span>
+              <span>{t("needsReview")}</span>
               <strong>{stats.needsReview}</strong>
             </div>
           </div>
 
-          <div className="admin-orders-filters" aria-label="عرض الحجوزات">
+          <div className="admin-orders-filters" aria-label={t("reservationsTitle")}>
             {(["upcoming", "past", "archive"] as const).map((view) => (
               <button
                 className={view === reservationView ? "is-active" : ""}
@@ -700,12 +706,12 @@ export default function AdminReservations() {
                 }}
                 key={view}
               >
-                {reservationViewLabels[view]}
+                {t(reservationViewLabelKeys[view])}
               </button>
             ))}
           </div>
 
-          <div className="admin-orders-filters" aria-label="تصفية الحجوزات حسب الحالة">
+          <div className="admin-orders-filters" aria-label={t("changeStatus")}>
             {(["all", ...reservationStatuses] as const).map((filter) => (
               <button
                 className={filter === statusFilter ? "is-active" : ""}
@@ -726,43 +732,43 @@ export default function AdminReservations() {
 
       <AdminFormModal
         isOpen={Boolean(selectedReservationId)}
-        title={selectedReservation ? `تفاصيل الحجز ${formatReservationId(selectedReservation.id)}` : "تفاصيل الحجز"}
-        description="معلومات العميل وموعد الحجز وحالته الحالية."
+        title={selectedReservation ? `${t("reservationDetails")} ${formatReservationId(selectedReservation.id)}` : t("reservationDetails")}
+        description={t("reservationsDescription")}
         onClose={closeDetails}
         size="lg"
       >
-        {isDetailsLoading ? <AdminLoadingState label="جارٍ تحميل تفاصيل الحجز..." /> : null}
+        {isDetailsLoading ? <AdminLoadingState label={t("loading")} /> : null}
 
         {!isDetailsLoading && reservationDetails ? (
           <div className="admin-order-details">
             <div className="admin-order-details__grid">
               <div>
-                <span>العميل</span>
+                <span>{t("customer")}</span>
                 <strong>{reservationDetails.customerName}</strong>
               </div>
               <div>
-                <span>الهاتف</span>
+                <span>{t("customerPhone")}</span>
                 <strong>{reservationDetails.customerPhone}</strong>
               </div>
               <div>
-                <span>التاريخ</span>
-                <strong>{formatReservationDate(reservationDetails.reservationDate)}</strong>
+                <span>{t("reservationDate")}</span>
+                <strong>{formatReservationDate(reservationDetails.reservationDate, currentLanguage, t("notAvailable"))}</strong>
               </div>
               <div>
-                <span>الوقت</span>
-                <strong>{formatReservationTime(reservationDetails.reservationTime)}</strong>
+                <span>{t("reservationTime")}</span>
+                <strong>{formatReservationTime(reservationDetails.reservationTime, currentLanguage, t("notAvailable"))}</strong>
               </div>
               <div>
-                <span>عدد الأشخاص</span>
+                <span>{t("peopleCount")}</span>
                 <strong>{reservationDetails.peopleCount}</strong>
               </div>
               <div>
-                <span>الحالة</span>
+                <span>{t("status")}</span>
                 <div className="admin-order-card__badges">
                   <AdminStatusBadge tone={statusTones[reservationDetails.status]}>
                     {t(statusLabelKeys[reservationDetails.status])}
                   </AdminStatusBadge>
-                  {needsReview(reservationDetails) ? <AdminStatusBadge tone="warning">تحتاج مراجعة</AdminStatusBadge> : null}
+                  {needsReview(reservationDetails) ? <AdminStatusBadge tone="warning">{t("needsReview")}</AdminStatusBadge> : null}
                 </div>
               </div>
               <div>
@@ -770,21 +776,21 @@ export default function AdminReservations() {
                 <strong>{reservationDetails.trackingCode || formatReservationId(reservationDetails.id)}</strong>
               </div>
               <div>
-                <span>العربون</span>
+                <span>{t("deposit")}</span>
                 <strong>
-                  {reservationDetails.depositStatus || "none"}
-                  {reservationDetails.depositAmount ? ` - ${reservationDetails.depositAmount} د.م` : ""}
+                  {t(depositStatusLabelKeys[reservationDetails.depositStatus || "none"] ?? "depositStatusNone")}
+                  {reservationDetails.depositAmount ? ` - ${formatPrice(reservationDetails.depositAmount, "MAD")}` : ""}
                 </strong>
               </div>
             </div>
 
             <div className="admin-order-details__notes">
-              <span>الملاحظات</span>
-              <p>{reservationDetails.notes || "لا توجد ملاحظات."}</p>
+              <span>{t("notes")}</span>
+              <p>{reservationDetails.notes || t("noData")}</p>
             </div>
 
             {reservationDetails.isArchived ? (
-              <div className="admin-feedback admin-feedback--warning">لا يمكن تغيير حالة حجز داخل الأرشيف. استعد الحجز أولًا ثم عدّل حالته.</div>
+              <div className="admin-feedback admin-feedback--warning">{t("cannotChangeArchivedReservation")}</div>
             ) : (
               <div className="admin-order-status-actions admin-reservation-status-actions">
                 {reservationStatuses.map((status) => (
@@ -809,7 +815,7 @@ export default function AdminReservations() {
                     onClick={() => void handleRestoreReservation(reservationDetails)}
                     disabled={busyReservationId === reservationDetails.id}
                   >
-                    استعادة
+                    {t("restore")}
                   </AdminActionButton>
                 ) : null
               ) : (
@@ -819,7 +825,7 @@ export default function AdminReservations() {
                     icon={<MessageCircle size={17} aria-hidden="true" />}
                     onClick={() => openWhatsappReply(reservationDetails)}
                   >
-                    الرد عبر واتساب
+                    {t("replyWhatsapp")}
                   </AdminActionButton>
                   {canUseManualArchiveActions && canArchiveReservationRecord(reservationDetails) ? (
                     <AdminActionButton
@@ -828,7 +834,7 @@ export default function AdminReservations() {
                       onClick={() => setPendingArchiveReservation(reservationDetails)}
                       disabled={busyReservationId === reservationDetails.id}
                     >
-                      أرشفة
+                      {t("archive")}
                     </AdminActionButton>
                   ) : null}
                 </>
@@ -840,9 +846,9 @@ export default function AdminReservations() {
 
       <AdminConfirmDialog
         isOpen={Boolean(pendingArchiveReservation)}
-        title="أرشفة الحجز"
-        message="لن يتم حذف الحجز. سيتم نقله إلى الأرشيف ويمكن استعادته لاحقًا."
-        confirmLabel="أرشفة"
+        title={t("archiveReservation")}
+        message={t("thisWillNotDeleteData")}
+        confirmLabel={t("archive")}
         isSubmitting={Boolean(pendingArchiveReservation && busyReservationId === pendingArchiveReservation.id)}
         onCancel={() => {
           if (!busyReservationId) {

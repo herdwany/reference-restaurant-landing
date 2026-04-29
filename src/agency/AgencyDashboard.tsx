@@ -21,17 +21,15 @@ import AdminFormModal from "../admin/components/AdminFormModal";
 import AdminLoadingState from "../admin/components/AdminLoadingState";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useAuth } from "../context/AuthContext";
+import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
 import { clientPlans, getDefaultSupportLevelForPlan, planDefinitions } from "../lib/plans";
-import { ADMIN_APPWRITE_REQUIRED_MESSAGE } from "../services/authService";
 import {
-  ClientOnboardingError,
   createClientViaFunction,
   hasCreateClientFunctionConfig,
   type CreateClientInput,
 } from "../services/appwrite/clientOnboardingService";
 import {
-  RestaurantRepositoryError,
   getRestaurantStatsForAgency,
   getRestaurantsForAgency,
   updateClientControlsViaFunction,
@@ -109,71 +107,73 @@ const domainTypes = ["pixelone_path", "subdomain", "custom_domain"] as const sat
 const domainStatuses = ["not_configured", "pending_dns", "pending_verification", "active", "failed"] as const satisfies readonly DomainStatus[];
 const pixelOneSubdomainBase = "pixelonevisuals.tech";
 
-const statusLabels: Record<StatusFilter, string> = {
-  active: "نشط",
-  all: "الكل",
-  cancelled: "ملغي",
-  draft: "مسودة",
-  suspended: "معلّق",
+type UiKey = Parameters<ReturnType<typeof useI18n>["t"]>[0];
+
+const statusLabelKeys: Record<StatusFilter, UiKey> = {
+  active: "clientStatusActive",
+  all: "all",
+  cancelled: "clientStatusCancelled",
+  draft: "clientStatusDraft",
+  suspended: "clientStatusSuspended",
 };
 
-const planLabels: Record<ClientPlan, string> = {
-  starter: "Starter",
-  pro: "Pro",
-  premium: "Premium",
-  managed: "Managed",
+const planLabelKeys: Record<ClientPlan, UiKey> = {
+  starter: "planStarter",
+  pro: "planPro",
+  premium: "planPremium",
+  managed: "planManaged",
 };
 
-const billingStatusLabels: Record<BillingStatus, string> = {
-  trial: "تجريبي",
-  active: "مدفوع",
-  overdue: "متأخر",
-  cancelled: "ملغي",
+const billingStatusLabelKeys: Record<BillingStatus, UiKey> = {
+  trial: "billingStatusTrial",
+  active: "billingStatusActive",
+  overdue: "billingStatusOverdue",
+  cancelled: "billingStatusCancelled",
 };
 
-const supportLevelLabels: Record<SupportLevel, string> = {
-  basic: "أساسي",
-  standard: "قياسي",
-  priority: "أولوية",
-  managed: "مُدار",
+const supportLevelLabelKeys: Record<SupportLevel, UiKey> = {
+  basic: "supportBasic",
+  standard: "supportStandard",
+  priority: "supportPriority",
+  managed: "supportManaged",
 };
 
-const domainTypeLabels: Record<DomainType, string> = {
-  pixelone_path: "رابط المنصة",
-  subdomain: "Subdomain",
-  custom_domain: "Custom domain",
+const domainTypeLabelKeys: Record<DomainType, UiKey> = {
+  pixelone_path: "domainTypePixelonePath",
+  subdomain: "domainTypeSubdomain",
+  custom_domain: "domainTypeCustomDomain",
 };
 
-const domainStatusLabels: Record<DomainStatus, string> = {
-  not_configured: "غير مضبوط",
-  pending_dns: "بانتظار DNS",
-  pending_verification: "بانتظار التحقق",
-  active: "نشط",
-  failed: "فشل",
+const domainStatusLabelKeys: Record<DomainStatus, UiKey> = {
+  not_configured: "domainStatusNotConfigured",
+  pending_dns: "domainStatusPendingDns",
+  pending_verification: "domainStatusPendingVerification",
+  active: "domainStatusActive",
+  failed: "domainStatusFailed",
 };
 
-const businessTypeLabels: Record<BusinessType, string> = {
-  bakery: "مخبز",
-  cafe: "مقهى",
-  car_rental: "تأجير سيارات",
-  cloud_kitchen: "مطبخ سحابي",
-  clinic: "عيادة",
-  gym: "نادٍ رياضي",
-  other: "أخرى",
-  restaurant: "مطعم",
-  salon: "صالون",
+const businessTypeLabelKeys: Record<BusinessType, UiKey> = {
+  bakery: "businessBakery",
+  cafe: "businessCafe",
+  car_rental: "businessCarRental",
+  cloud_kitchen: "businessCloudKitchen",
+  clinic: "businessClinic",
+  gym: "businessGym",
+  other: "businessOther",
+  restaurant: "businessRestaurant",
+  salon: "businessSalon",
 };
 
-const onboardingStatusLabels: Record<OnboardingStatus, string> = {
-  active: "نشط",
-  draft: "مسودة",
+const onboardingStatusLabelKeys: Record<OnboardingStatus, UiKey> = {
+  active: "clientStatusActive",
+  draft: "clientStatusDraft",
 };
 
-const onboardingPlanLabels: Record<OnboardingPlan, string> = {
-  managed: "Managed",
-  premium: "Premium",
-  pro: "Pro",
-  starter: "Starter",
+const onboardingPlanLabelKeys: Record<OnboardingPlan, UiKey> = {
+  managed: "planManaged",
+  premium: "planPremium",
+  pro: "planPro",
+  starter: "planStarter",
 };
 
 const emptyCreateClientFormValues: CreateClientFormValues = {
@@ -191,7 +191,7 @@ const emptyCreateClientFormValues: CreateClientFormValues = {
 };
 
 function AgencyStatusMessage({ action, body, isLoading = false, title }: AgencyStatusMessageProps) {
-  const { direction } = useI18n();
+  const { direction, t } = useI18n();
   const Icon = isLoading ? Loader2 : AlertTriangle;
 
   return (
@@ -203,7 +203,7 @@ function AgencyStatusMessage({ action, body, isLoading = false, title }: AgencyS
         {!isLoading && action ? action : null}
         {!isLoading && !action ? (
           <Link className="admin-primary-link" to="/admin/login">
-            تسجيل الدخول
+            {t("login")}
           </Link>
         ) : null}
       </section>
@@ -211,26 +211,20 @@ function AgencyStatusMessage({ action, body, isLoading = false, title }: AgencyS
   );
 }
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof RestaurantRepositoryError) {
-    return error.message;
-  }
+const getErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => mapKnownErrorToFriendlyMessage(error, t);
 
-  return "تعذر تحميل مواقع العملاء. تحقق من الاتصال أو صلاحيات Appwrite.";
-};
-
-const formatDate = (value: string | undefined) => {
+const formatDate = (value: string | undefined, language: string, fallback: string) => {
   if (!value) {
-    return "غير متوفر";
+    return fallback;
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "غير متوفر";
+    return fallback;
   }
 
-  return new Intl.DateTimeFormat("ar", {
+  return new Intl.DateTimeFormat(language, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -280,7 +274,7 @@ const getAgencyDomainFormValues = (restaurant: Restaurant): AgencyDomainFormValu
 });
 
 const getPublicPreviewPath = (restaurant: Pick<Restaurant, "slug">) =>
-  restaurant.slug ? `/r/${restaurant.slug}` : "غير متوفر";
+  restaurant.slug ? `/r/${restaurant.slug}` : "";
 
 const getPlannedDomainPreview = (values: AgencyDomainFormValues, slug: string) => {
   if (values.domainType === "subdomain") {
@@ -326,100 +320,94 @@ const normalizeSlugInput = (value: string) =>
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
 
-const validateCreateClientForm = (values: CreateClientFormValues): CreateClientFormErrors => {
+const validateCreateClientForm = (
+  values: CreateClientFormValues,
+  messages: { invalidValue: string; requiredField: string },
+): CreateClientFormErrors => {
   const errors: CreateClientFormErrors = {};
 
   if (!values.restaurantName.trim()) {
-    errors.restaurantName = "اسم المطعم مطلوب";
+    errors.restaurantName = messages.requiredField;
   }
 
   if (!values.slug.trim()) {
-    errors.slug = "الرابط مطلوب";
+    errors.slug = messages.requiredField;
   } else if (!isValidSlug(values.slug.trim())) {
-    errors.slug = "استخدم أحرفًا صغيرة وأرقامًا وشرطات فقط";
+    errors.slug = messages.invalidValue;
   }
 
   if (!onboardingBusinessTypes.includes(values.businessType)) {
-    errors.businessType = "نوع النشاط غير صالح";
+    errors.businessType = messages.invalidValue;
   }
 
   if (!values.ownerName.trim()) {
-    errors.ownerName = "اسم المالك مطلوب";
+    errors.ownerName = messages.requiredField;
   }
 
   if (!values.ownerEmail.trim()) {
-    errors.ownerEmail = "بريد المالك مطلوب";
+    errors.ownerEmail = messages.requiredField;
   } else if (!isValidEmail(values.ownerEmail.trim())) {
-    errors.ownerEmail = "بريد المالك غير صالح";
+    errors.ownerEmail = messages.invalidValue;
   }
 
   if (!isValidOptionalPhone(values.ownerPhone)) {
-    errors.ownerPhone = "رقم الهاتف غير صالح";
+    errors.ownerPhone = messages.invalidValue;
   }
 
   if (!values.temporaryPassword.trim()) {
-    errors.temporaryPassword = "كلمة المرور المؤقتة مطلوبة";
+    errors.temporaryPassword = messages.requiredField;
   } else if (values.temporaryPassword.length < 8) {
-    errors.temporaryPassword = "كلمة المرور يجب أن تكون 8 أحرف على الأقل";
+    errors.temporaryPassword = messages.invalidValue;
   }
 
   if (!onboardingStatuses.includes(values.status)) {
-    errors.status = "حالة المطعم غير صالحة";
+    errors.status = messages.invalidValue;
   }
 
   if (!onboardingPlans.includes(values.plan)) {
-    errors.plan = "الخطة غير صالحة";
+    errors.plan = messages.invalidValue;
   }
 
   return errors;
 };
 
-const validateDomainForm = (values: AgencyDomainFormValues): AgencyDomainFormErrors => {
+const validateDomainForm = (
+  values: AgencyDomainFormValues,
+  messages: { invalidValue: string; requiredField: string },
+): AgencyDomainFormErrors => {
   const errors: AgencyDomainFormErrors = {};
   const subdomain = values.subdomain.trim().toLowerCase();
   const customDomain = values.customDomain.trim().toLowerCase().replace(/\.$/, "");
 
   if (!domainTypes.includes(values.domainType)) {
-    errors.domainType = "نوع الدومين غير صالح";
+    errors.domainType = messages.invalidValue;
   }
 
   if (!domainStatuses.includes(values.domainStatus)) {
-    errors.domainStatus = "حالة الدومين غير صالحة";
+    errors.domainStatus = messages.invalidValue;
   }
 
   if (values.domainType === "subdomain" && !subdomain) {
-    errors.subdomain = "Subdomain مطلوب";
+    errors.subdomain = messages.requiredField;
   } else if (subdomain && !isValidSubdomain(subdomain)) {
-    errors.subdomain = "استخدم حروفًا إنجليزية صغيرة وأرقامًا وشرطات فقط";
+    errors.subdomain = messages.invalidValue;
   }
 
   if (values.domainType === "custom_domain" && !customDomain) {
-    errors.customDomain = "Custom domain مطلوب";
+    errors.customDomain = messages.requiredField;
   } else if (customDomain && !isValidCustomDomain(customDomain)) {
-    errors.customDomain = "اكتب الدومين بدون http:// أو https:// وبدون مسافات";
+    errors.customDomain = messages.invalidValue;
   }
 
   return errors;
 };
 
-const getControlsErrorMessage = (error: unknown) => {
-  if (error instanceof RestaurantRepositoryError) {
-    return error.message;
-  }
+const getControlsErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => mapKnownErrorToFriendlyMessage(error, t);
 
-  return "تعذر تحديث الباقة. تحقق من الصلاحيات أو الاتصال.";
-};
-
-const getDomainErrorMessage = (error: unknown) => {
-  if (error instanceof RestaurantRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تحديث إعدادات الدومين. تحقق من البيانات أو صلاحيات Appwrite.";
-};
+const getDomainErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => mapKnownErrorToFriendlyMessage(error, t);
 
 export default function AgencyDashboard() {
-  const { direction, t } = useI18n();
+  const { currentLanguage, direction, t } = useI18n();
   const { isAgencyAdmin, isAuthConfigured, isAuthenticated, isLoading: isAuthLoading, role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -455,11 +443,11 @@ export default function AgencyDashboard() {
       const loadedRestaurants = await getRestaurantsForAgency(100);
       setRestaurants(loadedRestaurants);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (!isAgencyAdmin) {
@@ -484,8 +472,8 @@ export default function AgencyDashboard() {
   if (!isAuthConfigured) {
     return (
       <AgencyStatusMessage
-        title={ADMIN_APPWRITE_REQUIRED_MESSAGE}
-        body="أضف متغيرات Appwrite في ملف البيئة ثم أعد تشغيل Vite لتفعيل لوحة الوكالة."
+        title={t("appwriteSetupRequired")}
+        body={t("contactSupport")}
       />
     );
   }
@@ -493,8 +481,8 @@ export default function AgencyDashboard() {
   if (isAuthLoading) {
     return (
       <AgencyStatusMessage
-        title="جاري التحقق من الجلسة"
-        body="نراجع حالة تسجيل الدخول وصلاحية الحساب قبل فتح لوحة الوكالة."
+        title={t("loading")}
+        body={t("loading")}
         isLoading
       />
     );
@@ -507,11 +495,11 @@ export default function AgencyDashboard() {
   if (!isAgencyAdmin) {
     return (
       <AgencyStatusMessage
-        title="هذه الصفحة مخصصة لإدارة الوكالة فقط."
-        body={role === "owner" || role === "staff" ? "حسابات العملاء تستخدم لوحة /admin الخاصة بالمطعم." : "لا يملك هذا الحساب صلاحية دخول لوحة الوكالة."}
+        title={t("accessDenied")}
+        body={role === "owner" || role === "staff" ? t("dashboard") : t("contactSupport")}
         action={
           <Link className="admin-primary-link" to="/admin">
-            العودة إلى لوحة التحكم
+            {t("dashboard")}
           </Link>
         }
       />
@@ -627,11 +615,11 @@ export default function AgencyDashboard() {
         setSelectedRestaurant(getAgencySelectedRestaurant());
       }
 
-      setControlsSuccess("تم تحديث باقة العميل بنجاح.");
+      setControlsSuccess(t("planUpdatedSuccess"));
       setControlsRestaurant(null);
       setControlsValues(null);
     } catch (error) {
-      setControlsError(getControlsErrorMessage(error));
+      setControlsError(getControlsErrorMessage(error, t));
     } finally {
       setIsSavingControls(false);
     }
@@ -651,7 +639,10 @@ export default function AgencyDashboard() {
       domainNotes: domainValues.domainNotes.trim(),
       subdomain: domainValues.subdomain.trim().toLowerCase(),
     };
-    const nextErrors = validateDomainForm(normalizedValues);
+    const nextErrors = validateDomainForm(normalizedValues, {
+      invalidValue: t("invalidValue"),
+      requiredField: t("requiredField"),
+    });
     setDomainValues(normalizedValues);
     setDomainErrors(nextErrors);
 
@@ -677,11 +668,11 @@ export default function AgencyDashboard() {
       setRestaurants((current) =>
         current.map((restaurant) => (restaurant.id === updatedRestaurant.id ? updatedRestaurant : restaurant)),
       );
-      setDomainSuccess("تم تحديث إعدادات الدومين بنجاح.");
+      setDomainSuccess(t("domainUpdatedSuccess"));
       setDomainRestaurant(null);
       setDomainValues(null);
     } catch (error) {
-      setDomainError(getDomainErrorMessage(error));
+      setDomainError(getDomainErrorMessage(error, t));
     } finally {
       setIsSavingDomain(false);
     }
@@ -712,13 +703,7 @@ export default function AgencyDashboard() {
     setCreateClientErrors((current) => ({ ...current, [key]: undefined }));
   };
 
-  const getCreateClientErrorMessage = (error: unknown) => {
-    if (error instanceof ClientOnboardingError) {
-      return error.message;
-    }
-
-    return "تعذر إنشاء العميل. تحقق من البيانات أو إعدادات Function.";
-  };
+  const getCreateClientErrorMessage = (error: unknown) => mapKnownErrorToFriendlyMessage(error, t);
 
   const handleCreateClientSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -726,7 +711,7 @@ export default function AgencyDashboard() {
     setCreateClientSuccess(null);
 
     if (!hasCreateClientFunctionConfig) {
-      setCreateClientError("إعداد إنشاء العملاء غير مفعّل بعد. أضف Function ID.");
+      setCreateClientError(t("appwriteSetupRequired"));
       return;
     }
 
@@ -735,7 +720,10 @@ export default function AgencyDashboard() {
       ownerEmail: createClientValues.ownerEmail.trim().toLowerCase(),
       slug: normalizeSlugInput(createClientValues.slug),
     };
-    const nextErrors = validateCreateClientForm(normalizedValues);
+    const nextErrors = validateCreateClientForm(normalizedValues, {
+      invalidValue: t("invalidValue"),
+      requiredField: t("requiredField"),
+    });
     setCreateClientValues(normalizedValues);
     setCreateClientErrors(nextErrors);
 
@@ -762,8 +750,8 @@ export default function AgencyDashboard() {
 
       setCreateClientSuccess(
         result.warning
-          ? `تم إنشاء العميل بنجاح. ${result.warning}`
-          : "تم إنشاء العميل بنجاح. يمكنك الآن فتح لوحة العميل.",
+          ? `${t("clientUpdatedSuccess")} ${result.warning}`
+          : t("clientUpdatedSuccess"),
       );
       setIsCreateModalOpen(false);
       setCreateClientValues(emptyCreateClientFormValues);
@@ -784,7 +772,7 @@ export default function AgencyDashboard() {
             Pixel One Visuals
           </span>
           <h1>{t("agencyDashboard")}</h1>
-          <p>إدارة مواقع العملاء والمطاعم المرتبطة بـ Pixel One.</p>
+          <p>{t("agencyDescription")}</p>
         </div>
         <div className="agency-header__actions">
           <button className="admin-icon-link" type="button" onClick={openCreateClientModal}>
@@ -798,47 +786,47 @@ export default function AgencyDashboard() {
           {selectedRestaurant ? (
             <button className="admin-icon-link" type="button" onClick={clearSelectedRestaurant}>
               <X size={17} aria-hidden="true" />
-              <span>إلغاء الاختيار</span>
+              <span>{t("clearSelection")}</span>
             </button>
           ) : null}
           <Link className="admin-icon-link" to="/">
-            الموقع العام
+            {t("previewSite")}
           </Link>
         </div>
       </header>
 
       {selectedRestaurant ? (
-        <section className="agency-selection-banner" aria-label="المطعم المحدد حاليًا">
+      <section className="agency-selection-banner" aria-label={t("currentSelection")}>
           <div>
-            <span>الاختيار الحالي</span>
+            <span>{t("currentSelection")}</span>
             <strong>{selectedRestaurant.selectedRestaurantName}</strong>
             <code>{selectedRestaurant.selectedRestaurantSlug}</code>
           </div>
           <Link className="admin-primary-link" to="/admin">
-            فتح لوحة العميل
+            {t("openClientDashboard")}
           </Link>
         </section>
       ) : null}
 
-      <section className="agency-stats" aria-label="إحصائيات المواقع">
+      <section className="agency-stats" aria-label={t("clientSites")}>
         <div>
-          <span>إجمالي المواقع</span>
+          <span>{t("totalSites")}</span>
           <strong>{stats.total}</strong>
         </div>
         <div>
-          <span>نشطة</span>
+          <span>{t("activeClients")}</span>
           <strong>{stats.active}</strong>
         </div>
         <div>
-          <span>معلّقة</span>
+          <span>{t("suspendedClients")}</span>
           <strong>{stats.suspended}</strong>
         </div>
         <div>
-          <span>مسودة</span>
+          <span>{t("draftClients")}</span>
           <strong>{stats.draft}</strong>
         </div>
         <div>
-          <span>ملغية</span>
+          <span>{t("cancelledClients")}</span>
           <strong>{stats.cancelled}</strong>
         </div>
       </section>
@@ -847,13 +835,13 @@ export default function AgencyDashboard() {
       {controlsSuccess ? <div className="admin-feedback admin-feedback--success">{controlsSuccess}</div> : null}
       {domainSuccess ? <div className="admin-feedback admin-feedback--success">{domainSuccess}</div> : null}
 
-      <section className="agency-toolbar" aria-label="بحث وتصفية المواقع">
+      <section className="agency-toolbar" aria-label={t("search")}>
         <label className="agency-search">
           <Search size={18} aria-hidden="true" />
           <input
             value={searchQuery}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="ابحث بالاسم أو slug"
+            placeholder={t("searchClientsPlaceholder")}
           />
         </label>
 
@@ -865,20 +853,20 @@ export default function AgencyDashboard() {
               onClick={() => setStatusFilter(filter)}
               key={filter}
             >
-              {statusLabels[filter]}
+              {t(statusLabelKeys[filter])}
             </button>
           ))}
         </div>
       </section>
 
-      {isLoading ? <AdminLoadingState label="جارٍ تحميل مواقع العملاء..." /> : null}
+      {isLoading ? <AdminLoadingState label={t("loading")} /> : null}
 
       {!isLoading && pageError ? (
         <AdminErrorState
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadRestaurants()}>
-              إعادة المحاولة
+              {t("tryAgain")}
             </AdminActionButton>
           }
         />
@@ -887,21 +875,21 @@ export default function AgencyDashboard() {
       {!isLoading && !pageError && restaurants.length === 0 ? (
         <AdminEmptyState
           icon={<Building2 size={30} aria-hidden="true" />}
-          title="لا توجد مواقع بعد"
-          body="ستظهر هنا المطاعم والمواقع الموجودة في جدول restaurants."
+          title={t("noData")}
+          body={t("clientSites")}
         />
       ) : null}
 
       {!isLoading && !pageError && restaurants.length > 0 && filteredRestaurants.length === 0 ? (
         <AdminEmptyState
           icon={<Search size={30} aria-hidden="true" />}
-          title="لا توجد نتائج مطابقة"
-          body="جرّب تغيير البحث أو فلتر الحالة."
+          title={t("noData")}
+          body={t("tryAgain")}
         />
       ) : null}
 
       {!isLoading && !pageError && filteredRestaurants.length > 0 ? (
-        <section className="agency-restaurant-grid" aria-label="مواقع العملاء">
+        <section className="agency-restaurant-grid" aria-label={t("clientSites")}>
           {filteredRestaurants.map((restaurant) => {
             const isSelected = selectedRestaurant?.selectedRestaurantId === restaurant.id;
 
@@ -913,55 +901,55 @@ export default function AgencyDashboard() {
                     <code>{restaurant.slug}</code>
                   </div>
                   <div className="agency-restaurant-card__badges">
-                    {isSelected ? <span className="agency-current-selection">محدد الآن</span> : null}
-                    <span className="agency-plan-badge">{planLabels[restaurant.plan]}</span>
-                    <span className={`agency-status agency-status--${restaurant.status}`}>{statusLabels[restaurant.status]}</span>
+                    {isSelected ? <span className="agency-current-selection">{t("selectedNow")}</span> : null}
+                    <span className="agency-plan-badge">{t(planLabelKeys[restaurant.plan])}</span>
+                    <span className={`agency-status agency-status--${restaurant.status}`}>{t(statusLabelKeys[restaurant.status])}</span>
                   </div>
                 </div>
 
                 <div className="agency-restaurant-card__meta">
                   <div>
-                    <span>نوع النشاط</span>
-                    <strong>{businessTypeLabels[restaurant.businessType] ?? restaurant.businessType}</strong>
+                    <span>{t("businessType")}</span>
+                    <strong>{businessTypeLabelKeys[restaurant.businessType] ? t(businessTypeLabelKeys[restaurant.businessType]) : restaurant.businessType}</strong>
                   </div>
                   <div>
                     <span>Owner User ID</span>
-                    <strong>{restaurant.ownerUserId || "غير محدد"}</strong>
+                    <strong>{restaurant.ownerUserId || t("notAvailable")}</strong>
                   </div>
                   <div>
-                    <span>الخطة</span>
-                    <strong>{planLabels[restaurant.plan]}</strong>
+                    <span>{t("plan")}</span>
+                    <strong>{t(planLabelKeys[restaurant.plan])}</strong>
                   </div>
                   <div>
-                    <span>حالة الدفع</span>
-                    <strong>{billingStatusLabels[restaurant.billingStatus]}</strong>
+                    <span>{t("billingStatus")}</span>
+                    <strong>{t(billingStatusLabelKeys[restaurant.billingStatus])}</strong>
                   </div>
                   <div>
-                    <span>الدعم</span>
-                    <strong>{supportLevelLabels[restaurant.supportLevel]}</strong>
+                    <span>{t("supportLevel")}</span>
+                    <strong>{t(supportLevelLabelKeys[restaurant.supportLevel])}</strong>
                   </div>
                   <div>
-                    <span>نهاية الاشتراك</span>
-                    <strong>{formatDate(restaurant.subscriptionEndsAt)}</strong>
+                    <span>{t("subscriptionEndsAt")}</span>
+                    <strong>{formatDate(restaurant.subscriptionEndsAt, currentLanguage, t("notAvailable"))}</strong>
                   </div>
                   <div>
-                    <span>تاريخ الإنشاء</span>
-                    <strong>{formatDate(restaurant.createdAt)}</strong>
+                    <span>{t("createdAt")}</span>
+                    <strong>{formatDate(restaurant.createdAt, currentLanguage, t("notAvailable"))}</strong>
                   </div>
                   <div>
-                    <span>الرابط الحالي</span>
+                    <span>{t("currentLink")}</span>
                     <strong dir="ltr">{getPublicPreviewPath(restaurant)}</strong>
                   </div>
                   <div>
-                    <span>نوع الدومين</span>
-                    <strong>{domainTypeLabels[restaurant.domainType]}</strong>
+                    <span>{t("domainType")}</span>
+                    <strong>{t(domainTypeLabelKeys[restaurant.domainType])}</strong>
                   </div>
                   <div>
-                    <span>حالة الدومين</span>
-                    <strong>{domainStatusLabels[restaurant.domainStatus]}</strong>
+                    <span>{t("domainStatus")}</span>
+                    <strong>{t(domainStatusLabelKeys[restaurant.domainStatus])}</strong>
                   </div>
                   <div>
-                    <span>الرابط المخطط</span>
+                    <span>{t("plannedLink")}</span>
                     <strong dir="ltr">{getPlannedDomainPreview(getAgencyDomainFormValues(restaurant), restaurant.slug)}</strong>
                   </div>
                 </div>
@@ -975,17 +963,17 @@ export default function AgencyDashboard() {
                       rel="noopener noreferrer"
                     >
                       <ExternalLink size={17} aria-hidden="true" />
-                      <span>معاينة الموقع</span>
+                      <span>{t("previewSite")}</span>
                     </a>
                   ) : (
                     <button className="admin-action-button admin-action-button--secondary" type="button" disabled>
                       <ExternalLink size={17} aria-hidden="true" />
-                      <span>معاينة الموقع</span>
+                      <span>{t("previewSite")}</span>
                     </button>
                   )}
 
                   <AdminActionButton variant="primary" onClick={() => openClientAdmin(restaurant)}>
-                    فتح لوحة العميل
+                    {t("openClientDashboard")}
                   </AdminActionButton>
 
                   <AdminActionButton
@@ -993,14 +981,14 @@ export default function AgencyDashboard() {
                     icon={<SlidersHorizontal size={17} aria-hidden="true" />}
                     onClick={() => openControlsModal(restaurant)}
                   >
-                    إدارة الباقة
+                    {t("managePlan")}
                   </AdminActionButton>
                   <AdminActionButton
                     variant="secondary"
                     icon={<Globe2 size={17} aria-hidden="true" />}
                     onClick={() => openDomainModal(restaurant)}
                   >
-                    إدارة الدومين
+                    {t("manageDomain")}
                   </AdminActionButton>
                 </div>
               </article>
@@ -1011,22 +999,22 @@ export default function AgencyDashboard() {
 
       <AdminFormModal
         isOpen={isCreateModalOpen}
-        title="إضافة عميل"
-        description="أنشئ مطعمًا وحساب مالك عبر Appwrite Function آمنة."
+        title={t("addClient")}
+        description={t("createClient")}
         onClose={closeCreateClientModal}
         size="lg"
       >
         <form className="admin-dish-form" onSubmit={handleCreateClientSubmit} noValidate>
           {!hasCreateClientFunctionConfig ? (
             <div className="admin-feedback admin-feedback--error">
-              إعداد إنشاء العملاء غير مفعّل بعد. أضف Function ID.
+              {t("appwriteSetupRequired")}
             </div>
           ) : null}
           {createClientError ? <div className="admin-feedback admin-feedback--error">{createClientError}</div> : null}
 
           <div className="admin-form-grid">
             <label>
-              <span>اسم المطعم</span>
+              <span>{t("restaurant")}</span>
               <input
                 value={createClientValues.restaurantName}
                 onChange={(event) => updateCreateClientValue("restaurantName", event.target.value)}
@@ -1036,7 +1024,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>اسم المطعم بالعربية</span>
+              <span>{t("restaurant")} ar</span>
               <input
                 value={createClientValues.restaurantNameAr}
                 onChange={(event) => updateCreateClientValue("restaurantNameAr", event.target.value)}
@@ -1044,7 +1032,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>الرابط slug</span>
+              <span>{t("clientSlug")}</span>
               <input
                 value={createClientValues.slug}
                 onChange={(event) => updateCreateClientValue("slug", normalizeSlugInput(event.target.value))}
@@ -1056,7 +1044,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>نوع النشاط</span>
+              <span>{t("businessType")}</span>
               <select
                 value={createClientValues.businessType}
                 onChange={(event) => updateCreateClientValue("businessType", event.target.value as OnboardingBusinessType)}
@@ -1064,7 +1052,7 @@ export default function AgencyDashboard() {
               >
                 {onboardingBusinessTypes.map((type) => (
                   <option value={type} key={type}>
-                    {businessTypeLabels[type]}
+                    {t(businessTypeLabelKeys[type])}
                   </option>
                 ))}
               </select>
@@ -1072,7 +1060,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>اسم المالك</span>
+              <span>{t("ownerName")}</span>
               <input
                 value={createClientValues.ownerName}
                 onChange={(event) => updateCreateClientValue("ownerName", event.target.value)}
@@ -1082,7 +1070,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>بريد المالك</span>
+              <span>{t("ownerEmail")}</span>
               <input
                 value={createClientValues.ownerEmail}
                 onChange={(event) => updateCreateClientValue("ownerEmail", event.target.value)}
@@ -1094,7 +1082,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>هاتف المالك</span>
+              <span>{t("ownerPhone")}</span>
               <input
                 value={createClientValues.ownerPhone}
                 onChange={(event) => updateCreateClientValue("ownerPhone", event.target.value)}
@@ -1107,7 +1095,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>كلمة مرور مؤقتة</span>
+              <span>{t("temporaryPassword")}</span>
               <input
                 type="password"
                 value={createClientValues.temporaryPassword}
@@ -1119,7 +1107,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>الحالة</span>
+              <span>{t("status")}</span>
               <select
                 value={createClientValues.status}
                 onChange={(event) => updateCreateClientValue("status", event.target.value as OnboardingStatus)}
@@ -1127,7 +1115,7 @@ export default function AgencyDashboard() {
               >
                 {onboardingStatuses.map((status) => (
                   <option value={status} key={status}>
-                    {onboardingStatusLabels[status]}
+                    {t(onboardingStatusLabelKeys[status])}
                   </option>
                 ))}
               </select>
@@ -1135,7 +1123,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label>
-              <span>الخطة</span>
+              <span>{t("plan")}</span>
               <select
                 value={createClientValues.plan}
                 onChange={(event) => updateCreateClientValue("plan", event.target.value as OnboardingPlan)}
@@ -1143,7 +1131,7 @@ export default function AgencyDashboard() {
               >
                 {onboardingPlans.map((plan) => (
                   <option value={plan} key={plan || "none"}>
-                    {onboardingPlanLabels[plan]}
+                    {t(onboardingPlanLabelKeys[plan])}
                   </option>
                 ))}
               </select>
@@ -1151,7 +1139,7 @@ export default function AgencyDashboard() {
             </label>
 
             <label className="admin-form-grid__wide">
-              <span>ملاحظات داخلية</span>
+              <span>{t("internalNotes")}</span>
               <textarea
                 value={createClientValues.notes}
                 onChange={(event) => updateCreateClientValue("notes", event.target.value)}
@@ -1162,10 +1150,10 @@ export default function AgencyDashboard() {
 
           <div className="admin-dish-form__actions">
             <AdminActionButton variant="ghost" onClick={closeCreateClientModal} disabled={isCreatingClient}>
-              إلغاء
+              {t("cancel")}
             </AdminActionButton>
             <AdminActionButton variant="primary" type="submit" disabled={isCreatingClient || !hasCreateClientFunctionConfig}>
-              {isCreatingClient ? "جارٍ الإنشاء..." : "إنشاء العميل"}
+              {isCreatingClient ? t("creating") : t("createClient")}
             </AdminActionButton>
           </div>
         </form>
@@ -1173,12 +1161,8 @@ export default function AgencyDashboard() {
 
       <AdminFormModal
         isOpen={Boolean(domainRestaurant && domainValues)}
-        title="إدارة الدومين"
-        description={
-          domainRestaurant
-            ? `إدارة بيانات رابط ${domainRestaurant.nameAr || domainRestaurant.name}. هذه المرحلة لا تفعل DNS أو routing حقيقي.`
-            : "إدارة بيانات رابط العميل."
-        }
+        title={t("manageDomain")}
+        description={t("domainUpdatedSuccess")}
         onClose={closeDomainModal}
         size="lg"
       >
@@ -1188,7 +1172,7 @@ export default function AgencyDashboard() {
 
             <div className="admin-form-grid">
               <label>
-                <span>نوع الرابط</span>
+                <span>{t("domainType")}</span>
                 <select
                   value={domainValues.domainType}
                   onChange={(event) => updateDomainValue("domainType", event.target.value as DomainType)}
@@ -1196,7 +1180,7 @@ export default function AgencyDashboard() {
                 >
                   {domainTypes.map((type) => (
                     <option value={type} key={type}>
-                      {domainTypeLabels[type]}
+                      {t(domainTypeLabelKeys[type])}
                     </option>
                   ))}
                 </select>
@@ -1204,7 +1188,7 @@ export default function AgencyDashboard() {
               </label>
 
               <label>
-                <span>حالة الدومين</span>
+                <span>{t("domainStatus")}</span>
                 <select
                   value={domainValues.domainStatus}
                   onChange={(event) => updateDomainValue("domainStatus", event.target.value as DomainStatus)}
@@ -1212,7 +1196,7 @@ export default function AgencyDashboard() {
                 >
                   {domainStatuses.map((status) => (
                     <option value={status} key={status}>
-                      {domainStatusLabels[status]}
+                      {t(domainStatusLabelKeys[status])}
                     </option>
                   ))}
                 </select>
@@ -1249,12 +1233,12 @@ export default function AgencyDashboard() {
                   value={domainValues.dnsTarget}
                   onChange={(event) => updateDomainValue("dnsTarget", event.target.value)}
                   dir="ltr"
-                  placeholder="سيتم تحديده بعد اختيار الاستضافة النهائية"
+                  placeholder={t("notAvailable")}
                 />
               </label>
 
               <label>
-                <span>وقت التحقق</span>
+                <span>{t("verificationTime")}</span>
                 <input
                   type="datetime-local"
                   value={domainValues.domainVerifiedAt}
@@ -1263,7 +1247,7 @@ export default function AgencyDashboard() {
               </label>
 
               <label className="admin-form-grid__wide">
-                <span>ملاحظات داخلية</span>
+                <span>{t("internalNotes")}</span>
                 <textarea
                   value={domainValues.domainNotes}
                   onChange={(event) => updateDomainValue("domainNotes", event.target.value)}
@@ -1272,41 +1256,41 @@ export default function AgencyDashboard() {
               </label>
 
               <div className="agency-plan-summary admin-form-grid__wide">
-                <span>معاينة الرابط</span>
+                <span>{t("previewLink")}</span>
                 <strong dir="ltr">{getPlannedDomainPreview(domainValues, domainRestaurant.slug)}</strong>
                 <p>
-                  الرابط العامل حاليًا هو {getPublicPreviewPath(domainRestaurant)}. الدومينات المخصصة محفوظة للتجهيز وستعمل بعد تفعيل DNS/Resolver.
+                  {t("currentLink")}: {getPublicPreviewPath(domainRestaurant) || t("notAvailable")}.
                 </p>
                 <p>
-                  روابط subdomain/custom domain المعروضة هنا مخططة فقط وليست مفعلة للتوجيه العام بعد.
+                  {t("domainUpdatedSuccess")}
                 </p>
               </div>
 
               <div className="agency-plan-summary admin-form-grid__wide">
-                <span>تعليمات مبدئية</span>
+                <span>{t("initialInstructions")}</span>
                 {domainValues.domainType === "subdomain" ? (
                   <p>
-                    هذا الخيار يحتاج لاحقًا إعداد wildcard domain مثل *.pixelonevisuals.tech. حاليًا الرابط الرسمي المتاح هو{" "}
+                    {t("domainUpdatedSuccess")}{" "}
                     {getPublicPreviewPath(domainRestaurant)}.
                   </p>
                 ) : null}
                 {domainValues.domainType === "custom_domain" ? (
                   <p>
-                    يتطلب هذا الخيار إعداد DNS لدى مزود الدومين. أضف CNAME من www إلى target الذي سنحدده بعد تثبيت الاستضافة، أو اتبع تعليمات منصة الاستضافة عند التفعيل.
+                    {t("domainUpdatedSuccess")}
                   </p>
                 ) : null}
                 {domainValues.domainType === "pixelone_path" ? (
-                  <p>هذا هو الرابط المجاني الحالي داخل المنصة ولا يحتاج إعداد DNS.</p>
+                  <p>{t("domainUpdatedSuccess")}</p>
                 ) : null}
               </div>
             </div>
 
             <div className="admin-dish-form__actions">
               <AdminActionButton variant="ghost" onClick={closeDomainModal} disabled={isSavingDomain}>
-                إلغاء
+                {t("cancel")}
               </AdminActionButton>
               <AdminActionButton variant="primary" type="submit" disabled={isSavingDomain}>
-                {isSavingDomain ? "جارٍ الحفظ..." : "حفظ إعدادات الدومين"}
+                {isSavingDomain ? t("saving") : t("saveDomainSettings")}
               </AdminActionButton>
             </div>
           </form>
@@ -1315,12 +1299,8 @@ export default function AgencyDashboard() {
 
       <AdminFormModal
         isOpen={Boolean(controlsRestaurant && controlsValues)}
-        title="إدارة الباقة"
-        description={
-          controlsRestaurant
-            ? `تحكم يدويًا في خطة وحالة ${controlsRestaurant.nameAr || controlsRestaurant.name}. لا يتم إنشاء أي دفع أو فاتورة هنا.`
-            : "تحكم يدويًا في خطة وحالة العميل."
-        }
+        title={t("managePlan")}
+        description={t("planUpdatedSuccess")}
         onClose={closeControlsModal}
         size="lg"
       >
@@ -1330,63 +1310,63 @@ export default function AgencyDashboard() {
 
             <div className="admin-form-grid">
               <label>
-                <span>حالة الموقع</span>
+                <span>{t("status")}</span>
                 <select
                   value={controlsValues.status}
                   onChange={(event) => updateControlsValue("status", event.target.value as RestaurantStatus)}
                 >
                   {(["draft", "active", "suspended", "cancelled"] as const).map((status) => (
                     <option value={status} key={status}>
-                      {statusLabels[status]}
+                      {t(statusLabelKeys[status])}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label>
-                <span>الباقة</span>
+                <span>{t("plan")}</span>
                 <select
                   value={controlsValues.plan}
                   onChange={(event) => updateControlsValue("plan", event.target.value as ClientPlan)}
                 >
                   {clientPlans.map((plan) => (
                     <option value={plan} key={plan}>
-                      {planLabels[plan]}
+                      {t(planLabelKeys[plan])}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label>
-                <span>حالة الدفع</span>
+                <span>{t("billingStatus")}</span>
                 <select
                   value={controlsValues.billingStatus}
                   onChange={(event) => updateControlsValue("billingStatus", event.target.value as BillingStatus)}
                 >
                   {billingStatuses.map((status) => (
                     <option value={status} key={status}>
-                      {billingStatusLabels[status]}
+                      {t(billingStatusLabelKeys[status])}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label>
-                <span>مستوى الدعم</span>
+                <span>{t("supportLevel")}</span>
                 <select
                   value={controlsValues.supportLevel}
                   onChange={(event) => updateControlsValue("supportLevel", event.target.value as SupportLevel)}
                 >
                   {supportLevels.map((level) => (
                     <option value={level} key={level}>
-                      {supportLevelLabels[level]}
+                      {t(supportLevelLabelKeys[level])}
                     </option>
                   ))}
                 </select>
               </label>
 
               <label>
-                <span>نهاية الاشتراك</span>
+                <span>{t("subscriptionEndsAt")}</span>
                 <input
                   type="datetime-local"
                   value={controlsValues.subscriptionEndsAt}
@@ -1395,7 +1375,7 @@ export default function AgencyDashboard() {
               </label>
 
               <label>
-                <span>نهاية التجربة</span>
+                <span>{t("trialEndsAt")}</span>
                 <input
                   type="datetime-local"
                   value={controlsValues.trialEndsAt}
@@ -1404,21 +1384,22 @@ export default function AgencyDashboard() {
               </label>
 
               <div className="agency-plan-summary admin-form-grid__wide">
-                <span>ميزات الباقة الحالية</span>
+                <span>{t("planFeatures")}</span>
                 <strong>{planDefinitions[controlsValues.plan].label}</strong>
                 <p>
-                  {Object.values(planDefinitions[controlsValues.plan].features).filter(Boolean).length} ميزات مفعلة من أصل{" "}
-                  {Object.values(planDefinitions[controlsValues.plan].features).length}.
+                  {t("enabledFeaturesCount")
+                    .replace("{enabled}", String(Object.values(planDefinitions[controlsValues.plan].features).filter(Boolean).length))
+                    .replace("{total}", String(Object.values(planDefinitions[controlsValues.plan].features).length))}
                 </p>
               </div>
             </div>
 
             <div className="admin-dish-form__actions">
               <AdminActionButton variant="ghost" onClick={closeControlsModal} disabled={isSavingControls}>
-                إلغاء
+                {t("cancel")}
               </AdminActionButton>
               <AdminActionButton variant="primary" type="submit" disabled={isSavingControls}>
-                {isSavingControls ? "جارٍ الحفظ..." : "حفظ"}
+                {isSavingControls ? t("saving") : t("save")}
               </AdminActionButton>
             </div>
           </form>

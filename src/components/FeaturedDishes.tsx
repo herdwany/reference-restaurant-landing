@@ -1,6 +1,7 @@
 import { useMemo, useState, type SyntheticEvent } from "react";
 import { ChevronLeft, ChevronRight, Minus, Plus, ShoppingCart, Star } from "lucide-react";
 import type { Dish, RestaurantConfig } from "../data/restaurantConfig";
+import { useI18n } from "../lib/i18n/I18nContext";
 import { formatPrice } from "../utils/formatters";
 import Modal from "./Modal";
 import SectionTitle from "./SectionTitle";
@@ -19,6 +20,7 @@ const getLoopedItems = <T,>(items: T[], start: number, count: number) => {
 };
 
 export default function FeaturedDishes({ config, onAddToCart }: FeaturedDishesProps) {
+  const { t } = useI18n();
   const [startIndex, setStartIndex] = useState(0);
   const [selectedDish, setSelectedDish] = useState<Dish | null>(null);
   const [quantity, setQuantity] = useState(1);
@@ -57,10 +59,10 @@ export default function FeaturedDishes({ config, onAddToCart }: FeaturedDishesPr
         <SectionTitle title={config.ui.sectionTitles.featuredDishes} />
 
         <div className="section-toolbar">
-          <button className="icon-button carousel-button" type="button" onClick={() => move("next")} aria-label="التالي">
+          <button className="icon-button carousel-button" type="button" onClick={() => move("next")} aria-label={t("next")}>
             <ChevronRight size={22} />
           </button>
-          <button className="icon-button carousel-button" type="button" onClick={() => move("prev")} aria-label="السابق">
+          <button className="icon-button carousel-button" type="button" onClick={() => move("prev")} aria-label={t("previous")}>
             <ChevronLeft size={22} />
           </button>
         </div>

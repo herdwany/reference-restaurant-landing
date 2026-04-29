@@ -1,6 +1,7 @@
 import { Eye } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { useI18n } from "../lib/i18n/I18nContext";
 import AdminErrorState from "./components/AdminErrorState";
 import { adminFeatureIcons } from "./adminFeatureIcons";
 import { adminMainFeatures } from "./adminFeatures";
@@ -10,18 +11,45 @@ import { useActiveRestaurantScope } from "./hooks/useActiveRestaurantScope";
 const overviewCards = adminMainFeatures.filter((feature) => feature.id !== "overview");
 
 export default function AdminOverview() {
+  const { t } = useI18n();
   const { currentUser, profile, role } = useAuth();
   const { activeRestaurantId, activeRestaurantName, activeRestaurantSlug, canAccessFeature, clientHasFeature, scopeError } =
     useActiveRestaurantScope();
-  const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
-  const displayEmail = profile?.email || currentUser?.email || "غير متوفر";
-  const roleLabel = getRoleLabel(role);
-  const restaurantName = activeRestaurantName || (activeRestaurantId ? "غير متاح" : "غير مرتبط");
+  const displayName = profile?.fullName || currentUser?.name || currentUser?.email || t("adminUser");
+  const displayEmail = profile?.email || currentUser?.email || t("notAvailable");
+  const roleLabel = getRoleLabel(role, t);
+  const restaurantName = activeRestaurantName || (activeRestaurantId ? t("notAvailable") : t("notLinked"));
+
+  const getFeatureLabel = (featureId: string, fallback: string) => {
+    if (featureId === "dishes") return t("dishes");
+    if (featureId === "offers") return t("offers");
+    if (featureId === "orders") return t("orders");
+    if (featureId === "reservations") return t("reservations");
+    if (featureId === "settings") return t("settings");
+    if (featureId === "faqs") return t("faqs");
+    if (featureId === "gallery") return t("galleryManager");
+    if (featureId === "activity") return t("activity");
+    if (featureId === "preview") return t("previewSite");
+    return fallback;
+  };
+
+  const getFeatureDescription = (featureId: string, fallback: string) => {
+    if (featureId === "dishes") return t("featureDishesDescription");
+    if (featureId === "offers") return t("featureOffersDescription");
+    if (featureId === "orders") return t("featureOrdersDescription");
+    if (featureId === "reservations") return t("featureReservationsDescription");
+    if (featureId === "settings") return t("featureSettingsDescription");
+    if (featureId === "faqs") return t("featureFaqsDescription");
+    if (featureId === "gallery") return t("featureGalleryDescription");
+    if (featureId === "activity") return t("featureActivityDescription");
+    if (featureId === "preview") return t("featurePreviewDescription");
+    return fallback;
+  };
 
   if (scopeError) {
     return (
       <section className="admin-overview">
-        <AdminErrorState title="لا يمكن فتح لوحة التحكم" message={scopeError} />
+        <AdminErrorState title={t("accessDenied")} message={scopeError} />
       </section>
     );
   }
@@ -30,31 +58,31 @@ export default function AdminOverview() {
     <section className="admin-overview">
       <div className="admin-overview__hero">
         <div>
-          <span>مرحبًا بك</span>
+          <span>{t("welcome")}</span>
           <h2>{displayName}</h2>
-          <p>تم تحميل هوية الحساب ونطاق المطعم من Appwrite. يمكنك الآن إدارة الأطباق والمنيو من لوحة التحكم.</p>
+          <p>{t("overviewDescription")}</p>
         </div>
         <Link className="admin-primary-link" to="/">
           <Eye size={19} aria-hidden="true" />
-          <span>معاينة الموقع</span>
+          <span>{t("previewSite")}</span>
         </Link>
       </div>
 
-      <div className="admin-identity-card" aria-label="بيانات الحساب">
+      <div className="admin-identity-card" aria-label={t("accountDetails")}>
         <div>
-          <span>اسم الحساب</span>
+          <span>{t("accountName")}</span>
           <strong>{displayName}</strong>
         </div>
         <div>
-          <span>البريد</span>
+          <span>{t("email")}</span>
           <strong>{displayEmail}</strong>
         </div>
         <div>
-          <span>الدور</span>
+          <span>{t("role")}</span>
           <strong>{roleLabel}</strong>
         </div>
         <div>
-          <span>المطعم</span>
+          <span>{t("restaurant")}</span>
           <strong>{restaurantName}</strong>
         </div>
         {activeRestaurantSlug ? (
@@ -79,20 +107,20 @@ export default function AdminOverview() {
           const canOpenFeature = feature.status === "active" && (hasPlanAccess || feature.allowWhenFeatureDisabled);
           const statusLabel =
             role === "agency_admin" && !clientFeatureEnabled
-              ? "غير مفعلة للعميل"
+              ? t("inactive")
               : hasPlanAccess
                 ? feature.status === "active"
-                  ? "متاح"
-                  : "قريبًا"
-                : "ترقية";
+                  ? t("available")
+                  : t("soon")
+                : t("upgradeRequired");
           const cardContent = (
             <>
               <div className="admin-placeholder-card__icon">
                 <Icon size={22} aria-hidden="true" />
               </div>
               <div>
-                <h3>{feature.label}</h3>
-                <p>{feature.description}</p>
+                <h3>{getFeatureLabel(feature.id, feature.label)}</h3>
+                <p>{getFeatureDescription(feature.id, feature.description)}</p>
               </div>
               <span>{statusLabel}</span>
             </>

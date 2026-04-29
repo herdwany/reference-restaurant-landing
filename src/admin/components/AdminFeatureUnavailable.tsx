@@ -11,8 +11,8 @@ export default function AdminFeatureUnavailable({ featureName }: AdminFeatureUna
 
   return (
     <AdminErrorState
-      title={`${t("featureUnavailable")} ${featureName}`}
-      message={t("featureUnavailable")}
+      title={featureName ? `${t("featureUnavailable")} ${featureName}` : t("featureUnavailable")}
+      message={t("planRestrictionMessage")}
       action={<LockKeyhole size={18} aria-hidden="true" />}
     />
   );

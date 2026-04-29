@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Star } from "lucide-react";
 import type { RestaurantConfig } from "../data/restaurantConfig";
+import { useI18n } from "../lib/i18n/I18nContext";
 import SectionTitle from "./SectionTitle";
 
 interface TestimonialsProps {
@@ -11,6 +12,7 @@ const getVisibleTestimonials = <T,>(items: T[], start: number, count: number) =>
   Array.from({ length: Math.min(count, items.length) }, (_, index) => items[(start + index) % items.length]);
 
 export default function Testimonials({ config }: TestimonialsProps) {
+  const { t } = useI18n();
   const [startIndex, setStartIndex] = useState(0);
   const testimonials = useMemo(
     () => getVisibleTestimonials(config.testimonials, startIndex, 3),
@@ -26,10 +28,10 @@ export default function Testimonials({ config }: TestimonialsProps) {
       <div className="container">
         <SectionTitle title={config.ui.sectionTitles.testimonials} />
         <div className="section-toolbar">
-          <button className="icon-button carousel-button" type="button" onClick={() => move(1)} aria-label="الرأي التالي">
+          <button className="icon-button carousel-button" type="button" onClick={() => move(1)} aria-label={t("next")}>
             <ChevronRight size={22} />
           </button>
-          <button className="icon-button carousel-button" type="button" onClick={() => move(-1)} aria-label="الرأي السابق">
+          <button className="icon-button carousel-button" type="button" onClick={() => move(-1)} aria-label={t("previous")}>
             <ChevronLeft size={22} />
           </button>
         </div>
@@ -37,7 +39,7 @@ export default function Testimonials({ config }: TestimonialsProps) {
         <div className="testimonials-grid" key={startIndex}>
           {testimonials.map((testimonial) => (
             <article className="testimonial-card" key={`${testimonial.name}-${testimonial.text}`}>
-              <div className="stars" aria-label={`${testimonial.rating} من 5`}>
+              <div className="stars" aria-label={t("ratingOutOfFive").replace("{rating}", String(testimonial.rating))}>
                 {Array.from({ length: testimonial.rating }).map((_, index) => (
                   <Star key={index} size={18} fill="currentColor" />
                 ))}

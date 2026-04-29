@@ -1,6 +1,5 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
-import { ADMIN_APPWRITE_REQUIRED_MESSAGE } from "../../services/authService";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../lib/i18n/I18nContext";
 
@@ -27,13 +26,14 @@ function AdminStatusMessage({ title, body, isLoading = false }: AdminStatusMessa
 
 export default function ProtectedAdminRoute() {
   const { adminAccessIssue, hasAdminAccess, isAuthConfigured, isAuthenticated, isLoading } = useAuth();
+  const { t } = useI18n();
   const location = useLocation();
 
   if (!isAuthConfigured) {
     return (
       <AdminStatusMessage
-        title={ADMIN_APPWRITE_REQUIRED_MESSAGE}
-        body="أضف متغيرات Appwrite في ملف البيئة ثم أعد تشغيل Vite لتفعيل الدخول إلى اللوحة."
+        title={t("appwriteSetupRequired")}
+        body={t("contactSupport")}
       />
     );
   }
@@ -41,8 +41,8 @@ export default function ProtectedAdminRoute() {
   if (isLoading) {
     return (
       <AdminStatusMessage
-        title="جاري التحقق من الجلسة"
-        body="نراجع حالة تسجيل الدخول وصلاحيات الحساب قبل فتح لوحة التحكم."
+        title={t("loading")}
+        body={t("loading")}
         isLoading
       />
     );
@@ -55,8 +55,8 @@ export default function ProtectedAdminRoute() {
   if (adminAccessIssue === "missing_profile") {
     return (
       <AdminStatusMessage
-        title="الحساب غير مرتبط"
-        body="تم تسجيل الدخول، لكن لم يتم ربط حسابك بأي موقع بعد. تواصل مع مدير النظام."
+        title={t("profileMissing")}
+        body={t("contactSupport")}
       />
     );
   }
@@ -64,22 +64,22 @@ export default function ProtectedAdminRoute() {
   if (adminAccessIssue === "inactive_profile") {
     return (
       <AdminStatusMessage
-        title="الحساب معطل"
-        body="تم تعطيل هذا الحساب. تواصل مع مدير النظام."
+        title={t("accountInactive")}
+        body={t("contactSupport")}
       />
     );
   }
 
   if (adminAccessIssue === "unknown_role") {
-    return <AdminStatusMessage title="صلاحية غير معروفة" body="صلاحية غير معروفة." />;
+    return <AdminStatusMessage title={t("accessDenied")} body={t("contactSupport")} />;
   }
 
   if (adminAccessIssue === "missing_restaurant") {
-    return <AdminStatusMessage title="المطعم غير مرتبط" body="لم يتم ربط هذا الحساب بمطعم." />;
+    return <AdminStatusMessage title={t("restaurantScopeMissing")} body={t("contactSupport")} />;
   }
 
   if (!hasAdminAccess) {
-    return <AdminStatusMessage title="تعذر فتح اللوحة" body="لا يملك هذا الحساب صلاحية دخول لوحة التحكم." />;
+    return <AdminStatusMessage title={t("accessDenied")} body={t("contactSupport")} />;
   }
 
   return <Outlet />;

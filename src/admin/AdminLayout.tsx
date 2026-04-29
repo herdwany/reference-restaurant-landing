@@ -8,7 +8,7 @@ import { useI18n } from "../lib/i18n/I18nContext";
 import { useActiveRestaurantScope } from "./hooks/useActiveRestaurantScope";
 
 export default function AdminLayout() {
-  const { direction } = useI18n();
+  const { direction, t } = useI18n();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { isAgencyAdmin } = useAuth();
   const { activeRestaurantId, scopeError } = useActiveRestaurantScope();
@@ -22,11 +22,11 @@ export default function AdminLayout() {
         <main className="admin-content">
           {shouldBlockForAgencySelection && scopeError ? (
             <AdminErrorState
-              title="اختر مطعمًا أولًا"
+              title={t("agencySelectionRequired")}
               message={scopeError}
               action={
                 <Link className="admin-primary-link" to="/agency">
-                  العودة إلى لوحة الوكالة
+                  {t("agencyDashboard")}
                 </Link>
               }
             />

@@ -9,6 +9,7 @@ import {
   type CreateReservationInput,
 } from "../services/repositories/reservationsRepository";
 import { canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "../lib/appwriteIds";
+import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
 import { createBookingMessage, createWhatsappUrl } from "../utils/formatters";
 import { hasValidationErrors, validateBookingForm } from "../utils/validators";
@@ -51,7 +52,10 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
   };
 
   const validate = () => {
-    const validationErrors = validateBookingForm(values);
+    const validationErrors = validateBookingForm(values, {
+      invalidValue: t("invalidValue"),
+      requiredField: t("requiredField"),
+    });
     setErrors(validationErrors);
 
     if (hasValidationErrors(validationErrors)) {
@@ -83,13 +87,7 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     );
   };
 
-  const getReservationErrorMessage = (error: unknown) => {
-    if (error instanceof ReservationsRepositoryError) {
-      return error.message;
-    }
-
-    return "تعذر حفظ الحجز في قاعدة البيانات. سيتم فتح واتساب كبديل إذا كان متاحًا.";
-  };
+  const getReservationErrorMessage = (error: unknown) => mapKnownErrorToFriendlyMessage(error, t);
 
   const toReservationInput = (booking: BookingFormData): CreateReservationInput => ({
     restaurantId: config.restaurant.id ?? "",
@@ -124,8 +122,8 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     if (!hasCreateReservationFunctionConfig && isProductionBuild) {
       onToast(
         reservationMode === "both"
-          ? "لم يتم تفعيل دالة إنشاء الحجوزات في الإنتاج. سيتم فتح واتساب كبديل."
-          : "لم يتم تفعيل دالة إنشاء الحجوزات في الإنتاج. لا يمكن حفظ الحجز الآن.",
+          ? t("appwriteSetupRequired")
+          : t("appwriteSetupRequired"),
         "error",
       );
       saveBooking(booking);
@@ -140,8 +138,8 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     if (!hasCreateReservationFunctionConfig && !config.restaurant.id) {
       onToast(
         reservationMode === "both"
-          ? "تعذر حفظ الحجز في Appwrite. سيتم فتح واتساب كبديل حتى لا تضيع البيانات."
-          : "تعذر حفظ الحجز في Appwrite.",
+          ? t("operationFailed")
+          : t("operationFailed"),
         "error",
       );
       saveBooking(booking);
@@ -165,7 +163,7 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
         createdTrackingCode = createdReservation.trackingCode;
       } else {
         if (!canUseDirectSensitiveTableFallback) {
-          throw new ReservationsRepositoryError("لا يمكن إنشاء الحجز مباشرة من المتصفح في بيئة الإنتاج.", "APPWRITE_NOT_CONFIGURED");
+          throw new ReservationsRepositoryError(t("appwriteSetupRequired"), "APPWRITE_NOT_CONFIGURED");
         }
 
         if (isDevelopmentBuild) {
@@ -188,6 +186,9 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
         openWhatsappBooking(booking);
       }
     } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn(error);
+      }
       saveBooking(booking);
       onToast(getReservationErrorMessage(error), "error");
 
@@ -313,7 +314,7 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
           </div>
         ) : null}
         <button className="primary-button primary-button--wide" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "جارٍ إرسال الحجز..." : config.ui.booking.submit}
+          {isSubmitting ? t("reservationSubmitting") : config.ui.booking.submit}
         </button>
         <button className="secondary-whatsapp-button" type="button" onClick={sendToWhatsapp} disabled={isSubmitting}>
           <MessageCircle size={19} />

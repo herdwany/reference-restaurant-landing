@@ -1,8 +1,8 @@
 import { FormEvent, useMemo, useState } from "react";
 import { MessageCircle, Search } from "lucide-react";
+import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
 import {
-  TrackingRepositoryError,
   hasTrackRequestFunctionConfig,
   trackRequest,
   type TrackRequestResult,
@@ -35,6 +35,12 @@ const reservationStatusKeys: Record<string, Parameters<ReturnType<typeof useI18n
   no_show: "reservationStatusNoShow",
   cancelled: "reservationStatusCancelled",
   rejected: "reservationStatusRejected",
+};
+
+const depositStatusKeys: Record<string, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+  none: "depositStatusNone",
+  paid: "depositStatusPaid",
+  required: "depositStatusRequired",
 };
 
 const formatDate = (value: string | null | undefined, language: string) => {
@@ -100,7 +106,10 @@ export default function TrackingPage({ restaurantSlug }: TrackingPageProps) {
         setErrorMessage(t("resultNotFound"));
       }
     } catch (error) {
-      setErrorMessage(error instanceof TrackingRepositoryError ? error.message : t("resultNotFound"));
+      if (import.meta.env.DEV) {
+        console.warn(error);
+      }
+      setErrorMessage(mapKnownErrorToFriendlyMessage(error, t));
     } finally {
       setIsSubmitting(false);
     }
@@ -129,12 +138,14 @@ export default function TrackingPage({ restaurantSlug }: TrackingPageProps) {
         </div>
 
         {!hasTrackRequestFunctionConfig ? (
-          <div className="tracking-alert">لم يتم تفعيل دالة التتبع بعد.</div>
+          <div className="tracking-alert">
+            {import.meta.env.DEV ? t("trackingUnavailableDevelopment") : t("trackingUnavailablePublic")}
+          </div>
         ) : null}
 
         <form className="tracking-form" onSubmit={submit}>
           <label>
-            <span>{t("phone")}</span>
+            <span>{t("trackingPhone")}</span>
             <input value={phone} onChange={(event) => setPhone(event.target.value)} inputMode="tel" />
           </label>
           <label>
@@ -151,7 +162,7 @@ export default function TrackingPage({ restaurantSlug }: TrackingPageProps) {
           </label>
           <button className="primary-button primary-button--wide" type="submit" disabled={isSubmitting || !hasTrackRequestFunctionConfig}>
             <Search size={18} />
-            {isSubmitting ? t("loadingSite") : t("search")}
+            {isSubmitting ? t("loading") : t("trackButton")}
           </button>
         </form>
 
@@ -177,12 +188,14 @@ export default function TrackingPage({ restaurantSlug }: TrackingPageProps) {
               <>
                 <div>
                   <span>{t("summary")}</span>
-                  <strong>{tracked.itemCount ?? 0} items</strong>
+                  <strong>
+                    {tracked.itemCount ?? 0} {t("items")}
+                  </strong>
                 </div>
                 {typeof tracked.totalAmount === "number" ? (
                   <div>
-                    <span>Total</span>
-                    <strong>{formatPrice(tracked.totalAmount, "د.م")}</strong>
+                    <span>{t("total")}</span>
+                    <strong>{formatPrice(tracked.totalAmount, "MAD")}</strong>
                   </div>
                 ) : null}
               </>
@@ -195,15 +208,15 @@ export default function TrackingPage({ restaurantSlug }: TrackingPageProps) {
                   </strong>
                 </div>
                 <div>
-                  <span>{t("summary")}</span>
-                  <strong>{tracked.peopleCount} guests</strong>
+                  <span>{t("peopleCount")}</span>
+                  <strong>{tracked.peopleCount}</strong>
                 </div>
                 {tracked.depositStatus && tracked.depositStatus !== "none" ? (
                   <div>
-                    <span>Deposit</span>
+                    <span>{t("deposit")}</span>
                     <strong>
-                      {tracked.depositStatus}
-                      {tracked.depositAmount ? ` - ${tracked.depositAmount} د.م` : ""}
+                      {depositStatusKeys[tracked.depositStatus] ? t(depositStatusKeys[tracked.depositStatus]) : tracked.depositStatus}
+                      {tracked.depositAmount ? ` - ${formatPrice(tracked.depositAmount, "MAD")}` : ""}
                     </strong>
                   </div>
                 ) : null}

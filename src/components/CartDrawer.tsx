@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react";
 import type { CartItem, RestaurantConfig } from "../data/restaurantConfig";
+import { useI18n } from "../lib/i18n/I18nContext";
 import { formatPrice, getCartSubtotal } from "../utils/formatters";
 
 export type CheckoutCustomerDetails = {
@@ -49,15 +50,16 @@ export default function CartDrawer({
   onRemove,
   onCheckout,
 }: CartDrawerProps) {
+  const { t } = useI18n();
   const [formValues, setFormValues] = useState<CheckoutFormValues>(emptyCheckoutFormValues);
   const [formErrors, setFormErrors] = useState<CheckoutFormErrors>({});
   const subtotal = getCartSubtotal(items);
   const total = subtotal + config.restaurant.deliveryFee;
   const checkoutLabel =
     config.settings.orderMode === "database"
-      ? "إرسال الطلب"
+      ? t("sendOrder")
       : config.settings.orderMode === "both"
-        ? "إرسال الطلب وفتح واتساب"
+        ? t("sendOrderAndWhatsapp")
         : config.ui.cart.checkoutWhatsapp;
 
   useEffect(() => {
@@ -88,11 +90,11 @@ export default function CartDrawer({
     const errors: CheckoutFormErrors = {};
 
     if (!formValues.customerName.trim()) {
-      errors.customerName = "اسم العميل مطلوب";
+      errors.customerName = t("requiredField");
     }
 
     if (!formValues.customerPhone.trim()) {
-      errors.customerPhone = "رقم الهاتف مطلوب";
+      errors.customerPhone = t("requiredField");
     }
 
     setFormErrors(errors);
@@ -147,16 +149,16 @@ export default function CartDrawer({
                     <h4>{item.name}</h4>
                     <strong>{formatPrice(item.price, config.restaurant.currency)}</strong>
                     <div className="quantity-control quantity-control--sm">
-                      <button type="button" onClick={() => onDecrement(item.id)} aria-label="تقليل الكمية">
+                      <button type="button" onClick={() => onDecrement(item.id)} aria-label={t("decreaseQuantity")}>
                         <Minus size={16} />
                       </button>
                       <span>{item.quantity}</span>
-                      <button type="button" onClick={() => onIncrement(item.id)} aria-label="زيادة الكمية">
+                      <button type="button" onClick={() => onIncrement(item.id)} aria-label={t("increaseQuantity")}>
                         <Plus size={16} />
                       </button>
                     </div>
                   </div>
-                  <button className="cart-item__remove" type="button" onClick={() => onRemove(item.id)} aria-label="حذف العنصر">
+                  <button className="cart-item__remove" type="button" onClick={() => onRemove(item.id)} aria-label={t("removeItem")}>
                     <Trash2 size={18} />
                   </button>
                 </article>
@@ -179,7 +181,7 @@ export default function CartDrawer({
               <p>{config.ui.cart.customerLocationHint}</p>
               <form className="cart-checkout-form" onSubmit={handleSubmit} noValidate>
                 <label>
-                  <span>اسم العميل</span>
+                  <span>{t("customerName")}</span>
                   <input
                     value={formValues.customerName}
                     onChange={(event) => updateFormValue("customerName", event.target.value)}
@@ -189,7 +191,7 @@ export default function CartDrawer({
                   {formErrors.customerName ? <small>{formErrors.customerName}</small> : null}
                 </label>
                 <label>
-                  <span>رقم الهاتف</span>
+                  <span>{t("customerPhone")}</span>
                   <input
                     value={formValues.customerPhone}
                     onChange={(event) => updateFormValue("customerPhone", event.target.value)}
@@ -200,7 +202,7 @@ export default function CartDrawer({
                   {formErrors.customerPhone ? <small>{formErrors.customerPhone}</small> : null}
                 </label>
                 <label>
-                  <span>العنوان</span>
+                  <span>{t("customerAddress")}</span>
                   <input
                     value={formValues.customerAddress}
                     onChange={(event) => updateFormValue("customerAddress", event.target.value)}
@@ -208,11 +210,11 @@ export default function CartDrawer({
                   />
                 </label>
                 <label>
-                  <span>ملاحظات</span>
+                  <span>{t("notes")}</span>
                   <textarea value={formValues.notes} onChange={(event) => updateFormValue("notes", event.target.value)} rows={2} />
                 </label>
                 <button className="primary-button primary-button--wide" type="submit" disabled={isCheckingOut}>
-                  {isCheckingOut ? "جاري إتمام الطلب..." : checkoutLabel}
+                  {isCheckingOut ? t("orderSubmitting") : checkoutLabel}
                 </button>
               </form>
             </div>

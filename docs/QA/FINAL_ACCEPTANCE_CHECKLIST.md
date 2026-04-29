@@ -55,6 +55,17 @@
 - [ ] Verify owner/staff are blocked from `/agency`.
 - [ ] Verify `selectedRestaurantId` affects only `agency_admin`, not owner/staff.
 
+## UX Copy and i18n
+
+- [ ] Switch language inside `/admin` and verify sidebar/topbar labels update.
+- [ ] Switch language inside `/agency` and verify filters, cards, and modals update.
+- [ ] Verify no Arabic static labels appear in admin when `en` or `fr` is selected, except customer-authored content.
+- [ ] Verify no Arabic static labels appear in agency when `en` or `fr` is selected, except customer-authored content.
+- [ ] Verify public tracking, cart, and booking labels use the selected language.
+- [ ] Verify error messages are practical and non-technical.
+- [ ] Verify success messages are clear.
+- [ ] Verify feature-gating messages explain that the feature is unavailable or requires an upgrade.
+
 ## Security
 
 - [ ] Confirm no API keys exist in frontend source or Vite public env.

@@ -2,31 +2,41 @@ import type { BookingFormData } from "../data/restaurantConfig";
 
 export type BookingErrors = Partial<Record<keyof BookingFormData, string>>;
 
-export const validateBookingForm = (values: BookingFormData): BookingErrors => {
+type BookingValidationMessages = {
+  invalidValue: string;
+  requiredField: string;
+};
+
+const defaultMessages: BookingValidationMessages = {
+  invalidValue: "Invalid value.",
+  requiredField: "This field is required.",
+};
+
+export const validateBookingForm = (values: BookingFormData, messages: BookingValidationMessages = defaultMessages): BookingErrors => {
   const errors: BookingErrors = {};
 
   if (!values.fullName.trim()) {
-    errors.fullName = "يرجى إدخال الاسم الكامل.";
+    errors.fullName = messages.requiredField;
   }
 
   if (!values.phone.trim()) {
-    errors.phone = "يرجى إدخال رقم الجوال.";
+    errors.phone = messages.requiredField;
   } else if (!/^[\d\s()+-]{8,18}$/.test(values.phone.trim())) {
-    errors.phone = "رقم الجوال غير صحيح.";
+    errors.phone = messages.invalidValue;
   }
 
   if (!values.date) {
-    errors.date = "يرجى اختيار التاريخ.";
+    errors.date = messages.requiredField;
   }
 
   if (!values.time) {
-    errors.time = "يرجى اختيار الوقت.";
+    errors.time = messages.requiredField;
   }
 
   if (!values.guests) {
-    errors.guests = "يرجى إدخال عدد الأشخاص.";
+    errors.guests = messages.requiredField;
   } else if (Number(values.guests) < 1) {
-    errors.guests = "عدد الأشخاص يجب أن يكون 1 أو أكثر.";
+    errors.guests = messages.invalidValue;
   }
 
   return errors;

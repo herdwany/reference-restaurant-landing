@@ -1,5 +1,6 @@
 import { X } from "lucide-react";
 import { useEffect, type ReactNode } from "react";
+import { useI18n } from "../../lib/i18n/I18nContext";
 
 type AdminFormModalProps = {
   children: ReactNode;
@@ -18,6 +19,8 @@ export default function AdminFormModal({
   size = "md",
   title,
 }: AdminFormModalProps) {
+  const { t } = useI18n();
+
   useEffect(() => {
     if (!isOpen) {
       return undefined;
@@ -60,7 +63,7 @@ export default function AdminFormModal({
             <h2>{title}</h2>
             {description ? <p>{description}</p> : null}
           </div>
-          <button className="admin-modal__close" type="button" aria-label="إغلاق" onClick={onClose}>
+          <button className="admin-modal__close" type="button" aria-label={t("close")} onClick={onClose}>
             <X size={20} aria-hidden="true" />
           </button>
         </div>

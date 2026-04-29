@@ -12,9 +12,9 @@ import AdminPageHeader from "../components/AdminPageHeader";
 import AdminStatusBadge from "../components/AdminStatusBadge";
 import { useActiveRestaurantScope } from "../hooks/useActiveRestaurantScope";
 import { useAuditLogger } from "../hooks/useAuditLogger";
+import { mapKnownErrorToFriendlyMessage } from "../../lib/friendlyErrors";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import {
-  OrdersRepositoryError,
   archiveOrder,
   getArchivedOrdersByRestaurant,
   getOrderItems,
@@ -32,7 +32,7 @@ type OrderFilter = OrderStatus | "all";
 type OrderView = "current" | "terminal" | "archive";
 type StatusTone = "success" | "warning" | "neutral" | "danger";
 
-const adminCurrency = "ر.س";
+const adminCurrency = "MAD";
 const orderStatuses = [
   "new",
   "confirmed",
@@ -49,10 +49,10 @@ const defaultOrderArchivePreferences = {
   hideCompletedOrdersFromMainList: true,
   hideCancelledOrdersFromMainList: true,
 };
-const orderViewLabels: Record<OrderView, string> = {
-  current: "الطلبات الحالية",
-  terminal: "المكتملة/الملغاة",
-  archive: "الأرشيف",
+const orderViewLabelKeys: Record<OrderView, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
+  current: "currentOrders",
+  terminal: "finishedOrders",
+  archive: "archivedOrders",
 };
 
 const statusLabelKeys: Record<OrderStatus, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
@@ -77,28 +77,22 @@ const statusTones: Record<OrderStatus, StatusTone> = {
   rejected: "danger",
 };
 
-const getErrorMessage = (error: unknown) => {
-  if (error instanceof OrdersRepositoryError) {
-    return error.message;
-  }
-
-  return "تعذر تنفيذ العملية. تحقق من الاتصال أو صلاحيات Appwrite.";
-};
+const getErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"]) => mapKnownErrorToFriendlyMessage(error, t);
 
 const formatOrderId = (orderId: string) => `#${orderId.slice(-6).toUpperCase()}`;
 
-const formatDate = (value: string | undefined) => {
+const formatDate = (value: string | undefined, language: string, fallback: string) => {
   if (!value) {
-    return "غير متوفر";
+    return fallback;
   }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "غير متوفر";
+    return fallback;
   }
 
-  return new Intl.DateTimeFormat("ar", {
+  return new Intl.DateTimeFormat(language, {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
@@ -107,7 +101,7 @@ const formatDate = (value: string | undefined) => {
 const getItemsQuantity = (items: readonly OrderItem[]) => items.reduce((total, item) => total + item.quantity, 0);
 
 export default function AdminOrders() {
-  const { t } = useI18n();
+  const { currentLanguage, t } = useI18n();
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -214,11 +208,11 @@ export default function AdminOrders() {
       });
       setItemCounts(Object.fromEntries(itemCountPairs));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseOrders, orderView]);
+  }, [activeRestaurantId, canUseOrders, orderView, t]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseOrders || !activeRestaurantId) {
@@ -232,12 +226,12 @@ export default function AdminOrders() {
 
   const loadOrderDetails = async (order: Order) => {
     if (!canUseOrders) {
-      setPageError("هذه الميزة غير متاحة في باقتك الحالية. تواصل مع Pixel One لتفعيل هذه الميزة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -251,7 +245,7 @@ export default function AdminOrders() {
       setOrderDetails(details);
       setItemCounts((current) => ({ ...current, [order.id]: getItemsQuantity(details.items) }));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
       setSelectedOrderId(null);
     } finally {
       setIsDetailsLoading(false);
@@ -260,12 +254,12 @@ export default function AdminOrders() {
 
   const handleStatusChange = async (order: Order, status: OrderStatus) => {
     if (order.isArchived) {
-      setPageError("لا يمكن تغيير حالة طلب مؤرشف. استعده أولًا.");
+      setPageError(t("cannotChangeArchivedOrder"));
       return;
     }
 
     if (!canUseOrders) {
-      setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
+      setPageError(t("featureUnavailable"));
       return;
     }
 
@@ -274,7 +268,7 @@ export default function AdminOrders() {
     }
 
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -296,9 +290,9 @@ export default function AdminOrders() {
           toStatus: updatedOrder.status,
         },
       });
-      setSuccessMessage("تم تحديث حالة الطلب بنجاح.");
+      setSuccessMessage(t("orderStatusUpdatedSuccess"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyOrderId(null);
     }
@@ -327,10 +321,10 @@ export default function AdminOrders() {
           status: archivedOrder.status,
         },
       });
-      setSuccessMessage("تم نقل الطلب إلى الأرشيف بنجاح.");
+      setSuccessMessage(t("orderArchivedSuccess"));
       setPendingArchiveOrder(null);
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyOrderId(null);
     }
@@ -338,7 +332,7 @@ export default function AdminOrders() {
 
   const handleRestoreOrder = async (order: Order) => {
     if (!activeRestaurantId) {
-      setPageError("تعذر تحديد المطعم الحالي.");
+      setPageError(t("restaurantScopeMissing"));
       return;
     }
 
@@ -361,22 +355,22 @@ export default function AdminOrders() {
           status: restoredOrder.status,
         },
       });
-      setSuccessMessage("تمت استعادة الطلب بنجاح.");
+      setSuccessMessage(t("orderRestoredSuccess"));
     } catch (error) {
-      setPageError(getErrorMessage(error));
+      setPageError(getErrorMessage(error, t));
     } finally {
       setBusyOrderId(null);
     }
   };
 
   const openWhatsappReply = (order: Order) => {
-    const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
+    const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || t("restaurantFallbackName");
     const trackUrl = activeRestaurantSlug ? `${window.location.origin}/r/${activeRestaurantSlug}/track` : "";
     const message = [
-      `مرحبًا ${order.customerName}، بخصوص طلبك من ${restaurantName}.`,
-      `حالة الطلب الآن: ${t(statusLabelKeys[order.status])}.`,
-      order.trackingCode ? `رمز التتبع: ${order.trackingCode}` : null,
-      trackUrl ? `رابط التتبع: ${trackUrl}` : null,
+      t("whatsappOrderGreeting").replace("{customerName}", order.customerName).replace("{restaurantName}", restaurantName),
+      t("whatsappStatusLine").replace("{status}", t(statusLabelKeys[order.status])),
+      order.trackingCode ? t("whatsappTrackingCodeLine").replace("{trackingCode}", order.trackingCode) : null,
+      trackUrl ? t("whatsappTrackingLinkLine").replace("{trackUrl}", trackUrl) : null,
     ]
       .filter(Boolean)
       .join("\n");
@@ -409,28 +403,28 @@ export default function AdminOrders() {
           <strong>{order.trackingCode || formatOrderId(order.id)}</strong>
         </div>
         <div>
-          <span>الهاتف</span>
+          <span>{t("customerPhone")}</span>
           <strong>{order.customerPhone}</strong>
         </div>
         <div>
-          <span>الإجمالي</span>
+          <span>{t("total")}</span>
           <strong>{formatPrice(order.totalAmount, adminCurrency)}</strong>
         </div>
         <div>
-          <span>المنتجات</span>
+          <span>{t("products")}</span>
           <strong>{itemCounts[order.id] ?? 0}</strong>
         </div>
         <div>
-          <span>تاريخ الإنشاء</span>
-          <strong>{formatDate(order.createdAt)}</strong>
+          <span>{t("createdAt")}</span>
+          <strong>{formatDate(order.createdAt, currentLanguage, t("notAvailable"))}</strong>
         </div>
       </div>
 
       {isArchiveView ? (
-        <div className="admin-feedback admin-feedback--warning">هذا الطلب مؤرشف، لذلك لا يمكن تغيير حالته قبل استعادته.</div>
+        <div className="admin-feedback admin-feedback--warning">{t("cannotChangeArchivedOrder")}</div>
       ) : (
         <label className="admin-order-card__status">
-          <span>تغيير الحالة</span>
+          <span>{t("changeStatus")}</span>
           <select
             value={order.status}
             onChange={(event) => void handleStatusChange(order, event.target.value as OrderStatus)}
@@ -447,7 +441,7 @@ export default function AdminOrders() {
 
       <div className="admin-order-card__actions">
         <AdminActionButton variant="secondary" icon={<Eye size={17} aria-hidden="true" />} onClick={() => void loadOrderDetails(order)}>
-          عرض التفاصيل
+          {t("view")}
         </AdminActionButton>
         {isArchiveView ? (
           canUseManualArchiveActions ? (
@@ -457,13 +451,13 @@ export default function AdminOrders() {
               onClick={() => void handleRestoreOrder(order)}
               disabled={busyOrderId === order.id}
             >
-              استعادة
+              {t("restore")}
             </AdminActionButton>
           ) : null
         ) : (
           <>
             <AdminActionButton variant="primary" icon={<MessageCircle size={17} aria-hidden="true" />} onClick={() => openWhatsappReply(order)}>
-              الرد عبر واتساب
+              {t("replyWhatsapp")}
             </AdminActionButton>
             {canUseManualArchiveActions && canArchiveOrderRecord(order) ? (
               <AdminActionButton
@@ -472,7 +466,7 @@ export default function AdminOrders() {
                 onClick={() => setPendingArchiveOrder(order)}
                 disabled={busyOrderId === order.id}
               >
-                أرشفة
+                {t("archive")}
               </AdminActionButton>
             ) : null}
           </>
@@ -483,15 +477,15 @@ export default function AdminOrders() {
 
   const renderContent = () => {
     if (scopeError) {
-      return <AdminErrorState title="لا يمكن فتح الطلبات" message={scopeError} />;
+      return <AdminErrorState title={t("ordersTitle")} message={scopeError} />;
     }
 
     if (!canUseOrders) {
-      return <AdminFeatureUnavailable featureName="الطلبات" />;
+      return <AdminFeatureUnavailable featureName={t("orders")} />;
     }
 
     if (isLoading) {
-      return <AdminLoadingState label="جارٍ تحميل الطلبات..." />;
+      return <AdminLoadingState label={t("loading")} />;
     }
 
     if (pageError) {
@@ -500,7 +494,7 @@ export default function AdminOrders() {
           message={pageError}
           action={
             <AdminActionButton variant="secondary" icon={<RefreshCw size={18} aria-hidden="true" />} onClick={() => void loadOrders()}>
-              إعادة المحاولة
+              {t("tryAgain")}
             </AdminActionButton>
           }
         />
@@ -511,8 +505,8 @@ export default function AdminOrders() {
       return (
         <AdminEmptyState
           icon={<ShoppingBag size={30} aria-hidden="true" />}
-          title="لا توجد طلبات بعد"
-          body="ستظهر الطلبات الواردة من الموقع هنا بعد إتمام العميل للطلب."
+          title={t("noOrdersYet")}
+          body={t("noData")}
         />
       );
     }
@@ -521,8 +515,8 @@ export default function AdminOrders() {
       return (
         <AdminEmptyState
           icon={<ShoppingBag size={30} aria-hidden="true" />}
-          title="لا توجد طلبات بهذه الحالة"
-          body="غيّر الفلتر لعرض حالات أخرى."
+          title={t("noOrdersForFilter")}
+          body={t("noData")}
         />
       );
     }
@@ -534,8 +528,8 @@ export default function AdminOrders() {
     <section className="admin-orders-page">
       <AdminPageHeader
         eyebrow={activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name}
-        title="الطلبات"
-        description="تابع الطلبات الواردة من موقع مطعمك."
+        title={t("ordersTitle")}
+        description={t("ordersDescription")}
         actions={
           canManageRestaurantContent && canUseOrders ? (
             <AdminActionButton
@@ -544,7 +538,7 @@ export default function AdminOrders() {
               onClick={() => void loadOrders()}
               disabled={isLoading}
             >
-              تحديث الطلبات
+              {t("refresh")}
             </AdminActionButton>
           ) : null
         }
@@ -552,17 +546,17 @@ export default function AdminOrders() {
 
       {canManageRestaurantContent && canUseOrders ? (
         <>
-          <div className="admin-orders-stats" aria-label="ملخص الطلبات">
+          <div className="admin-orders-stats" aria-label={t("ordersTitle")}>
             <div>
-              <span>جديد</span>
+              <span>{t("orderStatusNew")}</span>
               <strong>{stats.new}</strong>
             </div>
             <div>
-              <span>قيد التحضير</span>
+              <span>{t("orderStatusPreparing")}</span>
               <strong>{stats.preparing}</strong>
             </div>
             <div>
-              <span>جاهز</span>
+              <span>{t("orderStatusReady")}</span>
               <strong>{stats.ready}</strong>
             </div>
             <div>
@@ -571,7 +565,7 @@ export default function AdminOrders() {
             </div>
           </div>
 
-          <div className="admin-orders-filters" aria-label="عرض الطلبات">
+          <div className="admin-orders-filters" aria-label={t("ordersTitle")}>
             {(["current", "terminal", "archive"] as const).map((view) => (
               <button
                 className={view === orderView ? "is-active" : ""}
@@ -582,12 +576,12 @@ export default function AdminOrders() {
                 }}
                 key={view}
               >
-                {orderViewLabels[view]}
+                {t(orderViewLabelKeys[view])}
               </button>
             ))}
           </div>
 
-          <div className="admin-orders-filters" aria-label="تصفية الطلبات حسب الحالة">
+          <div className="admin-orders-filters" aria-label={t("changeStatus")}>
             {(["all", ...orderStatuses] as const).map((filter) => (
               <button
                 className={filter === statusFilter ? "is-active" : ""}
@@ -608,22 +602,22 @@ export default function AdminOrders() {
 
       <AdminFormModal
         isOpen={Boolean(selectedOrderId)}
-        title={selectedOrder ? `تفاصيل الطلب ${formatOrderId(selectedOrder.id)}` : "تفاصيل الطلب"}
-        description="معلومات العميل والمنتجات وحالة الطلب."
+        title={selectedOrder ? `${t("orderDetails")} ${formatOrderId(selectedOrder.id)}` : t("orderDetails")}
+        description={t("ordersDescription")}
         onClose={closeDetails}
         size="lg"
       >
-        {isDetailsLoading ? <AdminLoadingState label="جارٍ تحميل تفاصيل الطلب..." /> : null}
+        {isDetailsLoading ? <AdminLoadingState label={t("loading")} /> : null}
 
         {!isDetailsLoading && orderDetails ? (
           <div className="admin-order-details">
             <div className="admin-order-details__grid">
               <div>
-                <span>العميل</span>
+                <span>{t("customer")}</span>
                 <strong>{orderDetails.order.customerName}</strong>
               </div>
               <div>
-                <span>الهاتف</span>
+                <span>{t("customerPhone")}</span>
                 <strong>{orderDetails.order.customerPhone}</strong>
               </div>
               <div>
@@ -631,11 +625,11 @@ export default function AdminOrders() {
                 <strong>{orderDetails.order.trackingCode || formatOrderId(orderDetails.order.id)}</strong>
               </div>
               <div>
-                <span>العنوان</span>
-                <strong>{orderDetails.order.customerAddress || "غير متوفر"}</strong>
+                <span>{t("customerAddress")}</span>
+                <strong>{orderDetails.order.customerAddress || t("notAvailable")}</strong>
               </div>
               <div>
-                <span>الحالة</span>
+                <span>{t("status")}</span>
                 <AdminStatusBadge tone={statusTones[orderDetails.order.status]}>
                   {t(statusLabelKeys[orderDetails.order.status])}
                 </AdminStatusBadge>
@@ -644,18 +638,20 @@ export default function AdminOrders() {
 
             {orderDetails.order.notes ? (
               <div className="admin-order-details__notes">
-                <span>الملاحظات</span>
+                <span>{t("notes")}</span>
                 <p>{orderDetails.order.notes}</p>
               </div>
             ) : null}
 
             <div className="admin-order-details__items">
-              <h3>المنتجات</h3>
+              <h3>{t("products")}</h3>
               {orderDetails.items.map((item) => (
                 <div className="admin-order-details__item" key={item.id}>
                   <div>
                     <strong>{item.dishName}</strong>
-                    <span>الكمية: {item.quantity}</span>
+                    <span>
+                      {t("quantity")}: {item.quantity}
+                    </span>
                   </div>
                   <div>
                     <span>{formatPrice(item.unitPrice, adminCurrency)}</span>
@@ -666,12 +662,12 @@ export default function AdminOrders() {
             </div>
 
             <div className="admin-order-details__total">
-              <span>الإجمالي</span>
+              <span>{t("total")}</span>
               <strong>{formatPrice(orderDetails.order.totalAmount, adminCurrency)}</strong>
             </div>
 
             {orderDetails.order.isArchived ? (
-              <div className="admin-feedback admin-feedback--warning">لا يمكن تغيير حالة طلب داخل الأرشيف. استعد الطلب أولًا ثم عدّل حالته.</div>
+              <div className="admin-feedback admin-feedback--warning">{t("cannotChangeArchivedOrder")}</div>
             ) : (
               <div className="admin-order-status-actions">
                 {orderStatuses.map((status) => (
@@ -696,7 +692,7 @@ export default function AdminOrders() {
                     onClick={() => void handleRestoreOrder(orderDetails.order)}
                     disabled={busyOrderId === orderDetails.order.id}
                   >
-                    استعادة
+                    {t("restore")}
                   </AdminActionButton>
                 ) : null
               ) : (
@@ -706,7 +702,7 @@ export default function AdminOrders() {
                     icon={<MessageCircle size={17} aria-hidden="true" />}
                     onClick={() => openWhatsappReply(orderDetails.order)}
                   >
-                    الرد عبر واتساب
+                    {t("replyWhatsapp")}
                   </AdminActionButton>
                   {canUseManualArchiveActions && canArchiveOrderRecord(orderDetails.order) ? (
                     <AdminActionButton
@@ -715,7 +711,7 @@ export default function AdminOrders() {
                       onClick={() => setPendingArchiveOrder(orderDetails.order)}
                       disabled={busyOrderId === orderDetails.order.id}
                     >
-                      أرشفة
+                      {t("archive")}
                     </AdminActionButton>
                   ) : null}
                 </>
@@ -727,9 +723,9 @@ export default function AdminOrders() {
 
       <AdminConfirmDialog
         isOpen={Boolean(pendingArchiveOrder)}
-        title="أرشفة الطلب"
-        message="لن يتم حذف الطلب. سيتم نقله إلى الأرشيف ويمكن استعادته لاحقًا."
-        confirmLabel="أرشفة"
+        title={t("archiveOrder")}
+        message={t("thisWillNotDeleteData")}
+        confirmLabel={t("archive")}
         isSubmitting={Boolean(pendingArchiveOrder && busyOrderId === pendingArchiveOrder.id)}
         onCancel={() => {
           if (!busyOrderId) {

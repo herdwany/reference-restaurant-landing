@@ -21,7 +21,7 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
   const activeFeature = getAdminFeatureForPath(location.pathname);
   const activeFeatureLabel =
     activeFeature.id === "overview"
-      ? t("dashboard")
+      ? t("overview")
       : activeFeature.id === "dishes"
         ? t("dishes")
         : activeFeature.id === "offers"
@@ -32,13 +32,15 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
               ? t("reservations")
               : activeFeature.id === "settings"
                 ? t("settings")
-                : activeFeature.id === "gallery"
-                  ? t("galleryManager")
-                  : activeFeature.id === "activity"
-                    ? t("activity")
-                    : activeFeature.label;
-  const displayName = profile?.fullName || currentUser?.name || currentUser?.email || "مستخدم اللوحة";
-  const roleLabel = getRoleLabel(role);
+                : activeFeature.id === "faqs"
+                  ? t("faqs")
+                  : activeFeature.id === "gallery"
+                    ? t("galleryManager")
+                    : activeFeature.id === "activity"
+                      ? t("activity")
+                      : activeFeature.label;
+  const displayName = profile?.fullName || currentUser?.name || currentUser?.email || t("adminUser");
+  const roleLabel = getRoleLabel(role, t);
   const showAgencyMode = isAgencyAdmin && Boolean(activeRestaurantId);
 
   const clearAgencySelection = () => {
@@ -61,17 +63,19 @@ export default function AdminTopbar({ onMenuClick }: AdminTopbarProps) {
       <div className="admin-topbar__actions">
         {showAgencyMode ? (
           <div className="admin-agency-mode" title={activeRestaurantSlug ?? undefined}>
-            <span className="admin-agency-mode__text">وضع الوكالة: تدير الآن {activeRestaurantName}</span>
+            <span className="admin-agency-mode__text">
+              {t("agencyModeManaging").replace("{name}", activeRestaurantName ?? t("notAvailable"))}
+            </span>
             <Link className="admin-icon-link" to="/agency">
-              تغيير المطعم
+              {t("changeRestaurant")}
             </Link>
             <button className="admin-icon-link" type="button" onClick={clearAgencySelection}>
-              إلغاء الاختيار
+              {t("clearSelection")}
             </button>
           </div>
         ) : null}
         {isAgencyAdmin ? (
-          <Link className="admin-icon-link" to="/agency" aria-label="لوحة الوكالة">
+          <Link className="admin-icon-link" to="/agency" aria-label={t("agencyDashboard")}>
             <Building2 size={19} aria-hidden="true" />
             <span>{t("agencyDashboard")}</span>
           </Link>

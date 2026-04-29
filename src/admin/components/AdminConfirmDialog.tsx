@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react";
+import { useI18n } from "../../lib/i18n/I18nContext";
 import AdminActionButton from "./AdminActionButton";
 import AdminFormModal from "./AdminFormModal";
 
@@ -15,7 +16,7 @@ type AdminConfirmDialogProps = {
 };
 
 export default function AdminConfirmDialog({
-  cancelLabel = "إلغاء",
+  cancelLabel,
   confirmLabel,
   isDanger = false,
   isOpen,
@@ -25,6 +26,8 @@ export default function AdminConfirmDialog({
   onConfirm,
   title,
 }: AdminConfirmDialogProps) {
+  const { t } = useI18n();
+
   return (
     <AdminFormModal isOpen={isOpen} title={title} onClose={onCancel} size="sm">
       <div className="admin-confirm-dialog">
@@ -34,10 +37,10 @@ export default function AdminConfirmDialog({
         <p>{message}</p>
         <div className="admin-confirm-dialog__actions">
           <AdminActionButton variant="ghost" onClick={onCancel} disabled={isSubmitting}>
-            {cancelLabel}
+            {cancelLabel ?? t("cancel")}
           </AdminActionButton>
           <AdminActionButton variant={isDanger ? "danger" : "primary"} onClick={onConfirm} disabled={isSubmitting}>
-            {isSubmitting ? "جارٍ التنفيذ..." : confirmLabel}
+            {isSubmitting ? t("saving") : confirmLabel}
           </AdminActionButton>
         </div>
       </div>

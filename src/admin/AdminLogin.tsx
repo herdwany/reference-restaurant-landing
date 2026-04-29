@@ -2,8 +2,8 @@ import { ArrowRight, Loader2, LogIn, ShieldCheck } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
+import { mapKnownErrorToFriendlyMessage, normalizeUserFacingError } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
-import { APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE, AuthServiceError } from "../services/authService";
 
 type FieldErrors = {
   email?: string;
@@ -16,20 +16,8 @@ type AdminLoginLocationState = {
   };
 };
 
-const getLoginErrorMessage = (error: unknown) => {
-  if (error instanceof AuthServiceError) {
-    if (error.code === "APPWRITE_NOT_CONFIGURED") {
-      return APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE;
-    }
-
-    return error.message;
-  }
-
-  return "تعذر تسجيل الدخول الآن. حاول مرة أخرى بعد قليل.";
-};
-
 export default function AdminLogin() {
-  const { direction } = useI18n();
+  const { direction, t } = useI18n();
   const { errorMessage, isAuthConfigured, isAuthenticated, isLoading, login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -49,11 +37,11 @@ export default function AdminLogin() {
     const errors: FieldErrors = {};
 
     if (!email.trim()) {
-      errors.email = "البريد الإلكتروني مطلوب.";
+      errors.email = t("emailRequired");
     }
 
     if (!password) {
-      errors.password = "كلمة المرور مطلوبة.";
+      errors.password = t("passwordRequired");
     }
 
     setFieldErrors(errors);
@@ -69,7 +57,7 @@ export default function AdminLogin() {
     }
 
     if (!isAuthConfigured) {
-      setSubmitError(APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE);
+      setSubmitError(t("appwriteSetupRequired"));
       return;
     }
 
@@ -79,7 +67,10 @@ export default function AdminLogin() {
       await login(email.trim(), password);
       navigate(redirectTo, { replace: true });
     } catch (error) {
-      setSubmitError(getLoginErrorMessage(error));
+      if (import.meta.env.DEV) {
+        console.warn(error);
+      }
+      setSubmitError(mapKnownErrorToFriendlyMessage(error, t));
     } finally {
       setIsSubmitting(false);
     }
@@ -92,17 +83,17 @@ export default function AdminLogin() {
           <ShieldCheck size={30} aria-hidden="true" />
         </div>
         <div className="admin-login-card__copy">
-          <h1>تسجيل الدخول إلى لوحة التحكم</h1>
-          <p>استخدم حسابًا تم إنشاؤه يدويًا من Appwrite Console لإدارة المطعم لاحقًا.</p>
+          <h1>{t("login")}</h1>
+          <p>{t("adminLoginDescription")}</p>
         </div>
 
-        {!isAuthConfigured ? <div className="admin-form-alert">{APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE}</div> : null}
+        {!isAuthConfigured ? <div className="admin-form-alert">{t("appwriteSetupRequired")}</div> : null}
         {submitError ? <div className="admin-form-alert" role="alert">{submitError}</div> : null}
-        {errorMessage && isAuthConfigured ? <div className="admin-form-note">{errorMessage}</div> : null}
+        {errorMessage && isAuthConfigured ? <div className="admin-form-note">{normalizeUserFacingError(errorMessage, t)}</div> : null}
 
         <form className="admin-login-form" onSubmit={handleSubmit} noValidate>
           <label>
-            <span>البريد الإلكتروني</span>
+            <span>{t("email")}</span>
             <input
               type="email"
               value={email}
@@ -115,27 +106,27 @@ export default function AdminLogin() {
           </label>
 
           <label>
-            <span>كلمة المرور</span>
+            <span>{t("password")}</span>
             <input
               type="password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               aria-invalid={Boolean(fieldErrors.password)}
               autoComplete="current-password"
-              placeholder="••••••••"
+              placeholder="********"
             />
             {fieldErrors.password ? <small>{fieldErrors.password}</small> : null}
           </label>
 
           <button className="admin-login-submit" type="submit" disabled={isSubmitting || isLoading}>
             {isSubmitting ? <Loader2 className="admin-spin" size={19} aria-hidden="true" /> : <LogIn size={19} aria-hidden="true" />}
-            <span>{isSubmitting ? "جاري تسجيل الدخول..." : "تسجيل الدخول"}</span>
+            <span>{isSubmitting ? t("loggingIn") : t("loginButton")}</span>
           </button>
         </form>
 
         <Link className="admin-back-link" to="/">
           <ArrowRight size={18} aria-hidden="true" />
-          <span>العودة إلى الموقع</span>
+          <span>{t("backToSite")}</span>
         </Link>
       </section>
     </main>
