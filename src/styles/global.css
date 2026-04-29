@@ -3118,10 +3118,11 @@ a {
   position: sticky;
   top: 0;
   display: flex;
-  width: 282px;
+  width: 300px;
   height: 100vh;
-  flex: 0 0 282px;
+  flex: 0 0 300px;
   flex-direction: column;
+  min-height: 0;
   border-inline-start: 1px solid var(--admin-border);
   background: rgba(255, 255, 255, 0.94);
   box-shadow: -12px 0 34px rgba(31, 41, 55, 0.07);
@@ -3187,6 +3188,8 @@ a {
 .admin-sidebar__nav {
   flex: 1;
   align-content: start;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .admin-sidebar__footer {
@@ -3197,15 +3200,16 @@ a {
   display: flex;
   min-height: 46px;
   width: 100%;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
   color: #374151;
-  padding: 0 12px;
-  text-align: right;
+  padding: 10px 12px;
+  text-align: start;
   font-weight: 900;
+  line-height: 1.25;
   transition:
     background 180ms ease,
     border-color 180ms ease,
@@ -3214,14 +3218,25 @@ a {
 
 .admin-sidebar__link svg {
   flex: 0 0 auto;
+  margin-top: 1px;
 }
 
-.admin-sidebar__link span {
+.admin-sidebar__link-text {
+  display: flex;
   min-width: 0;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 6px 8px;
+  flex-wrap: wrap;
+}
+
+.admin-sidebar__link-label {
+  min-width: 0;
+  flex: 1 1 130px;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+  white-space: normal;
 }
 
 .admin-sidebar__link.active,
@@ -3242,7 +3257,19 @@ a {
   color: #374151;
 }
 
-.admin-sidebar__link small,
+.admin-sidebar__link small {
+  flex: 0 1 auto;
+  max-width: 100%;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.2);
+  color: #8a5200;
+  padding: 3px 7px;
+  font-size: 0.68rem;
+  font-weight: 950;
+  line-height: 1.15;
+  white-space: normal;
+}
+
 .admin-placeholder-card > span {
   flex: 0 0 auto;
   border-radius: 999px;
@@ -5351,6 +5378,12 @@ a {
     max-width: 100%;
     transform: translateX(106%);
     transition: transform 220ms ease;
+  }
+
+  .dir-ltr .admin-sidebar {
+    right: auto;
+    left: 0;
+    transform: translateX(-106%);
   }
 
   .admin-sidebar.is-open {

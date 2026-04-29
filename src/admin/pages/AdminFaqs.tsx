@@ -120,6 +120,10 @@ const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendl
 
 export default function AdminFaqs() {
   const { t } = useI18n();
+  const translationLanguageLabels = {
+    fr: t("languageFrench"),
+    en: t("languageEnglish"),
+  };
   const { activeRestaurant, activeRestaurantId, activeRestaurantName, canAccessFeature, canManageRestaurantContent, scopeError } = useActiveRestaurantScope();
   const logAction = useAuditLogger();
   const canSaveTranslations = canAccessFeature("canCustomizeBrand");
@@ -456,19 +460,27 @@ export default function AdminFaqs() {
                 <summary>{t("optionalTranslations")}</summary>
                 <div className="admin-form-grid">
                   <label className="admin-form-grid__wide">
-                    <span>{t("question")} (FR)</span>
+                    <span>
+                      {t("question")} ({translationLanguageLabels.fr})
+                    </span>
                     <input value={formValues.frQuestion} onChange={(event) => updateFormValue("frQuestion", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("answer")} (FR)</span>
+                    <span>
+                      {t("answer")} ({translationLanguageLabels.fr})
+                    </span>
                     <textarea value={formValues.frAnswer} onChange={(event) => updateFormValue("frAnswer", event.target.value)} rows={2} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("question")} (EN)</span>
+                    <span>
+                      {t("question")} ({translationLanguageLabels.en})
+                    </span>
                     <input value={formValues.enQuestion} onChange={(event) => updateFormValue("enQuestion", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("answer")} (EN)</span>
+                    <span>
+                      {t("answer")} ({translationLanguageLabels.en})
+                    </span>
                     <textarea value={formValues.enAnswer} onChange={(event) => updateFormValue("enAnswer", event.target.value)} rows={2} />
                   </label>
                 </div>

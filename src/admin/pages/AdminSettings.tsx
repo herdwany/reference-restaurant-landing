@@ -701,6 +701,14 @@ export default function AdminSettings() {
     fresh: t("themeFresh"),
     minimal: t("themeMinimal"),
   };
+  const directionLabels: Record<SiteDirection, string> = {
+    rtl: t("directionRtl"),
+    ltr: t("directionLtr"),
+  };
+  const homepageTranslationLanguageLabels: Record<HomepageTranslationLanguage, string> = {
+    fr: t("languageFrench"),
+    en: t("languageEnglish"),
+  };
   const homepageTranslationLabels: Record<HomepageTranslationField, string> = {
     heroTitle: t("heroTitle"),
     heroSubtitle: t("heroSubtitle"),
@@ -1187,7 +1195,7 @@ export default function AdminSettings() {
                 <div className="admin-translation-panel__grid">
                   {homepageTranslationLanguages.map((language) => (
                     <div className="admin-translation-panel__group" key={language}>
-                      <h4>{language.toUpperCase()}</h4>
+                      <h4>{homepageTranslationLanguageLabels[language]}</h4>
                       <div className="admin-form-grid">
                         {homepageTranslationFields.map((field) => (
                           <label className={field.includes("Subtitle") || field.includes("Policy") ? "admin-form-grid__wide" : ""} key={field}>
@@ -1512,7 +1520,7 @@ export default function AdminSettings() {
                     <select value={formValues.direction} onChange={(event) => updateFormValue("direction", event.target.value as SiteDirection)} aria-invalid={Boolean(formErrors.direction)}>
                       {directions.map((direction) => (
                         <option value={direction} key={direction}>
-                          {direction}
+                          {directionLabels[direction]}
                         </option>
                       ))}
                     </select>

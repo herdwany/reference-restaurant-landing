@@ -193,6 +193,10 @@ const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendl
 
 export default function AdminDishes() {
   const { currentLanguage, t } = useI18n();
+  const translationLanguageLabels = {
+    fr: t("languageFrench"),
+    en: t("languageEnglish"),
+  };
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -688,19 +692,27 @@ export default function AdminDishes() {
                 <summary>{t("dishTranslations")}</summary>
                 <div className="admin-form-grid">
                   <label>
-                    <span>{t("dishName")} (FR)</span>
+                    <span>
+                      {t("dishName")} ({translationLanguageLabels.fr})
+                    </span>
                     <input value={formValues.frName} onChange={(event) => updateFormValue("frName", event.target.value)} />
                   </label>
                   <label>
-                    <span>{t("dishName")} (EN)</span>
+                    <span>
+                      {t("dishName")} ({translationLanguageLabels.en})
+                    </span>
                     <input value={formValues.enName} onChange={(event) => updateFormValue("enName", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("dishDescription")} (FR)</span>
+                    <span>
+                      {t("dishDescription")} ({translationLanguageLabels.fr})
+                    </span>
                     <textarea value={formValues.frDescription} onChange={(event) => updateFormValue("frDescription", event.target.value)} rows={2} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("dishDescription")} (EN)</span>
+                    <span>
+                      {t("dishDescription")} ({translationLanguageLabels.en})
+                    </span>
                     <textarea value={formValues.enDescription} onChange={(event) => updateFormValue("enDescription", event.target.value)} rows={2} />
                   </label>
                 </div>

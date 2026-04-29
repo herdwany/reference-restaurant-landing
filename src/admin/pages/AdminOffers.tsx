@@ -188,9 +188,9 @@ const validateOfferForm = (values: OfferFormValues, t: Translate): OfferFormErro
   return errors;
 };
 
-const toOfferMutationInput = (values: OfferFormValues, canSaveTranslations: boolean): OfferMutationInput => ({
+const toOfferMutationInput = (values: OfferFormValues, canSaveTranslations: boolean, t: Translate): OfferMutationInput => ({
   colorTheme: values.colorTheme,
-  ctaText: values.ctaText.trim() || "اطلب الآن",
+  ctaText: values.ctaText.trim() || t("orderNow"),
   description: values.description.trim(),
   translations: canSaveTranslations
     ? stringifyTranslations({
@@ -227,6 +227,10 @@ const getErrorMessage = (error: unknown, t: Translate) => mapKnownErrorToFriendl
 
 export default function AdminOffers() {
   const { currentLanguage, t } = useI18n();
+  const translationLanguageLabels = {
+    fr: t("languageFrench"),
+    en: t("languageEnglish"),
+  };
   const {
     activeRestaurant,
     activeRestaurantId,
@@ -345,7 +349,7 @@ export default function AdminOffers() {
     setIsSaving(true);
 
     try {
-      const input = toOfferMutationInput(formValues, canSaveTranslations);
+      const input = toOfferMutationInput(formValues, canSaveTranslations, t);
       if (!canSaveTranslations && formMode.type === "edit") {
         input.translations = formMode.offer.translations;
       }
@@ -734,27 +738,39 @@ export default function AdminOffers() {
                 <summary>{t("offerTranslations")}</summary>
                 <div className="admin-form-grid">
                   <label>
-                    <span>{t("offerTitle")} (FR)</span>
+                    <span>
+                      {t("offerTitle")} ({translationLanguageLabels.fr})
+                    </span>
                     <input value={formValues.frTitle} onChange={(event) => updateFormValue("frTitle", event.target.value)} />
                   </label>
                   <label>
-                    <span>{t("offerTitle")} (EN)</span>
+                    <span>
+                      {t("offerTitle")} ({translationLanguageLabels.en})
+                    </span>
                     <input value={formValues.enTitle} onChange={(event) => updateFormValue("enTitle", event.target.value)} />
                   </label>
                   <label>
-                    <span>{t("offerCtaText")} (FR)</span>
+                    <span>
+                      {t("offerCtaText")} ({translationLanguageLabels.fr})
+                    </span>
                     <input value={formValues.frCtaText} onChange={(event) => updateFormValue("frCtaText", event.target.value)} />
                   </label>
                   <label>
-                    <span>{t("offerCtaText")} (EN)</span>
+                    <span>
+                      {t("offerCtaText")} ({translationLanguageLabels.en})
+                    </span>
                     <input value={formValues.enCtaText} onChange={(event) => updateFormValue("enCtaText", event.target.value)} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("offerDescription")} (FR)</span>
+                    <span>
+                      {t("offerDescription")} ({translationLanguageLabels.fr})
+                    </span>
                     <textarea value={formValues.frDescription} onChange={(event) => updateFormValue("frDescription", event.target.value)} rows={2} />
                   </label>
                   <label className="admin-form-grid__wide">
-                    <span>{t("offerDescription")} (EN)</span>
+                    <span>
+                      {t("offerDescription")} ({translationLanguageLabels.en})
+                    </span>
                     <textarea value={formValues.enDescription} onChange={(event) => updateFormValue("enDescription", event.target.value)} rows={2} />
                   </label>
                 </div>

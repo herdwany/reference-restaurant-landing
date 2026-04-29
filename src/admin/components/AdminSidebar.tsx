@@ -79,8 +79,10 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
                   disabled
                 >
                   <Icon size={19} aria-hidden="true" />
-                  <span>{getFeatureLabel(feature.id, feature.label)}</span>
-                  <small>{feature.status === "coming_soon" ? t("soon") : t("upgradeRequired")}</small>
+                  <span className="admin-sidebar__link-text">
+                    <span className="admin-sidebar__link-label">{getFeatureLabel(feature.id, feature.label)}</span>
+                    <small>{feature.status === "coming_soon" ? t("soon") : t("upgradeRequired")}</small>
+                  </span>
                 </button>
               );
             }
@@ -88,9 +90,11 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             return (
               <NavLink className="admin-sidebar__link" to={feature.path} end={feature.path === "/admin"} onClick={onClose} key={feature.id}>
                 <Icon size={19} aria-hidden="true" />
-                <span>{getFeatureLabel(feature.id, feature.label)}</span>
-                {showAgencyClientBadge ? <small>{t("inactive")}</small> : null}
-                {!hasPlanAccess && feature.allowWhenFeatureDisabled ? <small>{t("upgradeRequired")}</small> : null}
+                <span className="admin-sidebar__link-text">
+                  <span className="admin-sidebar__link-label">{getFeatureLabel(feature.id, feature.label)}</span>
+                  {showAgencyClientBadge ? <small>{t("inactive")}</small> : null}
+                  {!hasPlanAccess && feature.allowWhenFeatureDisabled ? <small>{t("upgradeRequired")}</small> : null}
+                </span>
               </NavLink>
             );
           })}
@@ -103,13 +107,17 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
             return (
               <Link className="admin-sidebar__link" to={feature.path} onClick={onClose} key={feature.id}>
                 <Icon size={19} aria-hidden="true" />
-                <span>{getFeatureLabel(feature.id, feature.label)}</span>
+                <span className="admin-sidebar__link-text">
+                  <span className="admin-sidebar__link-label">{getFeatureLabel(feature.id, feature.label)}</span>
+                </span>
               </Link>
             );
           })}
           <button className="admin-sidebar__link admin-sidebar__logout" type="button" onClick={handleLogout} disabled={isLoggingOut}>
             <LogOut size={19} aria-hidden="true" />
-            <span>{isLoggingOut ? t("loggedOut") : t("logout")}</span>
+            <span className="admin-sidebar__link-text">
+              <span className="admin-sidebar__link-label">{isLoggingOut ? t("loggedOut") : t("logout")}</span>
+            </span>
           </button>
         </div>
       </aside>
