@@ -26,10 +26,22 @@
 - [ ] Open `/admin/offers`.
 - [ ] Open `/admin/gallery`.
 - [ ] Open `/admin/orders`.
+- [ ] Create a new order and confirm it appears in current orders.
+- [ ] Mark an order `completed`, `cancelled`, or `rejected`, then archive it.
+- [ ] Confirm archived orders move to the archive tab and can be restored.
+- [ ] Confirm order status controls are not usable inside the archive.
 - [ ] Open `/admin/reservations`.
+- [ ] Create a new reservation and confirm it appears in reservations.
+- [ ] Confirm a past reservation with `confirmed`, `new`, `pending_confirmation`, or `deposit_required` shows `تحتاج مراجعة` and is not auto-archived.
+- [ ] Archive a `completed`, `no_show`, `cancelled`, or `rejected` reservation.
+- [ ] Confirm archived reservations move to the archive tab and can be restored.
+- [ ] Confirm bulk archive skips past `confirmed` reservations.
 - [ ] Open `/admin/activity`.
 - [ ] Verify feature gating blocks plan-restricted saves for non-agency roles.
 - [ ] Verify owner/staff scope stays tied to their own `restaurantId`.
+- [ ] Verify owner/staff cannot archive or restore rows outside their own `restaurantId`.
+- [ ] Verify `agency_admin` archive/restore works only within the selected restaurant context.
+- [ ] Verify no obvious horizontal scroll on admin orders/reservations mobile views.
 
 ## Agency
 
@@ -53,6 +65,7 @@
 - [ ] Confirm `audit_logs` is not public.
 - [ ] Confirm Storage public read is limited to intended public assets only.
 - [ ] Confirm tracking responses do not expose address, private notes, or full phone numbers.
+- [ ] Confirm there is no hard delete path for `orders`, `order_items`, or `reservations`; archive only hides them from main lists.
 
 ## Backup
 

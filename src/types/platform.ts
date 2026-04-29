@@ -60,6 +60,8 @@ export type AuditAction =
   | "create"
   | "update"
   | "delete"
+  | "archive"
+  | "restore"
   | "hide"
   | "show"
   | "activate"
@@ -237,6 +239,14 @@ export interface SiteSettings extends BaseModel {
   depositPolicyText?: string;
   cancellationPolicyText?: string;
   maxPeoplePerReservation?: number;
+  hideCompletedOrdersFromMainList?: boolean;
+  hideCancelledOrdersFromMainList?: boolean;
+  showPastReservationsInSeparateTab?: boolean;
+  enableManualArchiveActions?: boolean;
+  autoArchiveCompletedOrders?: boolean;
+  orderAutoArchiveAfterHours?: number;
+  autoArchiveCompletedReservations?: boolean;
+  reservationAutoArchiveAfterHours?: number;
   showHero: boolean;
   showFeatured?: boolean;
   showTrustBadges: boolean;
@@ -260,6 +270,9 @@ export interface Order extends BaseModel {
   totalAmount: number;
   status: OrderStatus;
   source: OrderSource;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
 }
 
 export interface OrderItem extends BaseModel {
@@ -287,6 +300,9 @@ export interface Reservation extends BaseModel {
   depositNotes?: string;
   confirmationNotes?: string;
   policyAccepted?: boolean;
+  isArchived?: boolean;
+  archivedAt?: string;
+  archiveReason?: string;
 }
 
 export interface AuditLog extends BaseModel {

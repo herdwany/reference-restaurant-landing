@@ -1,5 +1,5 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
-import { ImageIcon, RefreshCw, Save, Settings } from "lucide-react";
+import { Archive, ImageIcon, RefreshCw, Save, Settings } from "lucide-react";
 import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
 import AdminErrorState from "../components/AdminErrorState";
@@ -83,6 +83,14 @@ type SettingsFormValues = {
   depositPolicyText: string;
   cancellationPolicyText: string;
   maxPeoplePerReservation: string;
+  hideCompletedOrdersFromMainList: boolean;
+  hideCancelledOrdersFromMainList: boolean;
+  showPastReservationsInSeparateTab: boolean;
+  enableManualArchiveActions: boolean;
+  autoArchiveCompletedOrders: boolean;
+  orderAutoArchiveAfterHours: string;
+  autoArchiveCompletedReservations: boolean;
+  reservationAutoArchiveAfterHours: string;
   showHero: boolean;
   showTrustBadges: boolean;
   showFeatured: boolean;
@@ -274,6 +282,14 @@ const emptySettingsFormValues: SettingsFormValues = {
   depositPolicyText: defaultRestaurantConfig.settings.depositPolicyText ?? "",
   cancellationPolicyText: defaultRestaurantConfig.settings.cancellationPolicyText ?? "",
   maxPeoplePerReservation: String(defaultRestaurantConfig.settings.maxPeoplePerReservation ?? ""),
+  hideCompletedOrdersFromMainList: true,
+  hideCancelledOrdersFromMainList: true,
+  showPastReservationsInSeparateTab: true,
+  enableManualArchiveActions: true,
+  autoArchiveCompletedOrders: false,
+  orderAutoArchiveAfterHours: "",
+  autoArchiveCompletedReservations: false,
+  reservationAutoArchiveAfterHours: "",
   showHero: defaultRestaurantConfig.settings.sections.hero,
   showTrustBadges: defaultRestaurantConfig.settings.sections.trustBadges,
   showFeatured: defaultRestaurantConfig.settings.sections.featuredDishes,
@@ -360,6 +376,24 @@ const getSettingsFormValues = (restaurant: Restaurant | null, settings: SiteSett
       typeof settings?.maxPeoplePerReservation === "number"
         ? String(settings.maxPeoplePerReservation)
         : emptySettingsFormValues.maxPeoplePerReservation,
+    hideCompletedOrdersFromMainList:
+      settings?.hideCompletedOrdersFromMainList ?? emptySettingsFormValues.hideCompletedOrdersFromMainList,
+    hideCancelledOrdersFromMainList:
+      settings?.hideCancelledOrdersFromMainList ?? emptySettingsFormValues.hideCancelledOrdersFromMainList,
+    showPastReservationsInSeparateTab:
+      settings?.showPastReservationsInSeparateTab ?? emptySettingsFormValues.showPastReservationsInSeparateTab,
+    enableManualArchiveActions: settings?.enableManualArchiveActions ?? emptySettingsFormValues.enableManualArchiveActions,
+    autoArchiveCompletedOrders: settings?.autoArchiveCompletedOrders ?? emptySettingsFormValues.autoArchiveCompletedOrders,
+    orderAutoArchiveAfterHours:
+      typeof settings?.orderAutoArchiveAfterHours === "number"
+        ? String(settings.orderAutoArchiveAfterHours)
+        : emptySettingsFormValues.orderAutoArchiveAfterHours,
+    autoArchiveCompletedReservations:
+      settings?.autoArchiveCompletedReservations ?? emptySettingsFormValues.autoArchiveCompletedReservations,
+    reservationAutoArchiveAfterHours:
+      typeof settings?.reservationAutoArchiveAfterHours === "number"
+        ? String(settings.reservationAutoArchiveAfterHours)
+        : emptySettingsFormValues.reservationAutoArchiveAfterHours,
     showHero: settings?.showHero ?? emptySettingsFormValues.showHero,
     showTrustBadges: settings?.showTrustBadges ?? emptySettingsFormValues.showTrustBadges,
     showFeatured: settings?.showFeatured ?? settings?.showFeaturedDishes ?? emptySettingsFormValues.showFeatured,
@@ -452,6 +486,17 @@ const depositWorkflowSettingKeys = [
   "depositAmount",
 ] as const satisfies readonly (keyof SettingsFormValues)[];
 
+const archivePreferenceSettingKeys = [
+  "hideCompletedOrdersFromMainList",
+  "hideCancelledOrdersFromMainList",
+  "showPastReservationsInSeparateTab",
+  "enableManualArchiveActions",
+  "autoArchiveCompletedOrders",
+  "orderAutoArchiveAfterHours",
+  "autoArchiveCompletedReservations",
+  "reservationAutoArchiveAfterHours",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
 const advancedHomepageSettingKeys = [
   "heroMediaType",
   "heroVideoUrl",
@@ -467,7 +512,13 @@ const hasChangedFields = (
 
 const validateSettingsForm = (
   values: SettingsFormValues,
-  options: { canSaveAdvancedTheme: boolean; canSaveBrand: boolean; canSaveDepositWorkflow: boolean; canSaveReservationPolicies: boolean },
+  options: {
+    canSaveAdvancedTheme: boolean;
+    canSaveArchivePreferences: boolean;
+    canSaveBrand: boolean;
+    canSaveDepositWorkflow: boolean;
+    canSaveReservationPolicies: boolean;
+  },
 ): SettingsFormErrors => {
   const errors: SettingsFormErrors = {};
 
@@ -547,6 +598,19 @@ const validateSettingsForm = (
     }
   }
 
+  if (options.canSaveArchivePreferences) {
+    const orderArchiveHours = parseOptionalPositiveNumber(values.orderAutoArchiveAfterHours);
+    const reservationArchiveHours = parseOptionalPositiveNumber(values.reservationAutoArchiveAfterHours);
+
+    if (values.orderAutoArchiveAfterHours.trim() && !Number.isFinite(orderArchiveHours)) {
+      errors.orderAutoArchiveAfterHours = "مدة أرشفة الطلبات يجب أن تكون رقمًا أكبر من 0";
+    }
+
+    if (values.reservationAutoArchiveAfterHours.trim() && !Number.isFinite(reservationArchiveHours)) {
+      errors.reservationAutoArchiveAfterHours = "مدة أرشفة الحجوزات يجب أن تكون رقمًا أكبر من 0";
+    }
+  }
+
   return errors;
 };
 
@@ -603,6 +667,15 @@ const toSiteSettingsInput = (values: SettingsFormValues): SiteSettingsMutationIn
   depositPolicyText: values.depositPolicyText.trim() || undefined,
   cancellationPolicyText: values.cancellationPolicyText.trim() || undefined,
   maxPeoplePerReservation: parseOptionalPositiveNumber(values.maxPeoplePerReservation),
+  hideCompletedOrdersFromMainList: values.hideCompletedOrdersFromMainList,
+  hideCancelledOrdersFromMainList: values.hideCancelledOrdersFromMainList,
+  showPastReservationsInSeparateTab: values.showPastReservationsInSeparateTab,
+  enableManualArchiveActions: values.enableManualArchiveActions,
+  // TODO: Scheduled auto archive requires a dedicated Appwrite Scheduled Function later.
+  autoArchiveCompletedOrders: values.autoArchiveCompletedOrders,
+  orderAutoArchiveAfterHours: parseOptionalPositiveNumber(values.orderAutoArchiveAfterHours),
+  autoArchiveCompletedReservations: values.autoArchiveCompletedReservations,
+  reservationAutoArchiveAfterHours: parseOptionalPositiveNumber(values.reservationAutoArchiveAfterHours),
   showHero: values.showHero,
   showTrustBadges: values.showTrustBadges,
   showFeatured: values.showFeatured,
@@ -619,7 +692,7 @@ const toSiteSettingsInput = (values: SettingsFormValues): SiteSettingsMutationIn
 const mergeAllowedSettingsValues = (
   values: SettingsFormValues,
   persistedValues: SettingsFormValues,
-  options: { canSaveBrand: boolean; canSaveAdvancedTheme: boolean },
+  options: { canSaveArchivePreferences: boolean; canSaveBrand: boolean; canSaveAdvancedTheme: boolean },
 ): SettingsFormValues => {
   const nextValues = { ...persistedValues };
 
@@ -645,6 +718,12 @@ const mergeAllowedSettingsValues = (
       nextValues[key] = values[key] as never;
     }
     for (const key of depositWorkflowSettingKeys) {
+      nextValues[key] = values[key] as never;
+    }
+  }
+
+  if (options.canSaveArchivePreferences) {
+    for (const key of archivePreferenceSettingKeys) {
       nextValues[key] = values[key] as never;
     }
   }
@@ -678,6 +757,8 @@ export default function AdminSettings() {
   const canSaveAdvancedTheme = canAccessFeature("canUseAdvancedTheme") || isAgencyAdminBypass;
   const canSaveReservationPolicies = canSaveBrand;
   const canSaveDepositWorkflow = canSaveAdvancedTheme;
+  const canSaveArchivePreferences =
+    isAgencyAdminBypass || canAccessFeature("canManageOrders") || canAccessFeature("canManageReservations");
   const clientCanCustomizeBrand = clientHasFeature("canCustomizeBrand");
   const clientCanUseAdvancedTheme = clientHasFeature("canUseAdvancedTheme");
   const initialSettingsFormValues = getSettingsFormValues(activeRestaurant, null);
@@ -749,6 +830,7 @@ export default function AdminSettings() {
 
     const nextErrors = validateSettingsForm(formValues, {
       canSaveAdvancedTheme,
+      canSaveArchivePreferences,
       canSaveBrand,
       canSaveDepositWorkflow,
       canSaveReservationPolicies,
@@ -784,6 +866,11 @@ export default function AdminSettings() {
       return;
     }
 
+    if (!canSaveArchivePreferences && hasChangedFields(archivePreferenceSettingKeys, formValues, persistedValues)) {
+      setPageError("لا يمكن حفظ إعدادات الأرشفة لأن الطلبات أو الحجوزات غير مفعلة في هذه الباقة.");
+      return;
+    }
+
     if (
       !canSaveAdvancedTheme &&
       hasChangedFields([...advancedSettingKeys, ...advancedHomepageSettingKeys, ...depositWorkflowSettingKeys], formValues, persistedValues)
@@ -796,7 +883,11 @@ export default function AdminSettings() {
 
     try {
       const savedRestaurant = await updateRestaurantContact(activeRestaurantId, toRestaurantContactInput(formValues, persistedValues, canSaveBrand));
-      const allowedSettingsValues = mergeAllowedSettingsValues(formValues, persistedValues, { canSaveAdvancedTheme, canSaveBrand });
+      const allowedSettingsValues = mergeAllowedSettingsValues(formValues, persistedValues, {
+        canSaveAdvancedTheme,
+        canSaveArchivePreferences,
+        canSaveBrand,
+      });
       const savedSettings = await upsertSiteSettings(activeRestaurantId, toSiteSettingsInput(allowedSettingsValues));
       const nextValues = getSettingsFormValues(savedRestaurant, savedSettings);
 
@@ -1223,6 +1314,95 @@ export default function AdminSettings() {
               </div>
             ) : null}
           </AdminCard>
+
+          {canSaveArchivePreferences ? (
+            <AdminCard className="admin-settings-section">
+              <div className="admin-settings-section__header">
+                <Archive size={20} aria-hidden="true" />
+                <div>
+                  <h3>إعدادات الأرشفة والتنظيف</h3>
+                  <p>إخفاء السجلات المنتهية من القوائم الرئيسية مع إبقائها قابلة للاستعادة والرجوع إليها.</p>
+                </div>
+              </div>
+              <div className="admin-toggle-grid admin-toggle-grid--compact">
+                <label className="admin-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={formValues.enableManualArchiveActions}
+                    onChange={(event) => updateFormValue("enableManualArchiveActions", event.target.checked)}
+                  />
+                  <span>تفعيل أزرار الأرشفة والاستعادة اليدوية</span>
+                </label>
+                <label className="admin-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={formValues.hideCompletedOrdersFromMainList}
+                    onChange={(event) => updateFormValue("hideCompletedOrdersFromMainList", event.target.checked)}
+                  />
+                  <span>إخفاء الطلبات المكتملة من قائمة الطلبات الحالية</span>
+                </label>
+                <label className="admin-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={formValues.hideCancelledOrdersFromMainList}
+                    onChange={(event) => updateFormValue("hideCancelledOrdersFromMainList", event.target.checked)}
+                  />
+                  <span>إخفاء الطلبات الملغاة أو المرفوضة من القائمة الحالية</span>
+                </label>
+                <label className="admin-toggle-row">
+                  <input
+                    type="checkbox"
+                    checked={formValues.showPastReservationsInSeparateTab}
+                    onChange={(event) => updateFormValue("showPastReservationsInSeparateTab", event.target.checked)}
+                  />
+                  <span>عرض الحجوزات السابقة في تبويب منفصل</span>
+                </label>
+              </div>
+              <div className="admin-form-grid">
+                <label className="admin-toggle-row admin-toggle-row--inline">
+                  <input
+                    type="checkbox"
+                    checked={formValues.autoArchiveCompletedOrders}
+                    onChange={(event) => updateFormValue("autoArchiveCompletedOrders", event.target.checked)}
+                  />
+                  <span>أرشفة الطلبات المكتملة تلقائيًا لاحقًا</span>
+                </label>
+                <label>
+                  <span>بعد كم ساعة للطلبات</span>
+                  <input
+                    value={formValues.orderAutoArchiveAfterHours}
+                    onChange={(event) => updateFormValue("orderAutoArchiveAfterHours", event.target.value)}
+                    aria-invalid={Boolean(formErrors.orderAutoArchiveAfterHours)}
+                    inputMode="numeric"
+                    placeholder="72"
+                  />
+                  {renderFieldError("orderAutoArchiveAfterHours")}
+                </label>
+                <label className="admin-toggle-row admin-toggle-row--inline">
+                  <input
+                    type="checkbox"
+                    checked={formValues.autoArchiveCompletedReservations}
+                    onChange={(event) => updateFormValue("autoArchiveCompletedReservations", event.target.checked)}
+                  />
+                  <span>أرشفة الحجوزات المنتهية تلقائيًا لاحقًا</span>
+                </label>
+                <label>
+                  <span>بعد كم ساعة للحجوزات</span>
+                  <input
+                    value={formValues.reservationAutoArchiveAfterHours}
+                    onChange={(event) => updateFormValue("reservationAutoArchiveAfterHours", event.target.value)}
+                    aria-invalid={Boolean(formErrors.reservationAutoArchiveAfterHours)}
+                    inputMode="numeric"
+                    placeholder="72"
+                  />
+                  {renderFieldError("reservationAutoArchiveAfterHours")}
+                </label>
+              </div>
+              <div className="admin-feedback admin-feedback--warning">
+                الأرشفة التلقائية هنا إعداد مؤجل فقط، وتحتاج Scheduled Function لاحقًا قبل تشغيلها.
+              </div>
+            </AdminCard>
+          ) : null}
 
           {canSaveBrand ? (
             <>

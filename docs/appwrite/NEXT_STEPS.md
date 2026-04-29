@@ -466,6 +466,17 @@ Security constraints:
 
 ## Upcoming Phase 2 Batch
 
+## Archive Operations Update - Completed
+
+- Added soft archive fields to `orders` and `reservations`: `isArchived`, `archivedAt`, and `archiveReason`.
+- Added archive preferences to `site_settings`: manual archive visibility, main-list hiding preferences, and deferred auto-archive configuration fields.
+- Orders and reservations are no longer hard-deleted by repository compatibility shims; old delete calls now archive the row and keep related data.
+- Admin orders support current, completed/cancelled, and archive views with manual archive/restore actions and audit logs.
+- Admin reservations support upcoming, past/review, and archive views. Past active bookings show `تحتاج مراجعة` and are not removed automatically.
+- Bulk reservation archive only targets terminal statuses: `completed`, `no_show`, `cancelled`, and `rejected`.
+- Scheduled auto archive is intentionally deferred. It needs a later Appwrite Scheduled Function and must not run from the React client.
+- No payment, customer accounts, custom domain resolver, or frontend Server SDK/API key path was added.
+
 - Current stabilization notes (2026-04-28):
 - `createClient`, `updateClientControls`, and `updateDomainSettings` now verify `profiles.userId`, `role=agency_admin`, and `isActive=true`.
 - Unified enums across code/docs/setup use: `starter | pro | premium | managed`, `draft | active | suspended | cancelled`, `trial | active | overdue | cancelled`, `basic | standard | priority | managed`, `pixelone_path | subdomain | custom_domain`, and `not_configured | pending_dns | pending_verification | active | failed`.

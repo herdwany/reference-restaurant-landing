@@ -4194,6 +4194,13 @@ a {
   line-height: 1.35;
 }
 
+.admin-order-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .admin-order-card__meta,
 .admin-order-details__grid {
   display: grid;

@@ -168,6 +168,14 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `depositPolicyText`: text optional
 - `cancellationPolicyText`: text optional
 - `maxPeoplePerReservation`: integer optional
+- `hideCompletedOrdersFromMainList`: boolean optional default `true`
+- `hideCancelledOrdersFromMainList`: boolean optional default `true`
+- `showPastReservationsInSeparateTab`: boolean optional default `true`
+- `enableManualArchiveActions`: boolean optional default `true`
+- `autoArchiveCompletedOrders`: boolean optional default `false` (deferred; requires a later Scheduled Function)
+- `orderAutoArchiveAfterHours`: integer optional
+- `autoArchiveCompletedReservations`: boolean optional default `false` (deferred; requires a later Scheduled Function)
+- `reservationAutoArchiveAfterHours`: integer optional
 - `showHero`: boolean
 - `showTrustBadges`: boolean
 - `showFeatured`: boolean optional, mirrors featured dishes visibility for new homepage customization UI
@@ -191,6 +199,9 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `totalAmount`: float
 - `status`: enum `new | confirmed | preparing | ready | out_for_delivery | completed | cancelled | rejected`
 - `source`: enum `website | whatsapp | admin`
+- `isArchived`: boolean optional default `false`
+- `archivedAt`: datetime optional
+- `archiveReason`: string/text optional
 - `createdAtText`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
@@ -221,6 +232,9 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `depositNotes`: text optional
 - `confirmationNotes`: text optional
 - `policyAccepted`: boolean optional
+- `isArchived`: boolean optional default `false`
+- `archivedAt`: datetime optional
+- `archiveReason`: string/text optional
 - `createdAtText`: string optional
 - `createdAt`: datetime
 - `updatedAt`: datetime
@@ -264,6 +278,7 @@ Appwrite يحتاج indexes للحقول التي يتم استخدامها في
 
 - `restaurantId`
 - `restaurantId + status`
+- `restaurantId + isArchived`
 - `restaurantId + createdAt`
 - `trackingCode`
 - `restaurantId + trackingCode`
@@ -272,6 +287,7 @@ Appwrite يحتاج indexes للحقول التي يتم استخدامها في
 
 - `restaurantId`
 - `restaurantId + status`
+- `restaurantId + isArchived`
 - `restaurantId + reservationDate`
 - `trackingCode`
 - `restaurantId + trackingCode`

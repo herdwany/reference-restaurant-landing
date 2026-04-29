@@ -78,6 +78,14 @@ const createTablesDb = () => {
 
 const generateTrackingCode = () => `PO-${randomBytes(3).toString("hex").toUpperCase()}`;
 
+const isArchiveColumnsMissingError = (error) => {
+  const message = String(error?.message ?? "");
+  return (
+    error?.code === 400 &&
+    (message.includes("isArchived") || message.includes("archivedAt") || message.includes("archiveReason"))
+  );
+};
+
 const getRestaurant = async (tablesDb, input) => {
   const restaurantSlug = cleanText(input.restaurantSlug, 120);
 
@@ -257,23 +265,43 @@ const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFe
   const createdAtText = new Date().toISOString();
   const trackingCode = generateTrackingCode();
 
-  const order = await tablesDb.createRow({
-    databaseId: config.databaseId,
-    tableId: config.ordersTableId,
-    rowId: ID.unique(),
-    data: {
-      restaurantId: restaurant.$id,
-      trackingCode,
-      customerName: customer.customerName,
-      customerPhone: customer.customerPhone,
-      customerAddress: customer.customerAddress,
-      notes: customer.notes,
-      totalAmount,
-      status: "new",
-      source: "website",
-      createdAtText,
-    },
-  });
+  const baseOrderData = {
+    restaurantId: restaurant.$id,
+    trackingCode,
+    customerName: customer.customerName,
+    customerPhone: customer.customerPhone,
+    customerAddress: customer.customerAddress,
+    notes: customer.notes,
+    totalAmount,
+    status: "new",
+    source: "website",
+    createdAtText,
+  };
+
+  let order;
+
+  try {
+    order = await tablesDb.createRow({
+      databaseId: config.databaseId,
+      tableId: config.ordersTableId,
+      rowId: ID.unique(),
+      data: {
+        ...baseOrderData,
+        isArchived: false,
+      },
+    });
+  } catch (error) {
+    if (!isArchiveColumnsMissingError(error)) {
+      throw error;
+    }
+
+    order = await tablesDb.createRow({
+      databaseId: config.databaseId,
+      tableId: config.ordersTableId,
+      rowId: ID.unique(),
+      data: baseOrderData,
+    });
+  }
 
   const orderItems = await Promise.all(
     items.map((item) =>

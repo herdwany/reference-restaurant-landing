@@ -72,6 +72,14 @@ const createTablesDb = () => {
 
 const generateTrackingCode = () => `RS-${randomBytes(3).toString("hex").toUpperCase()}`;
 
+const isArchiveColumnsMissingError = (error) => {
+  const message = String(error?.message ?? "");
+  return (
+    error?.code === 400 &&
+    (message.includes("isArchived") || message.includes("archivedAt") || message.includes("archiveReason"))
+  );
+};
+
 const getRestaurant = async (tablesDb, input) => {
   const restaurantSlug = cleanText(input.restaurantSlug, 120);
 
@@ -237,28 +245,48 @@ const createReservationRow = async (tablesDb, restaurant, reservation, settings)
   const trackingCode = generateTrackingCode();
   const workflow = getReservationWorkflow(settings, reservation);
 
-  const row = await tablesDb.createRow({
-    databaseId: config.databaseId,
-    tableId: config.reservationsTableId,
-    rowId: ID.unique(),
-    data: {
-      restaurantId: restaurant.$id,
-      trackingCode,
-      customerName: reservation.customerName,
-      customerPhone: reservation.customerPhone,
-      reservationDate: reservation.reservationDate,
-      reservationTime: reservation.reservationTime,
-      peopleCount: reservation.peopleCount,
-      notes: reservation.notes,
-      status: workflow.status,
-      depositStatus: workflow.depositStatus,
-      depositAmount: workflow.depositAmount,
-      depositNotes: null,
-      confirmationNotes: null,
-      policyAccepted: reservation.policyAccepted,
-      createdAtText,
-    },
-  });
+  const baseReservationData = {
+    restaurantId: restaurant.$id,
+    trackingCode,
+    customerName: reservation.customerName,
+    customerPhone: reservation.customerPhone,
+    reservationDate: reservation.reservationDate,
+    reservationTime: reservation.reservationTime,
+    peopleCount: reservation.peopleCount,
+    notes: reservation.notes,
+    status: workflow.status,
+    depositStatus: workflow.depositStatus,
+    depositAmount: workflow.depositAmount,
+    depositNotes: null,
+    confirmationNotes: null,
+    policyAccepted: reservation.policyAccepted,
+    createdAtText,
+  };
+
+  let row;
+
+  try {
+    row = await tablesDb.createRow({
+      databaseId: config.databaseId,
+      tableId: config.reservationsTableId,
+      rowId: ID.unique(),
+      data: {
+        ...baseReservationData,
+        isArchived: false,
+      },
+    });
+  } catch (error) {
+    if (!isArchiveColumnsMissingError(error)) {
+      throw error;
+    }
+
+    row = await tablesDb.createRow({
+      databaseId: config.databaseId,
+      tableId: config.reservationsTableId,
+      rowId: ID.unique(),
+      data: baseReservationData,
+    });
+  }
 
   return {
     reservationId: row.$id,

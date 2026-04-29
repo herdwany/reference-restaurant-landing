@@ -1,10 +1,13 @@
 export {
+  archiveOrder,
   createOrder,
   createOrderViaFunction,
+  getArchivedOrdersByRestaurant,
   getOrderItems,
   getOrderWithItems,
   getOrdersByRestaurant,
   hasCreateOrderFunctionConfig,
+  restoreOrder,
   updateOrderStatus,
   type CreateOrderFunctionResult,
   type CreateOrderInput,

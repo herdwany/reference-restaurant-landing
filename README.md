@@ -440,4 +440,14 @@ Security constraints:
 - Removed public template/badge wording from the visitor-facing site.
 - No drag/drop builder, content translation manager, payment, viaSocket, domain resolver, or non-food business verticals were added.
 
-Next planned phase: Phase 10B - Full homepage customization polish.
+## Phase 10B - Order and Reservation Archiving
+
+- Orders and reservations now use soft archiving instead of hard deletion.
+- Archived records are hidden from the main admin lists but remain available in archive tabs for review and restore.
+- `order_items` are never deleted when an order is archived.
+- Past reservations are not deleted or auto-archived just because their appointment time passed. Active past reservations show `تحتاج مراجعة`.
+- Manual archive actions are plan-gated through existing orders/reservations access, with `agency_admin` bypass in selected restaurant context.
+- Auto-archive settings are stored only as deferred preferences; scheduled auto archive needs a later Appwrite Scheduled Function.
+- No payment, customer accounts, frontend Server SDK/API keys, subdomain resolver, or custom domain resolver was added.
+
+Next planned phase: Phase 10C - Full homepage customization polish.

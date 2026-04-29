@@ -33,6 +33,9 @@ interface OrderRow extends Models.Row {
   totalAmount: number;
   status: OrderStatus;
   source: OrderSource;
+  isArchived?: boolean | null;
+  archivedAt?: string | null;
+  archiveReason?: string | null;
 }
 
 interface OrderItemRow extends Models.Row {
@@ -89,6 +92,7 @@ type OrderRowData = {
   totalAmount: number;
   status: OrderStatus;
   source: OrderSource;
+  isArchived?: boolean;
 };
 
 type OrderItemRowData = {
@@ -138,6 +142,9 @@ const mapOrder = (row: OrderRow): Order => ({
   totalAmount: row.totalAmount,
   status: normalizeOrderStatus(row.status),
   source: isKnownOrderSource(row.source) ? row.source : "website",
+  isArchived: row.isArchived === true,
+  archivedAt: row.archivedAt ?? undefined,
+  archiveReason: row.archiveReason ?? undefined,
 });
 
 const mapOrderItem = (row: OrderItemRow): OrderItem => ({
@@ -154,6 +161,15 @@ const mapOrderItem = (row: OrderItemRow): OrderItem => ({
 const optionalText = (value: string | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+};
+
+const isArchiveColumnsMissingError = (error: unknown) => {
+  if (!(error instanceof AppwriteException) || error.code !== 400) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("isarchived") || message.includes("archivedat") || message.includes("archivereason");
 };
 
 const assertAppwriteDataReady = () => {
@@ -295,6 +311,7 @@ const toOrderRowData = (input: CreateOrderInput, totalAmount: number): OrderRowD
   totalAmount,
   status: "new",
   source: input.source ?? "website",
+  isArchived: false,
 });
 
 const toOrderItemRowData = (restaurantId: string, orderId: string, item: CreateOrderItemInput & { subtotal: number }): OrderItemRowData => ({
@@ -442,12 +459,28 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithIte
   const totalAmount = getTotalAmount(items, input.deliveryFee);
 
   try {
-    const orderRow = await databases.createRow<OrderRow>({
-      databaseId: DATABASE_ID,
-      tableId: TABLES.orders,
-      rowId: ID.unique(),
-      data: toOrderRowData(input, totalAmount),
-    });
+    let orderRow: OrderRow;
+
+    try {
+      orderRow = await databases.createRow<OrderRow>({
+        databaseId: DATABASE_ID,
+        tableId: TABLES.orders,
+        rowId: ID.unique(),
+        data: toOrderRowData(input, totalAmount),
+      });
+    } catch (error) {
+      if (!isArchiveColumnsMissingError(error)) {
+        throw error;
+      }
+
+      const { isArchived: _isArchived, ...fallbackOrderData } = toOrderRowData(input, totalAmount);
+      orderRow = await databases.createRow<OrderRow>({
+        databaseId: DATABASE_ID,
+        tableId: TABLES.orders,
+        rowId: ID.unique(),
+        data: fallbackOrderData,
+      });
+    }
 
     const orderItems = await Promise.all(
       items.map((item) =>
@@ -477,11 +510,42 @@ export async function getOrdersByRestaurant(restaurantId: string): Promise<Order
     const response = await databases.listRows<OrderRow>({
       databaseId: DATABASE_ID,
       tableId: TABLES.orders,
-      queries: [Query.equal("restaurantId", restaurantId), Query.orderDesc("$createdAt")],
+      queries: [Query.equal("restaurantId", restaurantId), Query.equal("isArchived", false), Query.orderDesc("$createdAt")],
     });
 
     return response.rows.map(mapOrder);
   } catch (error) {
+    if (isArchiveColumnsMissingError(error)) {
+      const response = await databases.listRows<OrderRow>({
+        databaseId: DATABASE_ID,
+        tableId: TABLES.orders,
+        queries: [Query.equal("restaurantId", restaurantId), Query.orderDesc("$createdAt")],
+      });
+
+      return response.rows.map(mapOrder).filter((order) => !order.isArchived);
+    }
+
+    throw new OrdersRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
+  }
+}
+
+export async function getArchivedOrdersByRestaurant(restaurantId: string): Promise<Order[]> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  try {
+    const response = await databases.listRows<OrderRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.orders,
+      queries: [Query.equal("restaurantId", restaurantId), Query.equal("isArchived", true), Query.orderDesc("$updatedAt")],
+    });
+
+    return response.rows.map(mapOrder);
+  } catch (error) {
+    if (isArchiveColumnsMissingError(error)) {
+      return [];
+    }
+
     throw new OrdersRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
   }
 }
@@ -527,6 +591,10 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, ac
   const existingOrder = await getOrderRowOrThrow(orderId);
   assertOrderBelongsToRestaurant(existingOrder, activeRestaurantId);
 
+  if (existingOrder.isArchived === true) {
+    throw new OrdersRepositoryError("لا يمكن تغيير حالة طلب مؤرشف. استعده أولًا.", "INVALID_INPUT");
+  }
+
   try {
     const row = await databases.updateRow<OrderRow>({
       databaseId: DATABASE_ID,
@@ -541,36 +609,68 @@ export async function updateOrderStatus(orderId: string, status: OrderStatus, ac
   }
 }
 
+export async function archiveOrder(orderId: string, restaurantId: string, reason?: string): Promise<Order> {
+  assertAppwriteDataReady();
+  assertOrderId(orderId);
+  assertRestaurantId(restaurantId);
+
+  const existingOrder = await getOrderRowOrThrow(orderId);
+  assertOrderBelongsToRestaurant(existingOrder, restaurantId);
+
+  try {
+    const row = await databases.updateRow<OrderRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.orders,
+      rowId: orderId,
+      data: {
+        isArchived: true,
+        archivedAt: new Date().toISOString(),
+        archiveReason: optionalText(reason),
+      },
+    });
+
+    return mapOrder(row);
+  } catch (error) {
+    throw new OrdersRepositoryError(getWriteErrorMessage(error), "WRITE_FAILED", error);
+  }
+}
+
+export async function restoreOrder(orderId: string, restaurantId: string): Promise<Order> {
+  assertAppwriteDataReady();
+  assertOrderId(orderId);
+  assertRestaurantId(restaurantId);
+
+  const existingOrder = await getOrderRowOrThrow(orderId);
+  assertOrderBelongsToRestaurant(existingOrder, restaurantId);
+
+  try {
+    const row = await databases.updateRow<OrderRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.orders,
+      rowId: orderId,
+      data: {
+        isArchived: false,
+        archivedAt: null,
+        archiveReason: null,
+      },
+    });
+
+    return mapOrder(row);
+  } catch (error) {
+    throw new OrdersRepositoryError(getWriteErrorMessage(error), "WRITE_FAILED", error);
+  }
+}
+
 export async function deleteOrder(orderId: string, activeRestaurantId?: string): Promise<void> {
   assertAppwriteDataReady();
   assertOrderId(orderId);
 
+  if (!activeRestaurantId) {
+    throw new OrdersRepositoryError("تعذر تحديد المطعم الحالي لأرشفة الطلب.", "INVALID_INPUT");
+  }
+
   const existingOrder = await getOrderRowOrThrow(orderId);
   assertOrderBelongsToRestaurant(existingOrder, activeRestaurantId);
 
-  try {
-    const items = await getOrderItems(orderId, existingOrder.restaurantId);
-    await Promise.all(
-      items.map((item) =>
-        databases.deleteRow({
-          databaseId: DATABASE_ID,
-          tableId: TABLES.orderItems,
-          rowId: item.id,
-        }),
-      ),
-    );
-
-    await databases.deleteRow({
-      databaseId: DATABASE_ID,
-      tableId: TABLES.orders,
-      rowId: orderId,
-    });
-  } catch (error) {
-    const message =
-      error instanceof AppwriteException && (error.code === 401 || error.code === 403)
-        ? "تعذر حذف الطلب. تحقق من تسجيل الدخول وصلاحيات Appwrite."
-        : "تعذر حذف الطلب. تحقق من الاتصال أو صلاحيات Appwrite.";
-
-    throw new OrdersRepositoryError(message, "DELETE_FAILED", error);
-  }
+  await archiveOrder(orderId, activeRestaurantId, "legacy_delete_action");
 }

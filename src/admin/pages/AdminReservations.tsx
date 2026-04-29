@@ -1,7 +1,8 @@
-import { CalendarCheck, Eye, MessageCircle, RefreshCw } from "lucide-react";
+import { Archive, CalendarCheck, Eye, MessageCircle, RefreshCw, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
+import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
 import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
@@ -14,14 +15,19 @@ import { useAuditLogger } from "../hooks/useAuditLogger";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import {
   ReservationsRepositoryError,
+  archiveReservation,
+  getArchivedReservationsByRestaurant,
   getReservationById,
   getReservationsByRestaurant,
+  restoreReservation,
   updateReservationStatus,
 } from "../../services/repositories/reservationsRepository";
+import { getSiteSettings } from "../../services/repositories/settingsRepository";
 import type { Reservation, ReservationStatus } from "../../types/platform";
 import { createWhatsappUrl } from "../../utils/formatters";
 
 type ReservationFilter = ReservationStatus | "all";
+type ReservationView = "upcoming" | "past" | "archive";
 type StatusTone = "success" | "warning" | "neutral" | "danger";
 
 const reservationStatuses = [
@@ -36,6 +42,17 @@ const reservationStatuses = [
   "cancelled",
   "rejected",
 ] as const satisfies readonly ReservationStatus[];
+const archivableReservationStatuses = ["completed", "no_show", "cancelled", "rejected"] as const satisfies readonly ReservationStatus[];
+const reviewReservationStatuses = ["new", "pending_confirmation", "confirmed", "deposit_required"] as const satisfies readonly ReservationStatus[];
+const defaultReservationArchivePreferences = {
+  enableManualArchiveActions: true,
+  showPastReservationsInSeparateTab: true,
+};
+const reservationViewLabels: Record<ReservationView, string> = {
+  upcoming: "القادمة/النشطة",
+  past: "السابقة/تحتاج مراجعة",
+  archive: "الأرشيف",
+};
 
 const statusLabelKeys: Record<ReservationStatus, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
   new: "reservationStatusNew",
@@ -114,6 +131,16 @@ const formatReservationTime = (value: string) => {
   }).format(date);
 };
 
+const getReservationDateTime = (reservation: Reservation) => {
+  const date = new Date(`${reservation.reservationDate}T${reservation.reservationTime || "00:00"}`);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const isPastReservation = (reservation: Reservation) => {
+  const date = getReservationDateTime(reservation);
+  return date ? date.getTime() < Date.now() : false;
+};
+
 export default function AdminReservations() {
   const { t } = useI18n();
   const {
@@ -128,14 +155,23 @@ export default function AdminReservations() {
   const logAction = useAuditLogger();
   const canUseReservations = canAccessFeature("canManageReservations");
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [reservationView, setReservationView] = useState<ReservationView>("upcoming");
   const [statusFilter, setStatusFilter] = useState<ReservationFilter>("all");
   const [selectedReservationId, setSelectedReservationId] = useState<string | null>(null);
   const [reservationDetails, setReservationDetails] = useState<Reservation | null>(null);
+  const [pendingArchiveReservation, setPendingArchiveReservation] = useState<Reservation | null>(null);
+  const [archivePreferences, setArchivePreferences] = useState(defaultReservationArchivePreferences);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [busyReservationId, setBusyReservationId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const isArchiveView = reservationView === "archive";
+  const canUseManualArchiveActions = canUseReservations && archivePreferences.enableManualArchiveActions;
+  const canArchiveReservationRecord = (reservation: Reservation) =>
+    (archivableReservationStatuses as readonly ReservationStatus[]).includes(reservation.status);
+  const needsReview = (reservation: Reservation) =>
+    isPastReservation(reservation) && (reviewReservationStatuses as readonly ReservationStatus[]).includes(reservation.status);
 
   const stats = useMemo(
     () => ({
@@ -143,17 +179,34 @@ export default function AdminReservations() {
       confirmed: reservations.filter((reservation) => reservation.status === "confirmed").length,
       completed: reservations.filter((reservation) => reservation.status === "completed").length,
       depositRequired: reservations.filter((reservation) => reservation.status === "deposit_required").length,
+      needsReview: reservations.filter(needsReview).length,
     }),
     [reservations],
   );
+  const completedArchiveCandidatesCount = useMemo(
+    () => reservations.filter(canArchiveReservationRecord).length,
+    [reservations],
+  );
 
-  const filteredReservations = useMemo(() => {
-    if (statusFilter === "all") {
+  const viewReservations = useMemo(() => {
+    if (reservationView === "archive") {
       return reservations;
     }
 
-    return reservations.filter((reservation) => reservation.status === statusFilter);
-  }, [reservations, statusFilter]);
+    if (reservationView === "past") {
+      return archivePreferences.showPastReservationsInSeparateTab ? reservations.filter(isPastReservation) : reservations.filter(needsReview);
+    }
+
+    return archivePreferences.showPastReservationsInSeparateTab ? reservations.filter((reservation) => !isPastReservation(reservation)) : reservations;
+  }, [archivePreferences.showPastReservationsInSeparateTab, reservationView, reservations]);
+
+  const filteredReservations = useMemo(() => {
+    if (statusFilter === "all") {
+      return viewReservations;
+    }
+
+    return viewReservations.filter((reservation) => reservation.status === statusFilter);
+  }, [statusFilter, viewReservations]);
 
   const selectedReservation = useMemo(() => {
     if (!selectedReservationId) {
@@ -174,14 +227,23 @@ export default function AdminReservations() {
     setPageError(null);
 
     try {
-      const loadedReservations = await getReservationsByRestaurant(activeRestaurantId);
+      const [loadedReservations, settings] = await Promise.all([
+        reservationView === "archive" ? getArchivedReservationsByRestaurant(activeRestaurantId) : getReservationsByRestaurant(activeRestaurantId),
+        getSiteSettings(activeRestaurantId).catch(() => null),
+      ]);
       setReservations(loadedReservations);
+      setArchivePreferences({
+        enableManualArchiveActions:
+          settings?.enableManualArchiveActions ?? defaultReservationArchivePreferences.enableManualArchiveActions,
+        showPastReservationsInSeparateTab:
+          settings?.showPastReservationsInSeparateTab ?? defaultReservationArchivePreferences.showPastReservationsInSeparateTab,
+      });
     } catch (error) {
       setPageError(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseReservations]);
+  }, [activeRestaurantId, canUseReservations, reservationView]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseReservations || !activeRestaurantId) {
@@ -229,6 +291,11 @@ export default function AdminReservations() {
   };
 
   const handleStatusChange = async (reservation: Reservation, status: ReservationStatus) => {
+    if (reservation.isArchived) {
+      setPageError("لا يمكن تغيير حالة حجز مؤرشف. استعده أولًا.");
+      return;
+    }
+
     if (!canUseReservations) {
       setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
@@ -271,6 +338,116 @@ export default function AdminReservations() {
     }
   };
 
+  const handleArchiveReservation = async () => {
+    if (!pendingArchiveReservation || !activeRestaurantId) {
+      return;
+    }
+
+    setBusyReservationId(pendingArchiveReservation.id);
+    setPageError(null);
+    setSuccessMessage(null);
+
+    try {
+      const archivedReservation = await archiveReservation(pendingArchiveReservation.id, activeRestaurantId);
+      setReservations((current) => current.filter((item) => item.id !== archivedReservation.id));
+      setReservationDetails((current) => (current?.id === archivedReservation.id ? null : current));
+      setSelectedReservationId((current) => (current === archivedReservation.id ? null : current));
+      logAction({
+        action: "archive",
+        entityType: "reservation",
+        entityId: archivedReservation.id,
+        metadata: {
+          reservationId: archivedReservation.id,
+          status: archivedReservation.status,
+        },
+      });
+      setSuccessMessage("تم نقل الحجز إلى الأرشيف بنجاح.");
+      setPendingArchiveReservation(null);
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setBusyReservationId(null);
+    }
+  };
+
+  const handleRestoreReservation = async (reservation: Reservation) => {
+    if (!activeRestaurantId) {
+      setPageError("تعذر تحديد المطعم الحالي.");
+      return;
+    }
+
+    setBusyReservationId(reservation.id);
+    setPageError(null);
+    setSuccessMessage(null);
+
+    try {
+      const restoredReservation = await restoreReservation(reservation.id, activeRestaurantId);
+      setReservations((current) =>
+        isArchiveView
+          ? current.filter((item) => item.id !== restoredReservation.id)
+          : current.map((item) => (item.id === restoredReservation.id ? restoredReservation : item)),
+      );
+      setReservationDetails((current) => (current?.id === restoredReservation.id ? restoredReservation : current));
+      logAction({
+        action: "restore",
+        entityType: "reservation",
+        entityId: restoredReservation.id,
+        metadata: {
+          reservationId: restoredReservation.id,
+          status: restoredReservation.status,
+        },
+      });
+      setSuccessMessage("تمت استعادة الحجز بنجاح.");
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setBusyReservationId(null);
+    }
+  };
+
+  const handleArchiveCompletedReservations = async () => {
+    if (!activeRestaurantId) {
+      setPageError("تعذر تحديد المطعم الحالي.");
+      return;
+    }
+
+    const candidates = reservations.filter(canArchiveReservationRecord);
+
+    if (candidates.length === 0) {
+      setSuccessMessage("لا توجد حجوزات منتهية جاهزة للأرشفة.");
+      return;
+    }
+
+    setBusyReservationId("bulk-archive");
+    setPageError(null);
+    setSuccessMessage(null);
+
+    try {
+      const archivedReservations = await Promise.all(
+        candidates.map((reservation) => archiveReservation(reservation.id, activeRestaurantId, "bulk_completed_reservations_archive")),
+      );
+      const archivedIds = new Set(archivedReservations.map((reservation) => reservation.id));
+      setReservations((current) => current.filter((reservation) => !archivedIds.has(reservation.id)));
+      archivedReservations.forEach((reservation) => {
+        logAction({
+          action: "archive",
+          entityType: "reservation",
+          entityId: reservation.id,
+          metadata: {
+            reservationId: reservation.id,
+            status: reservation.status,
+            bulk: true,
+          },
+        });
+      });
+      setSuccessMessage(`تمت أرشفة ${archivedReservations.length} حجز منتهي بنجاح.`);
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setBusyReservationId(null);
+    }
+  };
+
   const openWhatsappReply = (reservation: Reservation) => {
     const restaurantName = activeRestaurantName || activeRestaurant?.nameAr || activeRestaurant?.name || "المطعم";
     const trackUrl = activeRestaurantSlug ? `${window.location.origin}/r/${activeRestaurantSlug}/track` : "";
@@ -303,7 +480,10 @@ export default function AdminReservations() {
           <span>{formatReservationId(reservation.id)}</span>
           <h3>{reservation.customerName}</h3>
         </div>
-        <AdminStatusBadge tone={statusTones[reservation.status]}>{t(statusLabelKeys[reservation.status])}</AdminStatusBadge>
+        <div className="admin-order-card__badges">
+          <AdminStatusBadge tone={statusTones[reservation.status]}>{t(statusLabelKeys[reservation.status])}</AdminStatusBadge>
+          {needsReview(reservation) ? <AdminStatusBadge tone="warning">تحتاج مراجعة</AdminStatusBadge> : null}
+        </div>
       </div>
 
       <div className="admin-order-card__meta">
@@ -344,20 +524,24 @@ export default function AdminReservations() {
         </div>
       </div>
 
-      <label className="admin-order-card__status">
-        <span>تغيير الحالة</span>
-        <select
-          value={reservation.status}
-          onChange={(event) => void handleStatusChange(reservation, event.target.value as ReservationStatus)}
-          disabled={busyReservationId === reservation.id}
-        >
-          {reservationStatuses.map((status) => (
-            <option value={status} key={status}>
-              {t(statusLabelKeys[status])}
-            </option>
-          ))}
-        </select>
-      </label>
+      {isArchiveView ? (
+        <div className="admin-feedback admin-feedback--warning">هذا الحجز مؤرشف، لذلك لا يمكن تغيير حالته قبل استعادته.</div>
+      ) : (
+        <label className="admin-order-card__status">
+          <span>تغيير الحالة</span>
+          <select
+            value={reservation.status}
+            onChange={(event) => void handleStatusChange(reservation, event.target.value as ReservationStatus)}
+            disabled={busyReservationId === reservation.id}
+          >
+            {reservationStatuses.map((status) => (
+              <option value={status} key={status}>
+                {t(statusLabelKeys[status])}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="admin-order-card__actions">
         <AdminActionButton
@@ -367,13 +551,38 @@ export default function AdminReservations() {
         >
           عرض التفاصيل
         </AdminActionButton>
-        <AdminActionButton
-          variant="primary"
-          icon={<MessageCircle size={17} aria-hidden="true" />}
-          onClick={() => openWhatsappReply(reservation)}
-        >
-          الرد عبر واتساب
-        </AdminActionButton>
+        {isArchiveView ? (
+          canUseManualArchiveActions ? (
+            <AdminActionButton
+              variant="primary"
+              icon={<RotateCcw size={17} aria-hidden="true" />}
+              onClick={() => void handleRestoreReservation(reservation)}
+              disabled={busyReservationId === reservation.id}
+            >
+              استعادة
+            </AdminActionButton>
+          ) : null
+        ) : (
+          <>
+            <AdminActionButton
+              variant="primary"
+              icon={<MessageCircle size={17} aria-hidden="true" />}
+              onClick={() => openWhatsappReply(reservation)}
+            >
+              الرد عبر واتساب
+            </AdminActionButton>
+            {canUseManualArchiveActions && canArchiveReservationRecord(reservation) ? (
+              <AdminActionButton
+                variant="secondary"
+                icon={<Archive size={17} aria-hidden="true" />}
+                onClick={() => setPendingArchiveReservation(reservation)}
+                disabled={busyReservationId === reservation.id}
+              >
+                أرشفة
+              </AdminActionButton>
+            ) : null}
+          </>
+        )}
       </div>
     </AdminCard>
   );
@@ -435,19 +644,31 @@ export default function AdminReservations() {
         description="تابع حجوزات الطاولات الواردة من موقع مطعمك."
         actions={
           canManageRestaurantContent && canUseReservations ? (
-            <AdminActionButton
-              variant="secondary"
-              icon={<RefreshCw size={18} aria-hidden="true" />}
-              onClick={() => void loadReservations()}
-              disabled={isLoading}
-            >
-              تحديث الحجوزات
-            </AdminActionButton>
+            <>
+              {canUseManualArchiveActions && !isArchiveView && completedArchiveCandidatesCount > 0 ? (
+                <AdminActionButton
+                  variant="secondary"
+                  icon={<Archive size={18} aria-hidden="true" />}
+                  onClick={() => void handleArchiveCompletedReservations()}
+                  disabled={isLoading || busyReservationId === "bulk-archive"}
+                >
+                  أرشفة الحجوزات المنتهية
+                </AdminActionButton>
+              ) : null}
+              <AdminActionButton
+                variant="secondary"
+                icon={<RefreshCw size={18} aria-hidden="true" />}
+                onClick={() => void loadReservations()}
+                disabled={isLoading}
+              >
+                تحديث الحجوزات
+              </AdminActionButton>
+            </>
           ) : null
         }
       />
 
-      {canManageRestaurantContent && canUseReservations && reservations.length > 0 ? (
+      {canManageRestaurantContent && canUseReservations ? (
         <>
           <div className="admin-orders-stats" aria-label="ملخص الحجوزات">
             <div>
@@ -463,9 +684,25 @@ export default function AdminReservations() {
               <strong>{stats.completed}</strong>
             </div>
             <div>
-              <span>{t("reservationStatusDepositRequired")}</span>
-              <strong>{stats.depositRequired}</strong>
+              <span>تحتاج مراجعة</span>
+              <strong>{stats.needsReview}</strong>
             </div>
+          </div>
+
+          <div className="admin-orders-filters" aria-label="عرض الحجوزات">
+            {(["upcoming", "past", "archive"] as const).map((view) => (
+              <button
+                className={view === reservationView ? "is-active" : ""}
+                type="button"
+                onClick={() => {
+                  setReservationView(view);
+                  setStatusFilter("all");
+                }}
+                key={view}
+              >
+                {reservationViewLabels[view]}
+              </button>
+            ))}
           </div>
 
           <div className="admin-orders-filters" aria-label="تصفية الحجوزات حسب الحالة">
@@ -521,9 +758,12 @@ export default function AdminReservations() {
               </div>
               <div>
                 <span>الحالة</span>
-                <AdminStatusBadge tone={statusTones[reservationDetails.status]}>
-                  {t(statusLabelKeys[reservationDetails.status])}
-                </AdminStatusBadge>
+                <div className="admin-order-card__badges">
+                  <AdminStatusBadge tone={statusTones[reservationDetails.status]}>
+                    {t(statusLabelKeys[reservationDetails.status])}
+                  </AdminStatusBadge>
+                  {needsReview(reservationDetails) ? <AdminStatusBadge tone="warning">تحتاج مراجعة</AdminStatusBadge> : null}
+                </div>
               </div>
               <div>
                 <span>{t("trackingCode")}</span>
@@ -543,31 +783,74 @@ export default function AdminReservations() {
               <p>{reservationDetails.notes || "لا توجد ملاحظات."}</p>
             </div>
 
-            <div className="admin-order-status-actions admin-reservation-status-actions">
-              {reservationStatuses.map((status) => (
-                <AdminActionButton
-                  variant={status === reservationDetails.status ? "primary" : "secondary"}
-                  onClick={() => void handleStatusChange(reservationDetails, status)}
-                  disabled={busyReservationId === reservationDetails.id}
-                  key={status}
-                >
-                  {t(statusLabelKeys[status])}
-                </AdminActionButton>
-              ))}
-            </div>
+            {reservationDetails.isArchived ? (
+              <div className="admin-feedback admin-feedback--warning">لا يمكن تغيير حالة حجز داخل الأرشيف. استعد الحجز أولًا ثم عدّل حالته.</div>
+            ) : (
+              <div className="admin-order-status-actions admin-reservation-status-actions">
+                {reservationStatuses.map((status) => (
+                  <AdminActionButton
+                    variant={status === reservationDetails.status ? "primary" : "secondary"}
+                    onClick={() => void handleStatusChange(reservationDetails, status)}
+                    disabled={busyReservationId === reservationDetails.id}
+                    key={status}
+                  >
+                    {t(statusLabelKeys[status])}
+                  </AdminActionButton>
+                ))}
+              </div>
+            )}
 
             <div className="admin-order-details__actions">
-              <AdminActionButton
-                variant="primary"
-                icon={<MessageCircle size={17} aria-hidden="true" />}
-                onClick={() => openWhatsappReply(reservationDetails)}
-              >
-                الرد عبر واتساب
-              </AdminActionButton>
+              {reservationDetails.isArchived ? (
+                canUseManualArchiveActions ? (
+                  <AdminActionButton
+                    variant="primary"
+                    icon={<RotateCcw size={17} aria-hidden="true" />}
+                    onClick={() => void handleRestoreReservation(reservationDetails)}
+                    disabled={busyReservationId === reservationDetails.id}
+                  >
+                    استعادة
+                  </AdminActionButton>
+                ) : null
+              ) : (
+                <>
+                  <AdminActionButton
+                    variant="primary"
+                    icon={<MessageCircle size={17} aria-hidden="true" />}
+                    onClick={() => openWhatsappReply(reservationDetails)}
+                  >
+                    الرد عبر واتساب
+                  </AdminActionButton>
+                  {canUseManualArchiveActions && canArchiveReservationRecord(reservationDetails) ? (
+                    <AdminActionButton
+                      variant="secondary"
+                      icon={<Archive size={17} aria-hidden="true" />}
+                      onClick={() => setPendingArchiveReservation(reservationDetails)}
+                      disabled={busyReservationId === reservationDetails.id}
+                    >
+                      أرشفة
+                    </AdminActionButton>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         ) : null}
       </AdminFormModal>
+
+      <AdminConfirmDialog
+        isOpen={Boolean(pendingArchiveReservation)}
+        title="أرشفة الحجز"
+        message="لن يتم حذف الحجز. سيتم نقله إلى الأرشيف ويمكن استعادته لاحقًا."
+        confirmLabel="أرشفة"
+        isSubmitting={Boolean(pendingArchiveReservation && busyReservationId === pendingArchiveReservation.id)}
+        onCancel={() => {
+          if (!busyReservationId) {
+            setPendingArchiveReservation(null);
+          }
+        }}
+        onConfirm={() => void handleArchiveReservation()}
+      />
     </section>
   );
 }

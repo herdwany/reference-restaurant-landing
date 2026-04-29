@@ -54,6 +54,14 @@ interface SiteSettingsRow extends Models.Row {
   depositPolicyText?: string | null;
   cancellationPolicyText?: string | null;
   maxPeoplePerReservation?: number | null;
+  hideCompletedOrdersFromMainList?: boolean | null;
+  hideCancelledOrdersFromMainList?: boolean | null;
+  showPastReservationsInSeparateTab?: boolean | null;
+  enableManualArchiveActions?: boolean | null;
+  autoArchiveCompletedOrders?: boolean | null;
+  orderAutoArchiveAfterHours?: number | null;
+  autoArchiveCompletedReservations?: boolean | null;
+  reservationAutoArchiveAfterHours?: number | null;
   showHero: boolean;
   showFeatured?: boolean | null;
   showTrustBadges: boolean;
@@ -96,6 +104,14 @@ export type SiteSettingsMutationInput = {
   depositPolicyText?: string;
   cancellationPolicyText?: string;
   maxPeoplePerReservation?: number;
+  hideCompletedOrdersFromMainList?: boolean;
+  hideCancelledOrdersFromMainList?: boolean;
+  showPastReservationsInSeparateTab?: boolean;
+  enableManualArchiveActions?: boolean;
+  autoArchiveCompletedOrders?: boolean;
+  orderAutoArchiveAfterHours?: number;
+  autoArchiveCompletedReservations?: boolean;
+  reservationAutoArchiveAfterHours?: number;
   showHero: boolean;
   showFeatured?: boolean;
   showTrustBadges: boolean;
@@ -148,6 +164,14 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   depositPolicyText: row.depositPolicyText ?? undefined,
   cancellationPolicyText: row.cancellationPolicyText ?? undefined,
   maxPeoplePerReservation: row.maxPeoplePerReservation ?? undefined,
+  hideCompletedOrdersFromMainList: row.hideCompletedOrdersFromMainList ?? undefined,
+  hideCancelledOrdersFromMainList: row.hideCancelledOrdersFromMainList ?? undefined,
+  showPastReservationsInSeparateTab: row.showPastReservationsInSeparateTab ?? undefined,
+  enableManualArchiveActions: row.enableManualArchiveActions ?? undefined,
+  autoArchiveCompletedOrders: row.autoArchiveCompletedOrders ?? undefined,
+  orderAutoArchiveAfterHours: row.orderAutoArchiveAfterHours ?? undefined,
+  autoArchiveCompletedReservations: row.autoArchiveCompletedReservations ?? undefined,
+  reservationAutoArchiveAfterHours: row.reservationAutoArchiveAfterHours ?? undefined,
   showHero: row.showHero,
   showFeatured: row.showFeatured ?? undefined,
   showTrustBadges: row.showTrustBadges,
@@ -190,6 +214,15 @@ const toSiteSettingsRowData = (input: SiteSettingsMutationInput): SiteSettingsRo
   depositPolicyText: input.depositPolicyText?.trim() || undefined,
   cancellationPolicyText: input.cancellationPolicyText?.trim() || undefined,
   maxPeoplePerReservation: input.maxPeoplePerReservation,
+  hideCompletedOrdersFromMainList: input.hideCompletedOrdersFromMainList ?? true,
+  hideCancelledOrdersFromMainList: input.hideCancelledOrdersFromMainList ?? true,
+  showPastReservationsInSeparateTab: input.showPastReservationsInSeparateTab ?? true,
+  enableManualArchiveActions: input.enableManualArchiveActions ?? true,
+  // TODO: Scheduled auto archive requires a dedicated Appwrite Scheduled Function later.
+  autoArchiveCompletedOrders: Boolean(input.autoArchiveCompletedOrders),
+  orderAutoArchiveAfterHours: input.orderAutoArchiveAfterHours,
+  autoArchiveCompletedReservations: Boolean(input.autoArchiveCompletedReservations),
+  reservationAutoArchiveAfterHours: input.reservationAutoArchiveAfterHours,
   showHero: input.showHero,
   showFeatured: input.showFeatured ?? input.showFeaturedDishes,
   showTrustBadges: input.showTrustBadges,

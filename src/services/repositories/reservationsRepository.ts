@@ -43,6 +43,9 @@ interface ReservationRow extends Models.Row {
   depositNotes?: string | null;
   confirmationNotes?: string | null;
   policyAccepted?: boolean | null;
+  isArchived?: boolean | null;
+  archivedAt?: string | null;
+  archiveReason?: string | null;
 }
 
 export type CreateReservationInput = {
@@ -85,6 +88,7 @@ type ReservationRowData = {
   depositNotes: string | null;
   confirmationNotes: string | null;
   policyAccepted: boolean;
+  isArchived?: boolean;
 };
 
 const reservationStatuses = [
@@ -125,6 +129,9 @@ const mapReservation = (row: ReservationRow): Reservation => ({
   depositNotes: row.depositNotes ?? undefined,
   confirmationNotes: row.confirmationNotes ?? undefined,
   policyAccepted: row.policyAccepted ?? undefined,
+  isArchived: row.isArchived === true,
+  archivedAt: row.archivedAt ?? undefined,
+  archiveReason: row.archiveReason ?? undefined,
   createdAt: row.$createdAt,
   updatedAt: row.$updatedAt,
 });
@@ -132,6 +139,15 @@ const mapReservation = (row: ReservationRow): Reservation => ({
 const optionalText = (value: string | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
+};
+
+const isArchiveColumnsMissingError = (error: unknown) => {
+  if (!(error instanceof AppwriteException) || error.code !== 400) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("isarchived") || message.includes("archivedat") || message.includes("archivereason");
 };
 
 const assertAppwriteDataReady = () => {
@@ -227,6 +243,7 @@ const toReservationRowData = (input: CreateReservationInput): ReservationRowData
   depositNotes: null,
   confirmationNotes: null,
   policyAccepted: Boolean(input.policyAccepted),
+  isArchived: false,
 });
 
 const getWriteErrorMessage = (error: unknown, action: "create" | "update") => {
@@ -247,14 +264,6 @@ const getReadErrorMessage = (error: unknown) => {
   }
 
   return "تعذر تحميل الحجوزات. تحقق من الاتصال أو صلاحيات Appwrite.";
-};
-
-const getDeleteErrorMessage = (error: unknown) => {
-  if (error instanceof AppwriteException && (error.code === 401 || error.code === 403)) {
-    return "تعذر حذف الحجز. تحقق من تسجيل الدخول أو صلاحيات Appwrite.";
-  }
-
-  return "تعذر حذف الحجز. تحقق من الاتصال أو الصلاحيات.";
 };
 
 const assertReservationBelongsToRestaurant = (reservation: Reservation | ReservationRow, activeRestaurantId: string) => {
@@ -374,12 +383,28 @@ export async function createReservation(input: CreateReservationInput): Promise<
   assertCreateReservationInput(input);
 
   try {
-    const row = await databases.createRow<ReservationRow>({
-      databaseId: DATABASE_ID,
-      tableId: TABLES.reservations,
-      rowId: ID.unique(),
-      data: toReservationRowData(input),
-    });
+    let row: ReservationRow;
+
+    try {
+      row = await databases.createRow<ReservationRow>({
+        databaseId: DATABASE_ID,
+        tableId: TABLES.reservations,
+        rowId: ID.unique(),
+        data: toReservationRowData(input),
+      });
+    } catch (error) {
+      if (!isArchiveColumnsMissingError(error)) {
+        throw error;
+      }
+
+      const { isArchived: _isArchived, ...fallbackReservationData } = toReservationRowData(input);
+      row = await databases.createRow<ReservationRow>({
+        databaseId: DATABASE_ID,
+        tableId: TABLES.reservations,
+        rowId: ID.unique(),
+        data: fallbackReservationData,
+      });
+    }
 
     return mapReservation(row);
   } catch (error) {
@@ -395,14 +420,59 @@ export async function getReservationsByRestaurant(restaurantId: string): Promise
     const response = await databases.listRows<ReservationRow>({
       databaseId: DATABASE_ID,
       tableId: TABLES.reservations,
-      queries: [Query.equal("restaurantId", restaurantId), Query.orderDesc("$createdAt")],
+      queries: [Query.equal("restaurantId", restaurantId), Query.equal("isArchived", false), Query.orderDesc("$createdAt")],
     });
 
     return response.rows.map(mapReservation);
   } catch (error) {
+    if (isArchiveColumnsMissingError(error)) {
+      const response = await databases.listRows<ReservationRow>({
+        databaseId: DATABASE_ID,
+        tableId: TABLES.reservations,
+        queries: [Query.equal("restaurantId", restaurantId), Query.orderDesc("$createdAt")],
+      });
+
+      return response.rows.map(mapReservation).filter((reservation) => !reservation.isArchived);
+    }
+
     throw new ReservationsRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
   }
 }
+
+export async function getArchivedReservationsByRestaurant(restaurantId: string): Promise<Reservation[]> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  try {
+    const response = await databases.listRows<ReservationRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.reservations,
+      queries: [Query.equal("restaurantId", restaurantId), Query.equal("isArchived", true), Query.orderDesc("$updatedAt")],
+    });
+
+    return response.rows.map(mapReservation);
+  } catch (error) {
+    if (isArchiveColumnsMissingError(error)) {
+      return [];
+    }
+
+    throw new ReservationsRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
+  }
+}
+
+const getReservationRowOrThrow = async (reservationId: string) => {
+  assertReservationId(reservationId);
+
+  try {
+    return await databases.getRow<ReservationRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.reservations,
+      rowId: reservationId,
+    });
+  } catch (error) {
+    throw new ReservationsRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
+  }
+};
 
 export async function getReservationById(
   reservationId: string,
@@ -455,6 +525,10 @@ export async function updateReservationStatus(
 
   assertReservationBelongsToRestaurant(existingReservation, activeRestaurantId);
 
+  if (existingReservation.isArchived === true) {
+    throw new ReservationsRepositoryError("لا يمكن تغيير حالة حجز مؤرشف. استعده أولًا.", "INVALID_INPUT");
+  }
+
   try {
     const data =
       status === "deposit_paid"
@@ -476,27 +550,68 @@ export async function updateReservationStatus(
   }
 }
 
+export async function archiveReservation(reservationId: string, restaurantId: string, reason?: string): Promise<Reservation> {
+  assertAppwriteDataReady();
+  assertReservationId(reservationId);
+  assertRestaurantId(restaurantId);
+
+  const existingReservation = await getReservationRowOrThrow(reservationId);
+  assertReservationBelongsToRestaurant(existingReservation, restaurantId);
+
+  try {
+    const row = await databases.updateRow<ReservationRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.reservations,
+      rowId: reservationId,
+      data: {
+        isArchived: true,
+        archivedAt: new Date().toISOString(),
+        archiveReason: optionalText(reason),
+      },
+    });
+
+    return mapReservation(row);
+  } catch (error) {
+    throw new ReservationsRepositoryError(getWriteErrorMessage(error, "update"), "WRITE_FAILED", error);
+  }
+}
+
+export async function restoreReservation(reservationId: string, restaurantId: string): Promise<Reservation> {
+  assertAppwriteDataReady();
+  assertReservationId(reservationId);
+  assertRestaurantId(restaurantId);
+
+  const existingReservation = await getReservationRowOrThrow(reservationId);
+  assertReservationBelongsToRestaurant(existingReservation, restaurantId);
+
+  try {
+    const row = await databases.updateRow<ReservationRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.reservations,
+      rowId: reservationId,
+      data: {
+        isArchived: false,
+        archivedAt: null,
+        archiveReason: null,
+      },
+    });
+
+    return mapReservation(row);
+  } catch (error) {
+    throw new ReservationsRepositoryError(getWriteErrorMessage(error, "update"), "WRITE_FAILED", error);
+  }
+}
+
 export async function deleteReservation(reservationId: string, activeRestaurantId?: string): Promise<void> {
   assertAppwriteDataReady();
   assertReservationId(reservationId);
 
-  if (activeRestaurantId) {
-    const existingReservation = await getReservationById(reservationId, activeRestaurantId);
-
-    if (!existingReservation) {
-      throw new ReservationsRepositoryError("لا يمكن حذف حجز خارج نطاق المطعم الحالي.", "INVALID_INPUT");
-    }
-
-    assertReservationBelongsToRestaurant(existingReservation, activeRestaurantId);
+  if (!activeRestaurantId) {
+    throw new ReservationsRepositoryError("تعذر تحديد المطعم الحالي لأرشفة الحجز.", "INVALID_INPUT");
   }
 
-  try {
-    await databases.deleteRow({
-      databaseId: DATABASE_ID,
-      tableId: TABLES.reservations,
-      rowId: reservationId,
-    });
-  } catch (error) {
-    throw new ReservationsRepositoryError(getDeleteErrorMessage(error), "DELETE_FAILED", error);
-  }
+  const existingReservation = await getReservationRowOrThrow(reservationId);
+  assertReservationBelongsToRestaurant(existingReservation, activeRestaurantId);
+
+  await archiveReservation(reservationId, activeRestaurantId, "legacy_delete_action");
 }

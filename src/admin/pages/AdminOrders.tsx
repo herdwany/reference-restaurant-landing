@@ -1,7 +1,8 @@
-import { Eye, MessageCircle, RefreshCw, ShoppingBag } from "lucide-react";
+import { Archive, Eye, MessageCircle, RefreshCw, RotateCcw, ShoppingBag } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AdminActionButton from "../components/AdminActionButton";
 import AdminCard from "../components/AdminCard";
+import AdminConfirmDialog from "../components/AdminConfirmDialog";
 import AdminEmptyState from "../components/AdminEmptyState";
 import AdminErrorState from "../components/AdminErrorState";
 import AdminFeatureUnavailable from "../components/AdminFeatureUnavailable";
@@ -14,16 +15,21 @@ import { useAuditLogger } from "../hooks/useAuditLogger";
 import { useI18n } from "../../lib/i18n/I18nContext";
 import {
   OrdersRepositoryError,
+  archiveOrder,
+  getArchivedOrdersByRestaurant,
   getOrderItems,
   getOrderWithItems,
   getOrdersByRestaurant,
+  restoreOrder,
   updateOrderStatus,
   type OrderWithItems,
 } from "../../services/repositories/ordersRepository";
+import { getSiteSettings } from "../../services/repositories/settingsRepository";
 import type { Order, OrderItem, OrderStatus } from "../../types/platform";
 import { createWhatsappUrl, formatPrice } from "../../utils/formatters";
 
 type OrderFilter = OrderStatus | "all";
+type OrderView = "current" | "terminal" | "archive";
 type StatusTone = "success" | "warning" | "neutral" | "danger";
 
 const adminCurrency = "ر.س";
@@ -37,6 +43,17 @@ const orderStatuses = [
   "cancelled",
   "rejected",
 ] as const satisfies readonly OrderStatus[];
+const terminalOrderStatuses = ["completed", "cancelled", "rejected"] as const satisfies readonly OrderStatus[];
+const defaultOrderArchivePreferences = {
+  enableManualArchiveActions: true,
+  hideCompletedOrdersFromMainList: true,
+  hideCancelledOrdersFromMainList: true,
+};
+const orderViewLabels: Record<OrderView, string> = {
+  current: "الطلبات الحالية",
+  terminal: "المكتملة/الملغاة",
+  archive: "الأرشيف",
+};
 
 const statusLabelKeys: Record<OrderStatus, Parameters<ReturnType<typeof useI18n>["t"]>[0]> = {
   new: "orderStatusNew",
@@ -104,14 +121,20 @@ export default function AdminOrders() {
   const canUseOrders = canAccessFeature("canManageOrders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
+  const [orderView, setOrderView] = useState<OrderView>("current");
   const [statusFilter, setStatusFilter] = useState<OrderFilter>("all");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderDetails, setOrderDetails] = useState<OrderWithItems | null>(null);
+  const [pendingArchiveOrder, setPendingArchiveOrder] = useState<Order | null>(null);
+  const [archivePreferences, setArchivePreferences] = useState(defaultOrderArchivePreferences);
   const [isDetailsLoading, setIsDetailsLoading] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [busyOrderId, setBusyOrderId] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const isArchiveView = orderView === "archive";
+  const canUseManualArchiveActions = canUseOrders && archivePreferences.enableManualArchiveActions;
+  const canArchiveOrderRecord = (order: Order) => (terminalOrderStatuses as readonly OrderStatus[]).includes(order.status);
 
   const stats = useMemo(
     () => ({
@@ -123,13 +146,35 @@ export default function AdminOrders() {
     [orders],
   );
 
-  const filteredOrders = useMemo(() => {
-    if (statusFilter === "all") {
+  const viewOrders = useMemo(() => {
+    if (orderView === "archive") {
       return orders;
     }
 
-    return orders.filter((order) => order.status === statusFilter);
-  }, [orders, statusFilter]);
+    if (orderView === "terminal") {
+      return orders.filter(canArchiveOrderRecord);
+    }
+
+    return orders.filter((order) => {
+      if (order.status === "completed") {
+        return !archivePreferences.hideCompletedOrdersFromMainList;
+      }
+
+      if (order.status === "cancelled" || order.status === "rejected") {
+        return !archivePreferences.hideCancelledOrdersFromMainList;
+      }
+
+      return true;
+    });
+  }, [archivePreferences.hideCancelledOrdersFromMainList, archivePreferences.hideCompletedOrdersFromMainList, orderView, orders]);
+
+  const filteredOrders = useMemo(() => {
+    if (statusFilter === "all") {
+      return viewOrders;
+    }
+
+    return viewOrders.filter((order) => order.status === statusFilter);
+  }, [statusFilter, viewOrders]);
 
   const selectedOrder = useMemo(() => {
     if (!selectedOrderId) {
@@ -148,7 +193,10 @@ export default function AdminOrders() {
     setPageError(null);
 
     try {
-      const loadedOrders = await getOrdersByRestaurant(activeRestaurantId);
+      const [loadedOrders, settings] = await Promise.all([
+        orderView === "archive" ? getArchivedOrdersByRestaurant(activeRestaurantId) : getOrdersByRestaurant(activeRestaurantId),
+        getSiteSettings(activeRestaurantId).catch(() => null),
+      ]);
       const itemCountPairs = await Promise.all(
         loadedOrders.map(async (order) => {
           const items = await getOrderItems(order.id, activeRestaurantId);
@@ -157,13 +205,20 @@ export default function AdminOrders() {
       );
 
       setOrders(loadedOrders);
+      setArchivePreferences({
+        enableManualArchiveActions: settings?.enableManualArchiveActions ?? defaultOrderArchivePreferences.enableManualArchiveActions,
+        hideCompletedOrdersFromMainList:
+          settings?.hideCompletedOrdersFromMainList ?? defaultOrderArchivePreferences.hideCompletedOrdersFromMainList,
+        hideCancelledOrdersFromMainList:
+          settings?.hideCancelledOrdersFromMainList ?? defaultOrderArchivePreferences.hideCancelledOrdersFromMainList,
+      });
       setItemCounts(Object.fromEntries(itemCountPairs));
     } catch (error) {
       setPageError(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
-  }, [activeRestaurantId, canUseOrders]);
+  }, [activeRestaurantId, canUseOrders, orderView]);
 
   useEffect(() => {
     if (!canManageRestaurantContent || !canUseOrders || !activeRestaurantId) {
@@ -204,6 +259,11 @@ export default function AdminOrders() {
   };
 
   const handleStatusChange = async (order: Order, status: OrderStatus) => {
+    if (order.isArchived) {
+      setPageError("لا يمكن تغيير حالة طلب مؤرشف. استعده أولًا.");
+      return;
+    }
+
     if (!canUseOrders) {
       setPageError("لا يمكن حفظ هذه التغييرات لأن الميزة غير مفعلة.");
       return;
@@ -237,6 +297,71 @@ export default function AdminOrders() {
         },
       });
       setSuccessMessage("تم تحديث حالة الطلب بنجاح.");
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const handleArchiveOrder = async () => {
+    if (!pendingArchiveOrder || !activeRestaurantId) {
+      return;
+    }
+
+    setBusyOrderId(pendingArchiveOrder.id);
+    setPageError(null);
+    setSuccessMessage(null);
+
+    try {
+      const archivedOrder = await archiveOrder(pendingArchiveOrder.id, activeRestaurantId);
+      setOrders((current) => current.filter((item) => item.id !== archivedOrder.id));
+      setOrderDetails((current) => (current?.order.id === archivedOrder.id ? null : current));
+      setSelectedOrderId((current) => (current === archivedOrder.id ? null : current));
+      logAction({
+        action: "archive",
+        entityType: "order",
+        entityId: archivedOrder.id,
+        metadata: {
+          orderId: archivedOrder.id,
+          status: archivedOrder.status,
+        },
+      });
+      setSuccessMessage("تم نقل الطلب إلى الأرشيف بنجاح.");
+      setPendingArchiveOrder(null);
+    } catch (error) {
+      setPageError(getErrorMessage(error));
+    } finally {
+      setBusyOrderId(null);
+    }
+  };
+
+  const handleRestoreOrder = async (order: Order) => {
+    if (!activeRestaurantId) {
+      setPageError("تعذر تحديد المطعم الحالي.");
+      return;
+    }
+
+    setBusyOrderId(order.id);
+    setPageError(null);
+    setSuccessMessage(null);
+
+    try {
+      const restoredOrder = await restoreOrder(order.id, activeRestaurantId);
+      setOrders((current) =>
+        isArchiveView ? current.filter((item) => item.id !== restoredOrder.id) : current.map((item) => (item.id === restoredOrder.id ? restoredOrder : item)),
+      );
+      setOrderDetails((current) => (current?.order.id === restoredOrder.id ? { ...current, order: restoredOrder } : current));
+      logAction({
+        action: "restore",
+        entityType: "order",
+        entityId: restoredOrder.id,
+        metadata: {
+          orderId: restoredOrder.id,
+          status: restoredOrder.status,
+        },
+      });
+      setSuccessMessage("تمت استعادة الطلب بنجاح.");
     } catch (error) {
       setPageError(getErrorMessage(error));
     } finally {
@@ -301,28 +426,57 @@ export default function AdminOrders() {
         </div>
       </div>
 
-      <label className="admin-order-card__status">
-        <span>تغيير الحالة</span>
-        <select
-          value={order.status}
-          onChange={(event) => void handleStatusChange(order, event.target.value as OrderStatus)}
-          disabled={busyOrderId === order.id}
-        >
-          {orderStatuses.map((status) => (
-            <option value={status} key={status}>
-              {t(statusLabelKeys[status])}
-            </option>
-          ))}
-        </select>
-      </label>
+      {isArchiveView ? (
+        <div className="admin-feedback admin-feedback--warning">هذا الطلب مؤرشف، لذلك لا يمكن تغيير حالته قبل استعادته.</div>
+      ) : (
+        <label className="admin-order-card__status">
+          <span>تغيير الحالة</span>
+          <select
+            value={order.status}
+            onChange={(event) => void handleStatusChange(order, event.target.value as OrderStatus)}
+            disabled={busyOrderId === order.id}
+          >
+            {orderStatuses.map((status) => (
+              <option value={status} key={status}>
+                {t(statusLabelKeys[status])}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
 
       <div className="admin-order-card__actions">
         <AdminActionButton variant="secondary" icon={<Eye size={17} aria-hidden="true" />} onClick={() => void loadOrderDetails(order)}>
           عرض التفاصيل
         </AdminActionButton>
-        <AdminActionButton variant="primary" icon={<MessageCircle size={17} aria-hidden="true" />} onClick={() => openWhatsappReply(order)}>
-          الرد عبر واتساب
-        </AdminActionButton>
+        {isArchiveView ? (
+          canUseManualArchiveActions ? (
+            <AdminActionButton
+              variant="primary"
+              icon={<RotateCcw size={17} aria-hidden="true" />}
+              onClick={() => void handleRestoreOrder(order)}
+              disabled={busyOrderId === order.id}
+            >
+              استعادة
+            </AdminActionButton>
+          ) : null
+        ) : (
+          <>
+            <AdminActionButton variant="primary" icon={<MessageCircle size={17} aria-hidden="true" />} onClick={() => openWhatsappReply(order)}>
+              الرد عبر واتساب
+            </AdminActionButton>
+            {canUseManualArchiveActions && canArchiveOrderRecord(order) ? (
+              <AdminActionButton
+                variant="secondary"
+                icon={<Archive size={17} aria-hidden="true" />}
+                onClick={() => setPendingArchiveOrder(order)}
+                disabled={busyOrderId === order.id}
+              >
+                أرشفة
+              </AdminActionButton>
+            ) : null}
+          </>
+        )}
       </div>
     </AdminCard>
   );
@@ -396,7 +550,7 @@ export default function AdminOrders() {
         }
       />
 
-      {canManageRestaurantContent && canUseOrders && orders.length > 0 ? (
+      {canManageRestaurantContent && canUseOrders ? (
         <>
           <div className="admin-orders-stats" aria-label="ملخص الطلبات">
             <div>
@@ -415,6 +569,22 @@ export default function AdminOrders() {
               <span>{t("orderStatusCompleted")}</span>
               <strong>{stats.completed}</strong>
             </div>
+          </div>
+
+          <div className="admin-orders-filters" aria-label="عرض الطلبات">
+            {(["current", "terminal", "archive"] as const).map((view) => (
+              <button
+                className={view === orderView ? "is-active" : ""}
+                type="button"
+                onClick={() => {
+                  setOrderView(view);
+                  setStatusFilter("all");
+                }}
+                key={view}
+              >
+                {orderViewLabels[view]}
+              </button>
+            ))}
           </div>
 
           <div className="admin-orders-filters" aria-label="تصفية الطلبات حسب الحالة">
@@ -500,31 +670,74 @@ export default function AdminOrders() {
               <strong>{formatPrice(orderDetails.order.totalAmount, adminCurrency)}</strong>
             </div>
 
-            <div className="admin-order-status-actions">
-              {orderStatuses.map((status) => (
-                <AdminActionButton
-                  variant={status === orderDetails.order.status ? "primary" : "secondary"}
-                  onClick={() => void handleStatusChange(orderDetails.order, status)}
-                  disabled={busyOrderId === orderDetails.order.id}
-                  key={status}
-                >
-                  {t(statusLabelKeys[status])}
-                </AdminActionButton>
-              ))}
-            </div>
+            {orderDetails.order.isArchived ? (
+              <div className="admin-feedback admin-feedback--warning">لا يمكن تغيير حالة طلب داخل الأرشيف. استعد الطلب أولًا ثم عدّل حالته.</div>
+            ) : (
+              <div className="admin-order-status-actions">
+                {orderStatuses.map((status) => (
+                  <AdminActionButton
+                    variant={status === orderDetails.order.status ? "primary" : "secondary"}
+                    onClick={() => void handleStatusChange(orderDetails.order, status)}
+                    disabled={busyOrderId === orderDetails.order.id}
+                    key={status}
+                  >
+                    {t(statusLabelKeys[status])}
+                  </AdminActionButton>
+                ))}
+              </div>
+            )}
 
             <div className="admin-order-details__actions">
-              <AdminActionButton
-                variant="primary"
-                icon={<MessageCircle size={17} aria-hidden="true" />}
-                onClick={() => openWhatsappReply(orderDetails.order)}
-              >
-                الرد عبر واتساب
-              </AdminActionButton>
+              {orderDetails.order.isArchived ? (
+                canUseManualArchiveActions ? (
+                  <AdminActionButton
+                    variant="primary"
+                    icon={<RotateCcw size={17} aria-hidden="true" />}
+                    onClick={() => void handleRestoreOrder(orderDetails.order)}
+                    disabled={busyOrderId === orderDetails.order.id}
+                  >
+                    استعادة
+                  </AdminActionButton>
+                ) : null
+              ) : (
+                <>
+                  <AdminActionButton
+                    variant="primary"
+                    icon={<MessageCircle size={17} aria-hidden="true" />}
+                    onClick={() => openWhatsappReply(orderDetails.order)}
+                  >
+                    الرد عبر واتساب
+                  </AdminActionButton>
+                  {canUseManualArchiveActions && canArchiveOrderRecord(orderDetails.order) ? (
+                    <AdminActionButton
+                      variant="secondary"
+                      icon={<Archive size={17} aria-hidden="true" />}
+                      onClick={() => setPendingArchiveOrder(orderDetails.order)}
+                      disabled={busyOrderId === orderDetails.order.id}
+                    >
+                      أرشفة
+                    </AdminActionButton>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
         ) : null}
       </AdminFormModal>
+
+      <AdminConfirmDialog
+        isOpen={Boolean(pendingArchiveOrder)}
+        title="أرشفة الطلب"
+        message="لن يتم حذف الطلب. سيتم نقله إلى الأرشيف ويمكن استعادته لاحقًا."
+        confirmLabel="أرشفة"
+        isSubmitting={Boolean(pendingArchiveOrder && busyOrderId === pendingArchiveOrder.id)}
+        onCancel={() => {
+          if (!busyOrderId) {
+            setPendingArchiveOrder(null);
+          }
+        }}
+        onConfirm={() => void handleArchiveOrder()}
+      />
     </section>
   );
 }
