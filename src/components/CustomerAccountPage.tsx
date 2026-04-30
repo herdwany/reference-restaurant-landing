@@ -7,6 +7,7 @@ import { restaurantConfig } from "../data/restaurantConfig";
 import { useCart } from "../hooks/useCart";
 import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
+import { getPublicThemeClassNames, getPublicThemeStyle } from "../lib/publicTheme";
 import {
   getCustomerProfileByUser,
   upsertCustomerProfile,
@@ -19,6 +20,7 @@ import {
 import { getSiteDataBySlug, type SiteDataResult } from "../services/siteDataService";
 import type { CustomerProfile, Order, Reservation } from "../types/platform";
 import { formatPrice } from "../utils/formatters";
+import EmailVerificationGate from "./EmailVerificationGate";
 
 type CustomerAccountPageProps = {
   restaurantSlug: string;
@@ -132,6 +134,17 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
   const restaurantName = siteData?.config.restaurant.name ?? restaurantSlug;
   const isAdminSession = isAgencyAdmin || isOwner || isStaff;
   const hasBlockingProfileIssue = Boolean(adminAccessIssue && adminAccessIssue !== "missing_profile");
+  const accountPageClassName = useMemo(() => {
+    if (!siteData) {
+      return "customer-account-page";
+    }
+
+    const backgroundStyle = siteData.config.settings.backgroundStyle || "warm";
+    const buttonStyle = siteData.config.settings.buttonStyle || "rounded";
+
+    return `${getPublicThemeClassNames(siteData.config, "customer-account-page auth-page--branded")} auth-page--background-${backgroundStyle} auth-page--button-${buttonStyle}`;
+  }, [siteData]);
+  const accountPageStyle = siteData ? getPublicThemeStyle(siteData.config) : undefined;
 
   useEffect(() => {
     let isMounted = true;
@@ -176,7 +189,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
   }, [location.pathname, location.state, navigate]);
 
   const loadAccountData = useCallback(async () => {
-    if (!currentUser || !restaurantId || isAdminSession || hasBlockingProfileIssue) {
+    if (!currentUser?.emailVerification || !restaurantId || isAdminSession || hasBlockingProfileIssue) {
       return;
     }
 
@@ -310,7 +323,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
 
   if (isSiteLoading || isAuthLoading) {
     return (
-      <main className={`customer-account-page dir-${direction}`} dir={direction}>
+      <main className={`${accountPageClassName} dir-${direction}`} dir={direction} style={accountPageStyle}>
         <section className="customer-account-card customer-account-card--centered" role="status" aria-busy="true">
           <Loader2 className="admin-spin" aria-hidden="true" />
           <h1>{t("loading")}</h1>
@@ -325,7 +338,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
 
   if (!isAuthenticated) {
     return (
-      <main className={`customer-account-page dir-${direction}`} dir={direction}>
+      <main className={`${accountPageClassName} dir-${direction}`} dir={direction} style={accountPageStyle}>
         <section className="customer-account-card customer-account-card--centered">
           <UserRound aria-hidden="true" />
           <span>{restaurantName}</span>
@@ -345,9 +358,26 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
     );
   }
 
+  if (currentUser && !currentUser.emailVerification) {
+    return (
+      <EmailVerificationGate
+        backPath={publicPath}
+        brandName={restaurantName}
+        logoUrl={siteData?.config.restaurant.logoImage}
+        onLogout={async () => {
+          await logout();
+          navigate(publicPath, { replace: true });
+        }}
+        pageClassName={accountPageClassName}
+        restaurantSlug={restaurantSlug}
+        style={accountPageStyle}
+      />
+    );
+  }
+
   if (isAdminSession || hasBlockingProfileIssue) {
     return (
-      <main className={`customer-account-page dir-${direction}`} dir={direction}>
+      <main className={`${accountPageClassName} dir-${direction}`} dir={direction} style={accountPageStyle}>
         <section className="customer-account-card customer-account-card--centered">
           <AlertTriangle aria-hidden="true" />
           <h1>{isAdminSession ? t("customerAccountOnly") : t("currentSessionHasIssue")}</h1>
@@ -364,7 +394,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
   }
 
   return (
-    <main className={`customer-account-page dir-${direction}`} dir={direction}>
+    <main className={`${accountPageClassName} dir-${direction}`} dir={direction} style={accountPageStyle}>
       <section className="customer-account-shell">
         <header className="customer-account-header">
           <div>
@@ -422,7 +452,6 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
                   onChange={(event) => updateFormValue("phone", event.target.value)}
                   autoComplete="tel"
                   inputMode="tel"
-                  required
                 />
               </label>
               <label>

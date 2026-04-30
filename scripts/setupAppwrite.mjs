@@ -173,7 +173,7 @@ const tables = [
       varchar("restaurantId", 255, true),
       varchar("userId", 255, true),
       varchar("fullName", 255, true),
-      varchar("phone", 50, true),
+      varchar("phone", 50),
       email("email"),
       varchar("defaultAddress", 500),
       varchar("city", 120),

@@ -19,6 +19,22 @@ export const mapKnownErrorToFriendlyMessage = (error: unknown, t: Translate) => 
     return t("accessDenied");
   }
 
+  if (code === "LOGIN_FAILED") {
+    return t("loginFailed");
+  }
+
+  if (code === "EMAIL_ALREADY_USED") {
+    return t("emailAlreadyUsed");
+  }
+
+  if (code === "EMAIL_VERIFICATION_REQUIRED") {
+    return t("emailVerificationRequired");
+  }
+
+  if (code === "PASSWORD_RECOVERY_INVALID") {
+    return t("linkExpiredOrInvalid");
+  }
+
   if (code === "APPWRITE_NOT_CONFIGURED" || message.includes("not configured") || message.includes("function id")) {
     return t("appwriteSetupRequired");
   }

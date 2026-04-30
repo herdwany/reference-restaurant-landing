@@ -1,6 +1,7 @@
 import { AlertTriangle, Loader2, LogOut } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link, Navigate, Outlet, useLocation, useNavigate } from "react-router-dom";
+import EmailVerificationGate from "../../components/EmailVerificationGate";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n } from "../../lib/i18n/I18nContext";
 
@@ -28,7 +29,7 @@ function AdminStatusMessage({ actions, title, body, isLoading = false }: AdminSt
 }
 
 export default function ProtectedAdminRoute() {
-  const { adminAccessIssue, hasAdminAccess, isAuthConfigured, isAuthenticated, isLoading, logout } = useAuth();
+  const { adminAccessIssue, currentUser, hasAdminAccess, isAuthConfigured, isAuthenticated, isLoading, logout } = useAuth();
   const { t } = useI18n();
   const location = useLocation();
   const navigate = useNavigate();
@@ -81,6 +82,18 @@ export default function ProtectedAdminRoute() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (currentUser && !currentUser.emailVerification) {
+    return (
+      <EmailVerificationGate
+        backPath="/"
+        onLogout={async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        }}
+      />
+    );
   }
 
   if (adminAccessIssue === "missing_profile") {

@@ -34,7 +34,7 @@ export type CustomerProfileInput = {
   deliveryNotes?: string;
   email?: string;
   fullName: string;
-  phone: string;
+  phone?: string;
   restaurantId: string;
   userId: string;
 };
@@ -121,7 +121,7 @@ export async function upsertCustomerProfile(input: CustomerProfileInput): Promis
     restaurantId: input.restaurantId,
     userId: input.userId,
     fullName: input.fullName.trim(),
-    phone: input.phone.trim(),
+    phone: input.phone?.trim() ?? "",
     email: optionalText(input.email),
     defaultAddress: optionalText(input.defaultAddress),
     city: optionalText(input.city),
@@ -129,8 +129,8 @@ export async function upsertCustomerProfile(input: CustomerProfileInput): Promis
     isActive: true,
   };
 
-  if (!data.fullName || !data.phone) {
-    throw new CustomerProfileRepositoryError("الاسم ورقم الهاتف مطلوبان لحساب العميل.", "INVALID_INPUT");
+  if (!data.fullName) {
+    throw new CustomerProfileRepositoryError("الاسم مطلوب لحساب العميل.", "INVALID_INPUT");
   }
 
   try {

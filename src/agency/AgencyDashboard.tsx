@@ -19,6 +19,7 @@ import AdminEmptyState from "../admin/components/AdminEmptyState";
 import AdminErrorState from "../admin/components/AdminErrorState";
 import AdminFormModal from "../admin/components/AdminFormModal";
 import AdminLoadingState from "../admin/components/AdminLoadingState";
+import EmailVerificationGate from "../components/EmailVerificationGate";
 import LanguageSwitcher from "../components/LanguageSwitcher";
 import { useAuth } from "../context/AuthContext";
 import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
@@ -408,7 +409,7 @@ const getDomainErrorMessage = (error: unknown, t: ReturnType<typeof useI18n>["t"
 
 export default function AgencyDashboard() {
   const { currentLanguage, direction, t } = useI18n();
-  const { isAgencyAdmin, isAuthConfigured, isAuthenticated, isLoading: isAuthLoading, role } = useAuth();
+  const { currentUser, isAgencyAdmin, isAuthConfigured, isAuthenticated, isLoading: isAuthLoading, logout, role } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
@@ -490,6 +491,18 @@ export default function AgencyDashboard() {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace state={{ from: location }} />;
+  }
+
+  if (currentUser && !currentUser.emailVerification) {
+    return (
+      <EmailVerificationGate
+        backPath="/"
+        onLogout={async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        }}
+      />
+    );
   }
 
   if (!isAgencyAdmin) {

@@ -5322,6 +5322,78 @@ a {
   padding: 24px;
 }
 
+.auth-page--branded.admin-login-page,
+.auth-page--branded.customer-account-page {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(255, 255, 255, 0.94)),
+    var(--color-light);
+}
+
+.auth-page--background-clean.admin-login-page,
+.auth-page--background-clean.customer-account-page {
+  background: #fff;
+}
+
+.auth-page--background-solid.admin-login-page,
+.auth-page--background-solid.customer-account-page {
+  background: var(--color-light);
+}
+
+.auth-page--background-pattern.admin-login-page,
+.auth-page--background-pattern.customer-account-page {
+  background:
+    linear-gradient(90deg, rgba(31, 41, 55, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(31, 41, 55, 0.035) 1px, transparent 1px),
+    var(--color-light);
+  background-size: 36px 36px;
+}
+
+.auth-page--background-premium.admin-login-page,
+.auth-page--background-premium.customer-account-page {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 239, 0.9)),
+    var(--color-light);
+}
+
+.auth-page--branded .admin-login-submit,
+.auth-page--branded .admin-primary-link {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  color: #fff;
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--color-primary) 20%, transparent);
+}
+
+.auth-page--branded .admin-login-card__icon {
+  background: color-mix(in srgb, var(--color-primary) 10%, white);
+  color: var(--color-primary);
+}
+
+.auth-page--button-rounded .admin-login-submit,
+.auth-page--button-rounded .admin-primary-link,
+.auth-page--button-rounded .admin-icon-link,
+.auth-page--button-rounded .admin-oauth-button {
+  border-radius: 999px;
+}
+
+.auth-page--button-soft .admin-login-submit,
+.auth-page--button-soft .admin-primary-link,
+.auth-page--button-soft .admin-icon-link,
+.auth-page--button-soft .admin-oauth-button {
+  border-radius: 16px;
+}
+
+.auth-page--button-sharp .admin-login-submit,
+.auth-page--button-sharp .admin-primary-link,
+.auth-page--button-sharp .admin-icon-link,
+.auth-page--button-sharp .admin-oauth-button {
+  border-radius: 8px;
+}
+
+.auth-page--button-premium .admin-login-submit,
+.auth-page--button-premium .admin-primary-link {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 18px 38px color-mix(in srgb, var(--color-primary) 24%, transparent);
+}
+
 .admin-login-card,
 .admin-status-card {
   width: min(100%, 470px);
@@ -5375,6 +5447,35 @@ a {
   margin-bottom: 18px;
 }
 
+.admin-login-card__eyebrow {
+  color: var(--admin-secondary);
+  font-size: 0.84rem;
+  font-weight: 950;
+}
+
+.admin-login-card__brand-logo {
+  width: auto;
+  max-width: min(180px, 72%);
+  max-height: 74px;
+  object-fit: contain;
+  margin-bottom: 16px;
+}
+
+.admin-login-card__brand-text {
+  display: inline-flex;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  justify-self: start;
+  border: 1px solid rgba(229, 231, 235, 0.95);
+  border-radius: 8px;
+  background: #fffdf9;
+  color: var(--admin-primary);
+  padding: 0 16px;
+  font-weight: 950;
+  margin-bottom: 16px;
+}
+
 .admin-form-alert,
 .admin-form-note {
   border-radius: 8px;
@@ -5399,6 +5500,49 @@ a {
   display: grid;
   gap: 14px;
   margin-top: 18px;
+}
+
+.admin-oauth {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.admin-oauth-button {
+  display: inline-flex;
+  min-height: 48px;
+  width: 100%;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--admin-ink);
+  padding: 0 14px;
+  font-weight: 950;
+}
+
+.admin-oauth-button:hover {
+  border-color: rgba(249, 115, 22, 0.46);
+  background: #fffdf9;
+}
+
+.admin-auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #6b7280;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.admin-auth-divider::before,
+.admin-auth-divider::after {
+  content: "";
+  height: 1px;
+  flex: 1;
+  background: var(--admin-border);
 }
 
 .admin-login-form label {
@@ -5462,6 +5606,10 @@ a {
   align-items: center;
   gap: 10px;
   margin-top: 16px;
+}
+
+.admin-auth-switch--single {
+  justify-content: center;
 }
 
 .admin-auth-switch span {

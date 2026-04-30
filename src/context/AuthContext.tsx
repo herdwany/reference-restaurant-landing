@@ -29,7 +29,7 @@ type AuthContextValue = {
   hasAdminAccess: boolean;
   adminAccessIssue: AdminAccessIssue | null;
   errorMessage: string | null;
-  login: (email: string, password: string) => Promise<Profile | null>;
+  login: (email: string, password: string) => Promise<{ profile: Profile | null; user: AuthUser }>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
   refreshProfile: () => Promise<Profile | null>;
@@ -186,7 +186,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const user = await loginWithEmail(email, password);
       setCurrentUser(user);
       setErrorMessage(null);
-      return await loadProfileForUser(user);
+      const loadedProfile = await loadProfileForUser(user);
+      return { profile: loadedProfile, user };
     },
     [loadProfileForUser],
   );

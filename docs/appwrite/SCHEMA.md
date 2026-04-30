@@ -68,6 +68,19 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `isActive`: boolean
 - `createdAt`: datetime
 
+## customer_profiles
+
+- `restaurantId`: string
+- `userId`: string
+- `fullName`: string
+- `phone`: string optional. OAuth providers may not return a phone number; customers can add it later from `بياناتي`.
+- `email`: email optional
+- `defaultAddress`: string optional
+- `city`: string optional
+- `deliveryNotes`: text optional
+- `isActive`: boolean
+- Email verification is read from Appwrite Auth `user.emailVerification`; no extra profile role is created for public registration.
+
 ## dishes
 
 - `restaurantId`: string

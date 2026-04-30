@@ -1,15 +1,26 @@
-import { AlertTriangle, ArrowRight, Loader2, LogIn, LogOut, ShieldCheck } from "lucide-react";
-import { FormEvent, useEffect, useState } from "react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { AlertTriangle, ArrowRight, Chrome, Facebook, Loader2, LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import EmailVerificationGate from "../components/EmailVerificationGate";
 import { useAuth } from "../context/AuthContext";
 import { mapKnownErrorToFriendlyMessage, normalizeUserFacingError } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
-import { AuthServiceError, registerWithEmail } from "../services/authService";
+import { getPublicThemeClassNames, getPublicThemeStyle } from "../lib/publicTheme";
+import {
+  AuthServiceError,
+  buildAppUrl,
+  loginWithOAuthProvider,
+  registerWithEmail,
+  resetPassword,
+  sendPasswordRecoveryEmail,
+  sendVerificationEmail,
+  type OAuthLoginProvider,
+} from "../services/authService";
 import { upsertCustomerProfile } from "../services/repositories/customerProfileRepository";
-import { getSiteDataBySlug } from "../services/siteDataService";
+import { getSiteDataBySlug, type SiteDataResult } from "../services/siteDataService";
 import type { Profile } from "../types/platform";
 
-type AuthMode = "login" | "register";
+type AuthMode = "forgot" | "login" | "register" | "reset";
 
 type FieldErrors = {
   confirmPassword?: string;
@@ -23,6 +34,7 @@ type AdminLoginProps = {
   allowCustomerRegistration?: boolean;
   authMode?: AuthMode;
   customerLoginPath?: string;
+  customerForgotPasswordPath?: string;
   customerRegisterPath?: string;
   customerRedirectPath?: string;
   publicBackPath?: string;
@@ -48,9 +60,38 @@ const getProfileDashboardPath = (profile: Profile | null) => {
 const isAdminProfileRole = (profile: Profile | null) =>
   profile?.role === "agency_admin" || profile?.role === "owner" || profile?.role === "staff";
 
+const getIconType = (href: string) => {
+  if (href.toLowerCase().includes(".webp")) {
+    return "image/webp";
+  }
+
+  if (href.toLowerCase().includes(".png")) {
+    return "image/png";
+  }
+
+  return "image/svg+xml";
+};
+
+const updateIconLink = (rel: "apple-touch-icon" | "icon", href: string) => {
+  let link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = rel;
+    document.head.appendChild(link);
+  }
+
+  link.href = href;
+
+  if (rel === "icon") {
+    link.type = getIconType(href);
+  }
+};
+
 export default function AdminLogin({
   allowCustomerRegistration = false,
   authMode = "login",
+  customerForgotPasswordPath,
   customerLoginPath,
   customerRegisterPath,
   customerRedirectPath,
@@ -60,6 +101,7 @@ export default function AdminLogin({
   const { direction, t } = useI18n();
   const {
     adminAccessIssue,
+    currentUser,
     errorMessage,
     hasAdminAccess,
     isAgencyAdmin,
@@ -75,7 +117,10 @@ export default function AdminLogin({
     restaurantId: adminRestaurantId,
   } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const isRegisterMode = allowCustomerRegistration && authMode === "register";
+  const isForgotMode = authMode === "forgot";
+  const isResetMode = authMode === "reset";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -90,6 +135,7 @@ export default function AdminLogin({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [customerRestaurantId, setCustomerRestaurantId] = useState("");
+  const [authSiteData, setAuthSiteData] = useState<SiteDataResult | null>(null);
   const [isSiteLoading, setIsSiteLoading] = useState(false);
   const [siteError, setSiteError] = useState<string | null>(null);
   const authenticatedDashboardPath =
@@ -98,8 +144,9 @@ export default function AdminLogin({
   const isAccountNotReady = Boolean(hasBlockedSession && profile && !adminAccessIssue && !hasAdminAccess);
 
   useEffect(() => {
-    if (!allowCustomerRegistration || !restaurantSlug) {
+    if (!restaurantSlug) {
       setCustomerRestaurantId("");
+      setAuthSiteData(null);
       setSiteError(null);
       setIsSiteLoading(false);
       return;
@@ -121,9 +168,11 @@ export default function AdminLogin({
         if (result.isNotFound) {
           setSiteError(t("notFound"));
           setCustomerRestaurantId("");
+          setAuthSiteData(null);
           return;
         }
 
+        setAuthSiteData(result);
         setCustomerRestaurantId(result.config.restaurant.id ?? "");
       } catch (error) {
         if (!isMounted) {
@@ -132,6 +181,7 @@ export default function AdminLogin({
 
         setSiteError(mapKnownErrorToFriendlyMessage(error, t));
         setCustomerRestaurantId("");
+        setAuthSiteData(null);
       } finally {
         if (isMounted) {
           setIsSiteLoading(false);
@@ -144,7 +194,75 @@ export default function AdminLogin({
     return () => {
       isMounted = false;
     };
-  }, [allowCustomerRegistration, restaurantSlug, t]);
+  }, [restaurantSlug, t]);
+
+  useEffect(() => {
+    if (!authSiteData) {
+      return undefined;
+    }
+
+    const previousTitle = document.title;
+    const previousIcon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')?.href;
+    const previousAppleIcon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]')?.href;
+    const restaurantName = authSiteData.config.restaurant.name?.trim();
+    const faviconHref = authSiteData.config.restaurant.faviconImage;
+
+    if (restaurantName) {
+      document.title = `${restaurantName} | ${t("accountLogin")}`;
+    }
+
+    if (faviconHref) {
+      updateIconLink("icon", faviconHref);
+      updateIconLink("apple-touch-icon", faviconHref);
+    }
+
+    return () => {
+      document.title = previousTitle;
+
+      if (previousIcon) {
+        updateIconLink("icon", previousIcon);
+      }
+
+      if (previousAppleIcon) {
+        updateIconLink("apple-touch-icon", previousAppleIcon);
+      }
+    };
+  }, [authSiteData, t]);
+
+  const authPageClassName = useMemo(() => {
+    if (!authSiteData) {
+      return "admin-login-page";
+    }
+
+    const backgroundStyle = authSiteData.config.settings.backgroundStyle || "warm";
+    const buttonStyle = authSiteData.config.settings.buttonStyle || "rounded";
+
+    return `${getPublicThemeClassNames(authSiteData.config, "admin-login-page auth-page--branded")} auth-page--background-${backgroundStyle} auth-page--button-${buttonStyle}`;
+  }, [authSiteData]);
+  const authPageStyle = authSiteData ? getPublicThemeStyle(authSiteData.config) : undefined;
+  const authBrandName = authSiteData?.config.restaurant.name;
+  const authLogoUrl = authSiteData?.config.restaurant.logoImage;
+  const forgotPasswordPath = customerForgotPasswordPath || "/forgot-password";
+  const resetPasswordPath = restaurantSlug ? `/r/${restaurantSlug}/account/reset-password` : "/reset-password";
+  const oauthFailurePath = restaurantSlug ? `${customerLoginPath || `/r/${restaurantSlug}/account/login`}?oauth=failed` : "/login?oauth=failed";
+  const requiresEmailVerification = Boolean(!isLoading && currentUser && !currentUser.emailVerification);
+
+  if (requiresEmailVerification) {
+    return (
+      <EmailVerificationGate
+        backPath={publicBackPath}
+        brandName={authBrandName}
+        logoUrl={authLogoUrl}
+        onLogout={async () => {
+          await logout();
+          navigate(publicBackPath, { replace: true });
+        }}
+        pageClassName={authPageClassName}
+        restaurantSlug={restaurantSlug}
+        style={authPageStyle}
+      />
+    );
+  }
 
   if (!isLoading && isAuthenticated && authenticatedDashboardPath) {
     return <Navigate to={authenticatedDashboardPath} replace />;
@@ -163,6 +281,34 @@ export default function AdminLogin({
 
     if (!password) {
       errors.password = t("passwordRequired");
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateForgotPassword = () => {
+    const errors: FieldErrors = {};
+
+    if (!email.trim()) {
+      errors.email = t("emailRequired");
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const validateResetPassword = () => {
+    const errors: FieldErrors = {};
+
+    if (!password) {
+      errors.password = t("passwordRequired");
+    }
+
+    if (!confirmPassword) {
+      errors.confirmPassword = t("requiredField");
+    } else if (password !== confirmPassword) {
+      errors.confirmPassword = t("passwordsDoNotMatch");
     }
 
     setFieldErrors(errors);
@@ -198,7 +344,21 @@ export default function AdminLogin({
     return Object.keys(errors).length === 0;
   };
 
-  const validate = () => (isRegisterMode ? validateRegister() : validateLogin());
+  const validate = () => {
+    if (isRegisterMode) {
+      return validateRegister();
+    }
+
+    if (isForgotMode) {
+      return validateForgotPassword();
+    }
+
+    if (isResetMode) {
+      return validateResetPassword();
+    }
+
+    return validateLogin();
+  };
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -211,6 +371,57 @@ export default function AdminLogin({
 
     if (!isAuthConfigured) {
       setSubmitError(t("appwriteSetupRequired"));
+      return;
+    }
+
+    if (isForgotMode) {
+      setIsSubmitting(true);
+
+      try {
+        await sendPasswordRecoveryEmail(
+          email.trim(),
+          buildAppUrl(resetPasswordPath, { restaurantSlug }),
+        );
+        setSubmitNotice(t("recoveryEmailSent"));
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(error);
+        }
+
+        setSubmitError(mapKnownErrorToFriendlyMessage(error, t));
+      } finally {
+        setIsSubmitting(false);
+      }
+
+      return;
+    }
+
+    if (isResetMode) {
+      const userId = searchParams.get("userId")?.trim() || "";
+      const secret = searchParams.get("secret")?.trim() || "";
+
+      if (!userId || !secret) {
+        setSubmitError(t("linkExpiredOrInvalid"));
+        return;
+      }
+
+      setIsSubmitting(true);
+
+      try {
+        await resetPassword(userId, secret, password);
+        setSubmitNotice(t("savedSuccessfully"));
+        setPassword("");
+        setConfirmPassword("");
+      } catch (error) {
+        if (import.meta.env.DEV) {
+          console.warn(error);
+        }
+
+        setSubmitError(mapKnownErrorToFriendlyMessage(error, t));
+      } finally {
+        setIsSubmitting(false);
+      }
+
       return;
     }
 
@@ -236,7 +447,6 @@ export default function AdminLogin({
         const normalizedNotes = deliveryNotes.trim();
 
         const createdUser = await registerWithEmail(normalizedEmail, password, normalizedName);
-
         await upsertCustomerProfile({
           restaurantId: customerRestaurantId,
           userId: createdUser.$id,
@@ -249,15 +459,8 @@ export default function AdminLogin({
         });
 
         await refreshUser();
-
-        if (customerRedirectPath) {
-          navigate(customerRedirectPath, {
-            replace: true,
-            state: { accountNotice: t("accountCreatedSuccessfully") },
-          });
-        } else {
-          setSubmitNotice(t("accountCreatedSuccessfully"));
-        }
+        await sendVerificationEmail(buildAppUrl("/verify-email", { restaurantSlug }));
+        setSubmitNotice(t("verificationEmailSent"));
       } catch (error) {
         if (import.meta.env.DEV) {
           console.warn(error);
@@ -279,7 +482,13 @@ export default function AdminLogin({
     setIsSubmitting(true);
 
     try {
-      const loadedProfile = await login(email.trim(), password);
+      const { profile: loadedProfile, user } = await login(email.trim(), password);
+
+      if (!user.emailVerification) {
+        setSubmitError(t("emailVerificationRequired"));
+        return;
+      }
+
       const dashboardPath = getProfileDashboardPath(loadedProfile);
 
       if (dashboardPath) {
@@ -294,6 +503,30 @@ export default function AdminLogin({
       setSubmitError(mapKnownErrorToFriendlyMessage(error, t));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleOAuthLogin = (provider: OAuthLoginProvider) => {
+    setSubmitError(null);
+    setSubmitNotice(null);
+
+    if (!isAuthConfigured) {
+      setSubmitError(t("appwriteSetupRequired"));
+      return;
+    }
+
+    try {
+      loginWithOAuthProvider(
+        provider,
+        buildAppUrl("/oauth/callback", { restaurantSlug }),
+        buildAppUrl(oauthFailurePath),
+      );
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn(error);
+      }
+
+      setSubmitError(mapKnownErrorToFriendlyMessage(error, t));
     }
   };
 
@@ -332,17 +565,36 @@ export default function AdminLogin({
     return t("currentSessionHasIssue");
   };
 
-  const authTitle = isRegisterMode ? t("createCustomerAccount") : t("accountLogin");
-  const authDescription = isRegisterMode ? t("customerSignupDescription") : t("loginBody");
-  const submitLabel = isRegisterMode ? t("createAccount") : t("loginButton");
-  const submittingLabel = isRegisterMode ? t("saving") : t("loggingIn");
-  const passwordAutoComplete = isRegisterMode ? "new-password" : "current-password";
+  const authTitle = isRegisterMode
+    ? t("createAccount")
+    : isForgotMode
+      ? t("forgotPassword")
+      : isResetMode
+        ? t("resetPassword")
+        : t("accountLogin");
+  const authDescription = isRegisterMode
+    ? t("customerSignupDescription")
+    : isForgotMode
+      ? t("checkYourEmail")
+      : isResetMode
+        ? t("newPassword")
+        : t("loginBody");
+  const submitLabel = isRegisterMode
+    ? t("createAccount")
+    : isForgotMode
+      ? t("sendRecoveryEmail")
+      : isResetMode
+        ? t("resetPassword")
+        : t("loginButton");
+  const submittingLabel = isRegisterMode || isResetMode || isForgotMode ? t("saving") : t("loggingIn");
+  const passwordAutoComplete = isRegisterMode || isResetMode ? "new-password" : "current-password";
   const emailPlaceholder = customerRedirectPath ? "name@example.com" : "owner@example.com";
-  const isSubmitDisabled = isSubmitting || isLoading || (isRegisterMode && isSiteLoading);
+  const isResetLinkMissing = isResetMode && (!searchParams.get("userId")?.trim() || !searchParams.get("secret")?.trim());
+  const isSubmitDisabled = isSubmitting || isLoading || isResetLinkMissing || (isRegisterMode && isSiteLoading);
 
   if (hasBlockedSession) {
     return (
-      <main className={`admin-login-page dir-${direction}`} dir={direction}>
+      <main className={`${authPageClassName} dir-${direction}`} dir={direction} style={authPageStyle}>
         <section className="admin-login-card" aria-busy={isLoggingOut}>
           <div className="admin-login-card__icon">
             <AlertTriangle size={30} aria-hidden="true" />
@@ -380,27 +632,52 @@ export default function AdminLogin({
   }
 
   return (
-    <main className={`admin-login-page dir-${direction}`} dir={direction}>
+    <main className={`${authPageClassName} dir-${direction}`} dir={direction} style={authPageStyle}>
       <section className="admin-login-card" aria-busy={isSubmitting}>
-        <div className="admin-login-card__icon">
-          <ShieldCheck size={30} aria-hidden="true" />
-        </div>
+        {authLogoUrl ? (
+          <img className="admin-login-card__brand-logo" src={authLogoUrl} alt={authBrandName || t("restaurantFallbackName")} />
+        ) : authBrandName ? (
+          <div className="admin-login-card__brand-text">{authBrandName}</div>
+        ) : (
+          <div className="admin-login-card__icon">
+            <ShieldCheck size={30} aria-hidden="true" />
+          </div>
+        )}
         <div className="admin-login-card__copy">
+          {!authBrandName ? <span className="admin-login-card__eyebrow">Pixel One</span> : null}
           <h1>{authTitle}</h1>
           <p>{authDescription}</p>
         </div>
 
         {!isAuthConfigured ? <div className="admin-form-alert">{t("appwriteSetupRequired")}</div> : null}
-        {isRegisterMode && siteError ? <div className="admin-form-alert">{siteError}</div> : null}
+        {restaurantSlug && siteError ? <div className="admin-form-alert">{siteError}</div> : null}
         {submitError ? <div className="admin-form-alert" role="alert">{submitError}</div> : null}
+        {isResetLinkMissing ? <div className="admin-form-alert" role="alert">{t("linkExpiredOrInvalid")}</div> : null}
         {submitNotice ? <div className="admin-form-note">{submitNotice}</div> : null}
+        {searchParams.get("oauth") === "failed" ? <div className="admin-form-alert" role="alert">{t("loginFailed")}</div> : null}
         {errorMessage && isAuthConfigured ? <div className="admin-form-note">{normalizeUserFacingError(errorMessage, t)}</div> : null}
+
+        {!isForgotMode && !isResetMode ? (
+          <div className="admin-oauth">
+            <button className="admin-oauth-button" type="button" onClick={() => handleOAuthLogin("google")} disabled={isSubmitting || isLoading}>
+              <Chrome size={18} aria-hidden="true" />
+              <span>{t("continueWithGoogle")}</span>
+            </button>
+            <button className="admin-oauth-button" type="button" onClick={() => handleOAuthLogin("facebook")} disabled={isSubmitting || isLoading}>
+              <Facebook size={18} aria-hidden="true" />
+              <span>{t("continueWithFacebook")}</span>
+            </button>
+            <div className="admin-auth-divider">
+              <span>{t("orContinueWithEmail")}</span>
+            </div>
+          </div>
+        ) : null}
 
         <form className="admin-login-form" onSubmit={handleSubmit} noValidate>
           {isRegisterMode ? (
             <>
               <label>
-                <span>{t("customerName")}</span>
+                <span>{t("accountName")}</span>
                 <input
                   value={fullName}
                   onChange={(event) => setFullName(event.target.value)}
@@ -427,38 +704,42 @@ export default function AdminLogin({
             </>
           ) : null}
 
-          <label>
-            <span>{t("email")}</span>
-            <input
-              type="email"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              aria-invalid={Boolean(fieldErrors.email)}
-              autoComplete="email"
-              placeholder={emailPlaceholder}
-              required
-            />
-            {fieldErrors.email ? <small>{fieldErrors.email}</small> : null}
-          </label>
+          {!isResetMode ? (
+            <label>
+              <span>{t("email")}</span>
+              <input
+                type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
+                aria-invalid={Boolean(fieldErrors.email)}
+                autoComplete="email"
+                placeholder={emailPlaceholder}
+                required
+              />
+              {fieldErrors.email ? <small>{fieldErrors.email}</small> : null}
+            </label>
+          ) : null}
 
-          <label>
-            <span>{t("password")}</span>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              aria-invalid={Boolean(fieldErrors.password)}
-              autoComplete={passwordAutoComplete}
-              placeholder="********"
-              required
-            />
-            {fieldErrors.password ? <small>{fieldErrors.password}</small> : null}
-          </label>
+          {!isForgotMode ? (
+            <label>
+              <span>{isResetMode ? t("newPassword") : t("password")}</span>
+              <input
+                type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                aria-invalid={Boolean(fieldErrors.password)}
+                autoComplete={passwordAutoComplete}
+                placeholder="********"
+                required
+              />
+              {fieldErrors.password ? <small>{fieldErrors.password}</small> : null}
+            </label>
+          ) : null}
 
-          {isRegisterMode ? (
+          {isRegisterMode || isResetMode ? (
             <>
               <label>
-                <span>{t("confirmPassword")}</span>
+                <span>{isResetMode ? t("confirmNewPassword") : t("confirmPassword")}</span>
                 <input
                   type="password"
                   value={confirmPassword}
@@ -471,6 +752,8 @@ export default function AdminLogin({
                 {fieldErrors.confirmPassword ? <small>{fieldErrors.confirmPassword}</small> : null}
               </label>
 
+              {isRegisterMode ? (
+                <>
               <label>
                 <span>{t("defaultAddress")}</span>
                 <input
@@ -497,6 +780,8 @@ export default function AdminLogin({
                   rows={3}
                 />
               </label>
+                </>
+              ) : null}
             </>
           ) : null}
 
@@ -505,6 +790,22 @@ export default function AdminLogin({
             <span>{isSubmitting ? submittingLabel : submitLabel}</span>
           </button>
         </form>
+
+        {!isRegisterMode && !isForgotMode && !isResetMode ? (
+          <div className="admin-auth-switch admin-auth-switch--single">
+            <Link className="admin-icon-link" to={forgotPasswordPath}>
+              {t("forgotPassword")}
+            </Link>
+          </div>
+        ) : null}
+
+        {isForgotMode || isResetMode ? (
+          <div className="admin-auth-switch admin-auth-switch--single">
+            <Link className="admin-icon-link" to={customerLoginPath || "/login"}>
+              {t("login")}
+            </Link>
+          </div>
+        ) : null}
 
         {allowCustomerRegistration && customerLoginPath && customerRegisterPath ? (
           <div className="admin-auth-switch">

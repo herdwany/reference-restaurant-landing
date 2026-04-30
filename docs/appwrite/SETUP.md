@@ -113,6 +113,37 @@ npm run dev
 11. Run `npm run dev`.
 12. Verify the app still works without Appwrite configured.
 
+## Auth Settings
+
+In Appwrite Console, open `Auth` and confirm:
+
+- Email/password authentication is enabled.
+- Email verification is enabled and SMTP/email delivery is configured for the project.
+- Google OAuth2 is enabled with the client ID/secret from Google Cloud.
+- Facebook OAuth2 is enabled with the app ID/secret from Meta for Developers.
+- The public web hostnames are added in `Overview > Platforms` as Web platforms. Redirect URLs only work for hostnames that exist in Appwrite Platforms.
+
+Use these frontend URLs when configuring auth flows:
+
+```text
+Verification URL: https://YOUR_HOST/verify-email
+Recovery URL: https://YOUR_HOST/reset-password
+Restaurant recovery URL: https://YOUR_HOST/r/<restaurant-slug>/account/reset-password
+OAuth success URL: https://YOUR_HOST/oauth/callback
+OAuth failure URL: https://YOUR_HOST/login?oauth=failed
+Restaurant OAuth failure URL: https://YOUR_HOST/r/<restaurant-slug>/account/login?oauth=failed
+```
+
+Local development examples:
+
+```text
+http://localhost:5173/verify-email
+http://localhost:5173/reset-password
+http://localhost:5173/oauth/callback
+```
+
+For restaurant-specific auth screens, the app sends the restaurant slug as `restaurantSlug` in the verification, recovery, and OAuth callback query string. Public registration only creates rows in `customer_profiles`; owner, staff, and agency access must continue to be created through Appwrite/Auth onboarding plus the `profiles` table or the onboarding Function.
+
 ## Storage Bucket
 
 Bucket name suggestion:

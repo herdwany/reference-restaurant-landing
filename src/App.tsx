@@ -1,4 +1,4 @@
-import { CSSProperties, Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
@@ -36,11 +36,14 @@ import Toast from "./components/Toast";
 import TrustBadges from "./components/TrustBadges";
 import TrackingPage from "./components/TrackingPage";
 import CustomerAccountPage from "./components/CustomerAccountPage";
+import OAuthCallbackPage from "./components/OAuthCallbackPage";
+import VerifyEmailPage from "./components/VerifyEmailPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./lib/i18n/I18nContext";
 import { getLocalizedContent, getLocalizedField } from "./lib/i18n/localizedContent";
+import { getPublicThemeClassNames, getPublicThemeStyle, type PublicThemeStyle } from "./lib/publicTheme";
 import { getSiteDataBySlug } from "./services/siteDataService";
 import type { CustomerProfile, RestaurantStatus } from "./types/platform";
 import { getCustomerProfileByUser, upsertCustomerProfile } from "./services/repositories/customerProfileRepository";
@@ -53,47 +56,7 @@ import {
 import { canUseDirectSensitiveTableFallback, isDevelopmentBuild, isProductionBuild } from "./lib/appwriteIds";
 import { createOrderMessage, createWhatsappUrl, getCartQuantity } from "./utils/formatters";
 
-type ThemeStyle = CSSProperties & Record<string, string>;
-
-const themePresetColors = {
-  classic_red: null,
-  black_gold: {
-    primaryColor: "#161616",
-    secondaryColor: "#b88a2d",
-    accentColor: "#f4c76b",
-    successColor: "#16a34a",
-    darkColor: "#151515",
-    lightColor: "#faf7ef",
-    borderColor: "#e4d7bc",
-  },
-  coffee: {
-    primaryColor: "#7c3f24",
-    secondaryColor: "#b26a34",
-    accentColor: "#e7b76b",
-    successColor: "#15803d",
-    darkColor: "#24150f",
-    lightColor: "#fff7ed",
-    borderColor: "#ead8c5",
-  },
-  fresh: {
-    primaryColor: "#15803d",
-    secondaryColor: "#0f766e",
-    accentColor: "#facc15",
-    successColor: "#16a34a",
-    darkColor: "#10251b",
-    lightColor: "#f0fdf4",
-    borderColor: "#bbf7d0",
-  },
-  minimal: {
-    primaryColor: "#111827",
-    secondaryColor: "#6b7280",
-    accentColor: "#d97706",
-    successColor: "#16a34a",
-    darkColor: "#111827",
-    lightColor: "#f9fafb",
-    borderColor: "#e5e7eb",
-  },
-} as const;
+type ThemeStyle = PublicThemeStyle;
 
 const defaultDocumentTitle = typeof document !== "undefined" ? document.title : "Pixel One Visuals Restaurant";
 const defaultFaviconHref = "/favicon.svg";
@@ -153,7 +116,39 @@ function AdminProtectedRoutes() {
 function AdminLoginRoute() {
   return (
     <AuthProvider>
-      <AdminLogin />
+      <AdminLogin customerForgotPasswordPath="/forgot-password" />
+    </AuthProvider>
+  );
+}
+
+function ForgotPasswordRoute() {
+  return (
+    <AuthProvider>
+      <AdminLogin authMode="forgot" customerLoginPath="/login" publicBackPath="/" />
+    </AuthProvider>
+  );
+}
+
+function ResetPasswordRoute() {
+  return (
+    <AuthProvider>
+      <AdminLogin authMode="reset" customerLoginPath="/login" publicBackPath="/" />
+    </AuthProvider>
+  );
+}
+
+function VerifyEmailRoute() {
+  return (
+    <AuthProvider>
+      <VerifyEmailPage />
+    </AuthProvider>
+  );
+}
+
+function OAuthCallbackRoute() {
+  return (
+    <AuthProvider>
+      <OAuthCallbackPage />
     </AuthProvider>
   );
 }
@@ -259,7 +254,7 @@ function LandingPage({ slug }: LandingPageProps) {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
-  const canUseCustomerAccount = Boolean(currentUser && !isAgencyAdmin && !isOwner && !isStaff);
+  const canUseCustomerAccount = Boolean(currentUser?.emailVerification && !isAgencyAdmin && !isOwner && !isStaff);
 
   useEffect(() => {
     let isMounted = true;
@@ -403,27 +398,7 @@ function LandingPage({ slug }: LandingPageProps) {
   };
   const visibleNavigation = config.navigation.filter((link) => sections[sectionByTargetId[link.targetId] ?? "hero"]);
   const navigationConfig = { ...localizedConfig, navigation: visibleNavigation };
-  const themePreset = config.settings.themePreset || "classic_red";
-  const fontPreset = config.settings.fontPreset || "modern";
-  const cardStyle = config.settings.cardStyle || "soft";
-  const buttonStyle = config.settings.buttonStyle || "rounded";
-  const headerStyle = config.settings.headerStyle || "clean";
-  const footerStyle = config.settings.footerStyle || "dark";
-  const sectionSpacing = config.settings.sectionSpacing || "normal";
-  const backgroundStyle = config.settings.backgroundStyle || "warm";
-  const presetColors = themePresetColors[themePreset];
-  const activeBrand = presetColors ? { ...config.brand, ...presetColors } : config.brand;
-
-  const themeStyle: ThemeStyle = {
-    "--color-primary": activeBrand.primaryColor,
-    "--color-secondary": activeBrand.secondaryColor,
-    "--color-accent": activeBrand.accentColor,
-    "--color-success": activeBrand.successColor,
-    "--color-dark": activeBrand.darkColor,
-    "--color-light": activeBrand.lightColor,
-    "--color-border": activeBrand.borderColor,
-    "--radius-card": activeBrand.borderRadius,
-  };
+  const themeStyle: ThemeStyle = getPublicThemeStyle(config);
 
   useEffect(() => {
     if (isLoadingSite) {
@@ -687,17 +662,7 @@ function LandingPage({ slug }: LandingPageProps) {
     );
   };
 
-  const appClassName = [
-    "app",
-    `app--theme-${themePreset}`,
-    `app--font-${fontPreset}`,
-    `app--cards-${cardStyle}`,
-    `app--buttons-${buttonStyle}`,
-    `app--header-${headerStyle}`,
-    `app--footer-${footerStyle}`,
-    `app--spacing-${sectionSpacing}`,
-    `app--background-${backgroundStyle}`,
-  ].join(" ");
+  const appClassName = getPublicThemeClassNames(config);
 
   return (
     <div className={appClassName} style={themeStyle}>
@@ -808,12 +773,14 @@ function CustomerLoginRoute() {
   const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
   const publicBackPath = `/r/${normalizedSlug}`;
   const customerRedirectPath = `${publicBackPath}/account`;
+  const customerForgotPasswordPath = `${publicBackPath}/account/forgot-password`;
   const customerLoginPath = `${publicBackPath}/account/login`;
   const customerRegisterPath = `${publicBackPath}/account/register`;
 
   return (
     <AdminLogin
       allowCustomerRegistration
+      customerForgotPasswordPath={customerForgotPasswordPath}
       customerLoginPath={customerLoginPath}
       customerRegisterPath={customerRegisterPath}
       customerRedirectPath={customerRedirectPath}
@@ -828,6 +795,7 @@ function CustomerRegisterRoute() {
   const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
   const publicBackPath = `/r/${normalizedSlug}`;
   const customerRedirectPath = `${publicBackPath}/account`;
+  const customerForgotPasswordPath = `${publicBackPath}/account/forgot-password`;
   const customerLoginPath = `${publicBackPath}/account/login`;
   const customerRegisterPath = `${publicBackPath}/account/register`;
 
@@ -835,9 +803,45 @@ function CustomerRegisterRoute() {
     <AdminLogin
       allowCustomerRegistration
       authMode="register"
+      customerForgotPasswordPath={customerForgotPasswordPath}
       customerLoginPath={customerLoginPath}
       customerRegisterPath={customerRegisterPath}
       customerRedirectPath={customerRedirectPath}
+      publicBackPath={publicBackPath}
+      restaurantSlug={normalizedSlug}
+    />
+  );
+}
+
+function CustomerForgotPasswordRoute() {
+  const { slug } = useParams();
+  const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
+  const publicBackPath = `/r/${normalizedSlug}`;
+  const customerLoginPath = `${publicBackPath}/account/login`;
+  const customerRegisterPath = `${publicBackPath}/account/register`;
+
+  return (
+    <AdminLogin
+      allowCustomerRegistration
+      authMode="forgot"
+      customerLoginPath={customerLoginPath}
+      customerRegisterPath={customerRegisterPath}
+      publicBackPath={publicBackPath}
+      restaurantSlug={normalizedSlug}
+    />
+  );
+}
+
+function CustomerResetPasswordRoute() {
+  const { slug } = useParams();
+  const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
+  const publicBackPath = `/r/${normalizedSlug}`;
+  const customerLoginPath = `${publicBackPath}/account/login`;
+
+  return (
+    <AdminLogin
+      authMode="reset"
+      customerLoginPath={customerLoginPath}
       publicBackPath={publicBackPath}
       restaurantSlug={normalizedSlug}
     />
@@ -849,9 +853,15 @@ export default function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<PublicAuthRoute><LandingPage /></PublicAuthRoute>} />
+        <Route path="/verify-email" element={<VerifyEmailRoute />} />
+        <Route path="/oauth/callback" element={<OAuthCallbackRoute />} />
+        <Route path="/forgot-password" element={<ForgotPasswordRoute />} />
+        <Route path="/reset-password" element={<ResetPasswordRoute />} />
         <Route path="/r/:slug/track" element={<PublicAuthRoute><PublicTrackingRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug/account/login" element={<PublicAuthRoute><CustomerLoginRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug/account/register" element={<PublicAuthRoute><CustomerRegisterRoute /></PublicAuthRoute>} />
+        <Route path="/r/:slug/account/forgot-password" element={<PublicAuthRoute><CustomerForgotPasswordRoute /></PublicAuthRoute>} />
+        <Route path="/r/:slug/account/reset-password" element={<PublicAuthRoute><CustomerResetPasswordRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug/account" element={<PublicAuthRoute><CustomerAccountRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug" element={<PublicAuthRoute><PublicRestaurantRoute /></PublicAuthRoute>} />
         <Route path="/login" element={<AdminLoginRoute />} />

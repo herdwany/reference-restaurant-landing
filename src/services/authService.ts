@@ -1,13 +1,19 @@
-import { AppwriteException, ID, type Models } from "appwrite";
+import { AppwriteException, ID, OAuthProvider, type Models } from "appwrite";
 import { account, isAppwriteConfigured } from "../lib/appwriteClient";
 
 export type AuthUser = Models.User<Models.Preferences>;
+export type OAuthLoginProvider = "facebook" | "google";
 
 export const APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE = "لم يتم إعداد Appwrite بعد. أضف متغيرات البيئة أولًا.";
 export const ADMIN_APPWRITE_REQUIRED_MESSAGE = "لوحة التحكم تحتاج إعداد Appwrite أولًا.";
 
 type AuthServiceErrorCode =
   | "APPWRITE_NOT_CONFIGURED"
+  | "EMAIL_VERIFICATION_FAILED"
+  | "EMAIL_VERIFICATION_REQUIRED"
+  | "OAUTH_LOGIN_FAILED"
+  | "PASSWORD_RECOVERY_FAILED"
+  | "PASSWORD_RECOVERY_INVALID"
   | "SESSION_MISSING"
   | "GET_CURRENT_USER_FAILED"
   | "LOGIN_FAILED"
@@ -44,6 +50,24 @@ const isMissingSessionError = (error: unknown) => {
   }
 
   return false;
+};
+
+const oauthProviders: Record<OAuthLoginProvider, OAuthProvider> = {
+  facebook: OAuthProvider.Facebook,
+  google: OAuthProvider.Google,
+};
+
+export const buildAppUrl = (path: string, params: Record<string, string | undefined> = {}) => {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const url = new URL(path, origin || "http://localhost");
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value?.trim()) {
+      url.searchParams.set(key, value.trim());
+    }
+  });
+
+  return url.toString();
 };
 
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
@@ -98,7 +122,7 @@ export const registerWithEmail = async (email: string, password: string, name: s
   requireAppwriteAuth();
 
   try {
-    const user = await account.create({
+    await account.create({
       userId: ID.unique(),
       email,
       password,
@@ -106,6 +130,11 @@ export const registerWithEmail = async (email: string, password: string, name: s
     });
 
     await account.createEmailPasswordSession({ email, password });
+    const user = await getCurrentUser();
+
+    if (!user) {
+      throw new AuthServiceError("تم إنشاء الجلسة لكن تعذر قراءة بيانات المستخدم.", "SESSION_MISSING");
+    }
 
     return user;
   } catch (error) {
@@ -118,6 +147,64 @@ export const registerWithEmail = async (email: string, password: string, name: s
     }
 
     throw new AuthServiceError("تعذر إنشاء الحساب. حاول مرة أخرى.", "REGISTER_FAILED", error);
+  }
+};
+
+export const sendVerificationEmail = async (url: string): Promise<void> => {
+  requireAppwriteAuth();
+
+  try {
+    await account.createVerification({ url });
+  } catch (error) {
+    throw new AuthServiceError("تعذر إرسال رابط تأكيد البريد حاليا.", "EMAIL_VERIFICATION_FAILED", error);
+  }
+};
+
+export const verifyEmail = async (userId: string, secret: string): Promise<void> => {
+  requireAppwriteAuth();
+
+  try {
+    await account.updateVerification({ userId, secret });
+  } catch (error) {
+    throw new AuthServiceError("انتهت صلاحية الرابط أو غير صالح.", "EMAIL_VERIFICATION_FAILED", error);
+  }
+};
+
+export const sendPasswordRecoveryEmail = async (email: string, url: string): Promise<void> => {
+  requireAppwriteAuth();
+
+  try {
+    await account.createRecovery({ email, url });
+  } catch (error) {
+    throw new AuthServiceError("تعذر إرسال رابط استعادة كلمة المرور حاليا.", "PASSWORD_RECOVERY_FAILED", error);
+  }
+};
+
+export const resetPassword = async (userId: string, secret: string, password: string): Promise<void> => {
+  requireAppwriteAuth();
+
+  try {
+    await account.updateRecovery({ userId, secret, password });
+  } catch (error) {
+    throw new AuthServiceError("انتهت صلاحية الرابط أو غير صالح.", "PASSWORD_RECOVERY_INVALID", error);
+  }
+};
+
+export const loginWithOAuthProvider = (
+  provider: OAuthLoginProvider,
+  successUrl: string,
+  failureUrl: string,
+): void | string => {
+  requireAppwriteAuth();
+
+  try {
+    return account.createOAuth2Session({
+      provider: oauthProviders[provider],
+      success: successUrl,
+      failure: failureUrl,
+    });
+  } catch (error) {
+    throw new AuthServiceError("تعذر تسجيل الدخول بواسطة المزود المحدد.", "OAUTH_LOGIN_FAILED", error);
   }
 };
 
