@@ -1,4 +1,4 @@
-import { CSSProperties, Suspense, lazy, useEffect, useMemo, useState } from "react";
+import { CSSProperties, Suspense, lazy, useEffect, useMemo, useState, type ReactNode } from "react";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import AdminLayout from "./admin/AdminLayout";
 import AdminLogin from "./admin/AdminLogin";
@@ -35,13 +35,15 @@ import Testimonials from "./components/Testimonials";
 import Toast from "./components/Toast";
 import TrustBadges from "./components/TrustBadges";
 import TrackingPage from "./components/TrackingPage";
-import { AuthProvider } from "./context/AuthContext";
+import CustomerAccountPage from "./components/CustomerAccountPage";
+import { AuthProvider, useAuth } from "./context/AuthContext";
 import { useCart } from "./hooks/useCart";
 import { useToast } from "./hooks/useToast";
 import { useI18n } from "./lib/i18n/I18nContext";
 import { getLocalizedContent, getLocalizedField } from "./lib/i18n/localizedContent";
 import { getSiteDataBySlug } from "./services/siteDataService";
-import type { RestaurantStatus } from "./types/platform";
+import type { CustomerProfile, RestaurantStatus } from "./types/platform";
+import { getCustomerProfileByUser, upsertCustomerProfile } from "./services/repositories/customerProfileRepository";
 import {
   OrdersRepositoryError,
   createOrder as createAppwriteOrder,
@@ -164,6 +166,10 @@ function AgencyRoute() {
   );
 }
 
+function PublicAuthRoute({ children }: { children: ReactNode }) {
+  return <AuthProvider>{children}</AuthProvider>;
+}
+
 type PublicSiteStatusPageProps = {
   restaurantName: string;
   status: RestaurantStatus;
@@ -240,6 +246,7 @@ type LandingPageProps = {
 
 function LandingPage({ slug }: LandingPageProps) {
   const { currentLanguage, t } = useI18n();
+  const { currentUser, isAgencyAdmin, isOwner, isStaff } = useAuth();
   const [config, setConfig] = useState(restaurantConfig);
   const [publicStatus, setPublicStatus] = useState<RestaurantStatus>("active");
   const [restaurantSlug, setRestaurantSlug] = useState("");
@@ -251,6 +258,8 @@ function LandingPage({ slug }: LandingPageProps) {
   const [cartOpen, setCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [selectedGalleryImage, setSelectedGalleryImage] = useState<GalleryImage | null>(null);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const canUseCustomerAccount = Boolean(currentUser && !isAgencyAdmin && !isOwner && !isStaff);
 
   useEffect(() => {
     let isMounted = true;
@@ -284,6 +293,39 @@ function LandingPage({ slug }: LandingPageProps) {
       isMounted = false;
     };
   }, [slug]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCustomerProfile = async () => {
+      if (!canUseCustomerAccount || !currentUser || !config.restaurant.id) {
+        setCustomerProfile(null);
+        return;
+      }
+
+      try {
+        const profile = await getCustomerProfileByUser(config.restaurant.id, currentUser.$id);
+
+        if (isMounted) {
+          setCustomerProfile(profile);
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCustomerProfile(null);
+        }
+
+        if (import.meta.env.DEV) {
+          console.warn(error);
+        }
+      }
+    };
+
+    void loadCustomerProfile();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [canUseCustomerAccount, config.restaurant.id, currentUser]);
 
   const localizedConfig = useMemo(() => {
     const settingsTranslationEntity = {
@@ -421,6 +463,54 @@ function LandingPage({ slug }: LandingPageProps) {
   }
 
   const currentRestaurantSlug = restaurantSlug || config.restaurant.slug || "";
+  const publicAccountPath = currentRestaurantSlug ? `/r/${currentRestaurantSlug}/account` : "/login";
+  const customerInitialDetails = customerProfile
+    ? {
+        customerAddress: customerProfile.defaultAddress,
+        customerName: customerProfile.fullName,
+        customerPhone: customerProfile.phone,
+        notes: customerProfile.deliveryNotes,
+      }
+    : undefined;
+
+  const ensureCustomerProfileForRequest = async (details: {
+    customerAddress?: string;
+    customerName: string;
+    customerPhone: string;
+    notes?: string;
+  }) => {
+    if (!canUseCustomerAccount || !currentUser || !config.restaurant.id) {
+      return null;
+    }
+
+    try {
+      const savedProfile = await upsertCustomerProfile({
+        restaurantId: config.restaurant.id,
+        userId: currentUser.$id,
+        email: currentUser.email,
+        fullName: details.customerName,
+        phone: details.customerPhone,
+        defaultAddress: details.customerAddress ?? customerProfile?.defaultAddress,
+        city: customerProfile?.city,
+        deliveryNotes: details.notes ?? customerProfile?.deliveryNotes,
+      });
+      setCustomerProfile(savedProfile);
+
+      return {
+        customerUserId: currentUser.$id,
+        customerProfileId: savedProfile.id,
+      };
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn(error);
+      }
+
+      return {
+        customerUserId: currentUser.$id,
+        customerProfileId: customerProfile?.id,
+      };
+    }
+  };
 
   const addDishToCart = (dish: Dish, quantity = 1) => {
     cart.addItem(dish, "dish", quantity);
@@ -475,7 +565,7 @@ function LandingPage({ slug }: LandingPageProps) {
           config.restaurant.name,
           cart.items,
           config.restaurant.currency,
-          config.restaurant.deliveryFee,
+          customer.deliveryFee,
           customer,
         ),
       ),
@@ -528,14 +618,20 @@ function LandingPage({ slug }: LandingPageProps) {
     setIsCheckingOut(true);
 
     try {
+      const customerIdentity = await ensureCustomerProfileForRequest(customer);
       const baseOrderInput = {
         restaurantId: config.restaurant.id ?? "",
         restaurantSlug: currentRestaurantSlug,
+        ...(customerIdentity?.customerUserId ? { customerUserId: customerIdentity.customerUserId } : {}),
+        ...(customerIdentity?.customerProfileId ? { customerProfileId: customerIdentity.customerProfileId } : {}),
         customerName: customer.customerName,
         customerPhone: customer.customerPhone,
         customerAddress: customer.customerAddress,
+        fulfillmentType: customer.fulfillmentType,
+        deliveryArea: customer.deliveryArea,
+        deliveryFee: customer.deliveryFee,
+        deliveryNotes: customer.deliveryNotes,
         notes: customer.notes,
-        deliveryFee: config.restaurant.deliveryFee,
         source: "website" as const,
         items: getCheckoutItems(),
       };
@@ -606,6 +702,7 @@ function LandingPage({ slug }: LandingPageProps) {
   return (
     <div className={appClassName} style={themeStyle}>
       <Header
+        accountPath={publicAccountPath}
         config={navigationConfig}
         cartCount={getCartQuantity(cart.items)}
         onCartOpen={() => setCartOpen(true)}
@@ -642,7 +739,13 @@ function LandingPage({ slug }: LandingPageProps) {
             <div className="container">
               <SectionTitle title={localizedConfig.ui.sectionTitles.actionGrid} />
               <div className="action-grid">
-                <BookingForm config={localizedConfig} restaurantSlug={currentRestaurantSlug} onToast={showToast} />
+                <BookingForm
+                  config={localizedConfig}
+                  initialCustomerDetails={customerInitialDetails}
+                  restaurantSlug={currentRestaurantSlug}
+                  onCustomerDetailsCaptured={ensureCustomerProfileForRequest}
+                  onToast={showToast}
+                />
                 <MenuPreview config={localizedConfig} onAddToCart={addMenuItemToCart} />
                 <LocationCard config={localizedConfig} onWhatsappClick={handleWhatsappClick} />
               </div>
@@ -653,10 +756,11 @@ function LandingPage({ slug }: LandingPageProps) {
         {sections.faq ? <FAQ config={localizedConfig} /> : null}
       </main>
 
-      {sections.footer ? <Footer config={navigationConfig} /> : null}
+      {sections.footer ? <Footer accountPath={publicAccountPath} config={navigationConfig} /> : null}
 
       <CartDrawer
         config={localizedConfig}
+        initialCustomerDetails={customerInitialDetails}
         isCheckingOut={isCheckingOut}
         isOpen={cartOpen}
         items={cart.items}
@@ -694,14 +798,28 @@ function PublicTrackingRoute() {
   return <TrackingPage restaurantSlug={slug?.trim().toLowerCase() || "demo-restaurant"} />;
 }
 
+function CustomerAccountRoute() {
+  const { slug } = useParams();
+  return <CustomerAccountPage restaurantSlug={slug?.trim().toLowerCase() || "demo-restaurant"} />;
+}
+
+function CustomerLoginRoute() {
+  const { slug } = useParams();
+  const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
+  return <AdminLogin customerRedirectPath={`/r/${normalizedSlug}/account`} publicBackPath={`/r/${normalizedSlug}`} />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/r/:slug/track" element={<PublicTrackingRoute />} />
-        <Route path="/r/:slug" element={<PublicRestaurantRoute />} />
-        <Route path="/admin/login" element={<AdminLoginRoute />} />
+        <Route path="/" element={<PublicAuthRoute><LandingPage /></PublicAuthRoute>} />
+        <Route path="/r/:slug/track" element={<PublicAuthRoute><PublicTrackingRoute /></PublicAuthRoute>} />
+        <Route path="/r/:slug/account/login" element={<PublicAuthRoute><CustomerLoginRoute /></PublicAuthRoute>} />
+        <Route path="/r/:slug/account" element={<PublicAuthRoute><CustomerAccountRoute /></PublicAuthRoute>} />
+        <Route path="/r/:slug" element={<PublicAuthRoute><PublicRestaurantRoute /></PublicAuthRoute>} />
+        <Route path="/login" element={<AdminLoginRoute />} />
+        <Route path="/admin/login" element={<Navigate to="/login" replace />} />
         <Route
           path="/agency"
           element={

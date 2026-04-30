@@ -26,7 +26,7 @@ export default function AdminSidebar({ isOpen, onClose }: AdminSidebarProps) {
       await logout();
     } finally {
       setIsLoggingOut(false);
-      navigate("/admin/login", { replace: true });
+      navigate("/login", { replace: true });
     }
   };
 

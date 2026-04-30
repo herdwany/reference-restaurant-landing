@@ -5,6 +5,7 @@ export const BUCKET_ID = import.meta.env.VITE_APPWRITE_BUCKET_ID?.trim() ?? "";
 export const CREATE_ORDER_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREATE_ORDER_FUNCTION_ID?.trim() ?? "";
 export const CREATE_RESERVATION_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREATE_RESERVATION_FUNCTION_ID?.trim() ?? "";
 export const TRACK_REQUEST_FUNCTION_ID = import.meta.env.VITE_APPWRITE_TRACK_REQUEST_FUNCTION_ID?.trim() ?? "";
+export const CUSTOMER_ACCOUNT_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CUSTOMER_ACCOUNT_FUNCTION_ID?.trim() ?? "";
 export const CREATE_CLIENT_FUNCTION_ID = import.meta.env.VITE_APPWRITE_CREATE_CLIENT_FUNCTION_ID?.trim() ?? "";
 export const UPDATE_CLIENT_CONTROLS_FUNCTION_ID = import.meta.env.VITE_APPWRITE_UPDATE_CLIENT_CONTROLS_FUNCTION_ID?.trim() ?? "";
 export const UPDATE_DOMAIN_SETTINGS_FUNCTION_ID = import.meta.env.VITE_APPWRITE_UPDATE_DOMAIN_SETTINGS_FUNCTION_ID?.trim() ?? "";
@@ -20,6 +21,7 @@ export const isDevelopmentBuild = import.meta.env.DEV;
 export const COLLECTIONS = {
   restaurants: "restaurants",
   profiles: "profiles",
+  customerProfiles: "customer_profiles",
   dishes: "dishes",
   offers: "offers",
   galleryItems: "gallery_items",
@@ -39,6 +41,7 @@ export const hasAppwriteStorageConfig = isAppwriteConfigured && Boolean(BUCKET_I
 export const hasCreateOrderFunctionConfig = isAppwriteConfigured && Boolean(CREATE_ORDER_FUNCTION_ID);
 export const hasCreateReservationFunctionConfig = isAppwriteConfigured && Boolean(CREATE_RESERVATION_FUNCTION_ID);
 export const hasTrackRequestFunctionConfig = isAppwriteConfigured && Boolean(TRACK_REQUEST_FUNCTION_ID);
+export const hasCustomerAccountFunctionConfig = isAppwriteConfigured && Boolean(CUSTOMER_ACCOUNT_FUNCTION_ID);
 export const hasCreateClientFunctionConfig = isAppwriteConfigured && Boolean(CREATE_CLIENT_FUNCTION_ID);
 export const hasUpdateClientControlsFunctionConfig = isAppwriteConfigured && Boolean(UPDATE_CLIENT_CONTROLS_FUNCTION_ID);
 export const hasUpdateDomainSettingsFunctionConfig = isAppwriteConfigured && Boolean(UPDATE_DOMAIN_SETTINGS_FUNCTION_ID);

@@ -70,6 +70,14 @@ type SettingsFormValues = {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  deliveryEnabled: boolean;
+  pickupEnabled: boolean;
+  deliveryBaseFee: string;
+  freeDeliveryThreshold: string;
+  minimumOrderAmount: string;
+  estimatedDeliveryMinutes: string;
+  deliveryAreas: string;
+  deliveryInstructions: string;
   heroTitle: string;
   heroSubtitle: string;
   primaryCtaText: string;
@@ -238,6 +246,14 @@ const emptySettingsFormValues: SettingsFormValues = {
   direction: "rtl",
   orderMode: "whatsapp",
   reservationMode: "whatsapp",
+  deliveryEnabled: true,
+  pickupEnabled: false,
+  deliveryBaseFee: String(defaultRestaurantConfig.settings.deliveryBaseFee ?? defaultRestaurantConfig.restaurant.deliveryFee ?? ""),
+  freeDeliveryThreshold: "",
+  minimumOrderAmount: "",
+  estimatedDeliveryMinutes: defaultRestaurantConfig.settings.estimatedDeliveryMinutes ?? "",
+  deliveryAreas: defaultRestaurantConfig.settings.deliveryAreas ?? "",
+  deliveryInstructions: defaultRestaurantConfig.settings.deliveryInstructions ?? "",
   heroTitle: defaultRestaurantConfig.hero.title,
   heroSubtitle: defaultRestaurantConfig.hero.subtitle,
   primaryCtaText: defaultRestaurantConfig.hero.primaryCtaText,
@@ -334,6 +350,23 @@ const getSettingsFormValues = (restaurant: Restaurant | null, settings: SiteSett
     direction: settings?.direction ?? emptySettingsFormValues.direction,
     orderMode: settings?.orderMode ?? emptySettingsFormValues.orderMode,
     reservationMode: settings?.reservationMode ?? emptySettingsFormValues.reservationMode,
+    deliveryEnabled: settings?.deliveryEnabled ?? emptySettingsFormValues.deliveryEnabled,
+    pickupEnabled: settings?.pickupEnabled ?? emptySettingsFormValues.pickupEnabled,
+    deliveryBaseFee:
+      typeof settings?.deliveryBaseFee === "number"
+        ? String(settings.deliveryBaseFee)
+        : emptySettingsFormValues.deliveryBaseFee,
+    freeDeliveryThreshold:
+      typeof settings?.freeDeliveryThreshold === "number"
+        ? String(settings.freeDeliveryThreshold)
+        : emptySettingsFormValues.freeDeliveryThreshold,
+    minimumOrderAmount:
+      typeof settings?.minimumOrderAmount === "number"
+        ? String(settings.minimumOrderAmount)
+        : emptySettingsFormValues.minimumOrderAmount,
+    estimatedDeliveryMinutes: settings?.estimatedDeliveryMinutes ?? emptySettingsFormValues.estimatedDeliveryMinutes,
+    deliveryAreas: settings?.deliveryAreas ?? emptySettingsFormValues.deliveryAreas,
+    deliveryInstructions: settings?.deliveryInstructions ?? emptySettingsFormValues.deliveryInstructions,
     heroTitle: settings?.heroTitle ?? emptySettingsFormValues.heroTitle,
     heroSubtitle: settings?.heroSubtitle ?? restaurant?.description ?? emptySettingsFormValues.heroSubtitle,
     primaryCtaText: settings?.primaryCtaText ?? emptySettingsFormValues.primaryCtaText,
@@ -423,6 +456,15 @@ const parseOptionalPositiveNumber = (value: string) => {
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : Number.NaN;
 };
 
+const parseOptionalNonNegativeNumber = (value: string) => {
+  if (!value.trim()) {
+    return undefined;
+  }
+
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : Number.NaN;
+};
+
 const starterBrandSettingKeys = [
   "logoFileId",
   "logoPreviewUrl",
@@ -493,6 +535,17 @@ const archivePreferenceSettingKeys = [
   "orderAutoArchiveAfterHours",
   "autoArchiveCompletedReservations",
   "reservationAutoArchiveAfterHours",
+] as const satisfies readonly (keyof SettingsFormValues)[];
+
+const deliveryPickupSettingKeys = [
+  "deliveryEnabled",
+  "pickupEnabled",
+  "deliveryBaseFee",
+  "freeDeliveryThreshold",
+  "minimumOrderAmount",
+  "estimatedDeliveryMinutes",
+  "deliveryAreas",
+  "deliveryInstructions",
 ] as const satisfies readonly (keyof SettingsFormValues)[];
 
 const advancedHomepageSettingKeys = [
@@ -566,6 +619,26 @@ const validateSettingsForm = (
 
   if (!reservationModes.includes(values.reservationMode)) {
     errors.reservationMode = t("invalidValue");
+  }
+
+  if (!values.deliveryEnabled && !values.pickupEnabled) {
+    errors.deliveryEnabled = t("deliveryPickupRequired");
+  }
+
+  const deliveryBaseFee = parseOptionalNonNegativeNumber(values.deliveryBaseFee);
+  const freeDeliveryThreshold = parseOptionalPositiveNumber(values.freeDeliveryThreshold);
+  const minimumOrderAmount = parseOptionalPositiveNumber(values.minimumOrderAmount);
+
+  if (values.deliveryBaseFee.trim() && !Number.isFinite(deliveryBaseFee)) {
+    errors.deliveryBaseFee = t("invalidValue");
+  }
+
+  if (values.freeDeliveryThreshold.trim() && !Number.isFinite(freeDeliveryThreshold)) {
+    errors.freeDeliveryThreshold = t("invalidValue");
+  }
+
+  if (values.minimumOrderAmount.trim() && !Number.isFinite(minimumOrderAmount)) {
+    errors.minimumOrderAmount = t("invalidValue");
   }
 
   if (options.canSaveAdvancedTheme) {
@@ -685,6 +758,14 @@ const toSiteSettingsInput = (values: SettingsFormValues): SiteSettingsMutationIn
   direction: values.direction,
   orderMode: values.orderMode,
   reservationMode: values.reservationMode,
+  deliveryEnabled: values.deliveryEnabled,
+  pickupEnabled: values.pickupEnabled,
+  deliveryBaseFee: parseOptionalNonNegativeNumber(values.deliveryBaseFee),
+  freeDeliveryThreshold: parseOptionalPositiveNumber(values.freeDeliveryThreshold),
+  minimumOrderAmount: parseOptionalPositiveNumber(values.minimumOrderAmount),
+  estimatedDeliveryMinutes: values.estimatedDeliveryMinutes.trim() || undefined,
+  deliveryAreas: values.deliveryAreas.trim() || undefined,
+  deliveryInstructions: values.deliveryInstructions.trim() || undefined,
   heroTitle: values.heroTitle.trim() || undefined,
   heroSubtitle: values.heroSubtitle.trim() || undefined,
   primaryCtaText: values.primaryCtaText.trim() || undefined,
@@ -790,6 +871,9 @@ const mergeAllowedSettingsValues = (
 
   if (options.canSaveOrderMode) {
     nextValues.orderMode = values.orderMode;
+    for (const key of deliveryPickupSettingKeys) {
+      nextValues[key] = values[key] as never;
+    }
   }
 
   if (options.canSaveReservationMode) {
@@ -1085,6 +1169,11 @@ export default function AdminSettings() {
     }
 
     if (!canSaveOrderMode && formValues.orderMode !== persistedValues.orderMode) {
+      setPageError(t("featureUnavailable"));
+      return;
+    }
+
+    if (!canSaveOrderMode && hasChangedFields(deliveryPickupSettingKeys, formValues, persistedValues)) {
       setPageError(t("featureUnavailable"));
       return;
     }
@@ -1404,6 +1493,94 @@ export default function AdminSettings() {
                 </select>
                 {renderFieldHelp(t("reservationModeHelp"))}
                 {renderFieldError("reservationMode")}
+              </label>
+              <div className="admin-form-grid__wide admin-settings-subsection">
+                <h4>{t("deliveryPickupSettings")}</h4>
+                <p>{t("deliveryPickupSettingsDescription")}</p>
+              </div>
+              <label className="admin-toggle-row admin-toggle-row--inline">
+                <input
+                  type="checkbox"
+                  checked={formValues.deliveryEnabled}
+                  onChange={(event) => updateFormValue("deliveryEnabled", event.target.checked)}
+                  disabled={!canSaveOrderMode}
+                />
+                <span>{t("deliveryEnabled")}</span>
+                {renderFieldError("deliveryEnabled")}
+              </label>
+              <label className="admin-toggle-row admin-toggle-row--inline">
+                <input
+                  type="checkbox"
+                  checked={formValues.pickupEnabled}
+                  onChange={(event) => updateFormValue("pickupEnabled", event.target.checked)}
+                  disabled={!canSaveOrderMode}
+                />
+                <span>{t("pickupEnabled")}</span>
+              </label>
+              <label>
+                <span>{t("deliveryBaseFee")}</span>
+                <input
+                  value={formValues.deliveryBaseFee}
+                  onChange={(event) => updateFormValue("deliveryBaseFee", event.target.value)}
+                  aria-invalid={Boolean(formErrors.deliveryBaseFee)}
+                  disabled={!canSaveOrderMode}
+                  inputMode="decimal"
+                  placeholder="15"
+                />
+                {renderFieldError("deliveryBaseFee")}
+              </label>
+              <label>
+                <span>{t("freeDeliveryThreshold")}</span>
+                <input
+                  value={formValues.freeDeliveryThreshold}
+                  onChange={(event) => updateFormValue("freeDeliveryThreshold", event.target.value)}
+                  aria-invalid={Boolean(formErrors.freeDeliveryThreshold)}
+                  disabled={!canSaveOrderMode}
+                  inputMode="decimal"
+                  placeholder="150"
+                />
+                {renderFieldError("freeDeliveryThreshold")}
+              </label>
+              <label>
+                <span>{t("minimumOrderAmount")}</span>
+                <input
+                  value={formValues.minimumOrderAmount}
+                  onChange={(event) => updateFormValue("minimumOrderAmount", event.target.value)}
+                  aria-invalid={Boolean(formErrors.minimumOrderAmount)}
+                  disabled={!canSaveOrderMode}
+                  inputMode="decimal"
+                  placeholder="50"
+                />
+                {renderFieldError("minimumOrderAmount")}
+              </label>
+              <label>
+                <span>{t("estimatedDeliveryMinutes")}</span>
+                <input
+                  value={formValues.estimatedDeliveryMinutes}
+                  onChange={(event) => updateFormValue("estimatedDeliveryMinutes", event.target.value)}
+                  disabled={!canSaveOrderMode}
+                  placeholder="30-45"
+                />
+              </label>
+              <label className="admin-form-grid__wide">
+                <span>{t("deliveryAreas")}</span>
+                <textarea
+                  value={formValues.deliveryAreas}
+                  onChange={(event) => updateFormValue("deliveryAreas", event.target.value)}
+                  disabled={!canSaveOrderMode}
+                  rows={4}
+                  placeholder='[{"name":"Agdal","fee":15},{"name":"Hay Riad","fee":25}]'
+                />
+                {renderFieldHelp(t("deliveryAreasHelp"))}
+              </label>
+              <label className="admin-form-grid__wide">
+                <span>{t("deliveryInstructions")}</span>
+                <textarea
+                  value={formValues.deliveryInstructions}
+                  onChange={(event) => updateFormValue("deliveryInstructions", event.target.value)}
+                  disabled={!canSaveOrderMode}
+                  rows={3}
+                />
               </label>
               <label>
                 <span>{t("reservationMaxPeople")}</span>

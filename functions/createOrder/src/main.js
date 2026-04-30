@@ -13,6 +13,7 @@ const config = {
   databaseId: env("APPWRITE_DATABASE_ID"),
   restaurantsTableId: env("APPWRITE_RESTAURANTS_TABLE_ID", "restaurants"),
   dishesTableId: env("APPWRITE_DISHES_TABLE_ID", "dishes"),
+  customerProfilesTableId: env("APPWRITE_CUSTOMER_PROFILES_TABLE_ID", "customer_profiles"),
   ordersTableId: env("APPWRITE_ORDERS_TABLE_ID", "orders"),
   orderItemsTableId: env("APPWRITE_ORDER_ITEMS_TABLE_ID", "order_items"),
   viasocketOrderWebhookUrl: env("VIASOCKET_ORDER_WEBHOOK_URL", ""),
@@ -66,6 +67,15 @@ const cleanText = (value, maxLength = MAX_TEXT_LENGTH) => {
   return value.trim().slice(0, maxLength);
 };
 
+const getHeader = (req, key) => {
+  const lowerKey = key.toLowerCase();
+  const headers = req.headers ?? {};
+
+  return headers[key] ?? headers[lowerKey] ?? "";
+};
+
+const getAuthenticatedUserId = (req) => cleanText(getHeader(req, "x-appwrite-user-id"), 255);
+
 const toPositiveNumber = (value) => {
   const numberValue = Number(value);
   return Number.isFinite(numberValue) && numberValue > 0 ? numberValue : null;
@@ -83,6 +93,22 @@ const isArchiveColumnsMissingError = (error) => {
   return (
     error?.code === 400 &&
     (message.includes("isArchived") || message.includes("archivedAt") || message.includes("archiveReason"))
+  );
+};
+
+const isCustomerColumnsMissingError = (error) => {
+  const message = String(error?.message ?? "").toLowerCase();
+  return error?.code === 400 && (message.includes("customeruserid") || message.includes("customerprofileid"));
+};
+
+const isFulfillmentColumnsMissingError = (error) => {
+  const message = String(error?.message ?? "").toLowerCase();
+  return (
+    error?.code === 400 &&
+    (message.includes("fulfillmenttype") ||
+      message.includes("deliveryarea") ||
+      message.includes("deliveryfee") ||
+      message.includes("deliverynotes"))
   );
 };
 
@@ -158,6 +184,43 @@ const validateCustomer = (input) => {
   };
 };
 
+const getCustomerIdentity = async (tablesDb, req, restaurantId, input) => {
+  const userId = getAuthenticatedUserId(req);
+
+  if (!userId) {
+    return {};
+  }
+
+  const customerProfileId = cleanText(input.customerProfileId, 255);
+
+  if (!customerProfileId) {
+    return { customerUserId: userId };
+  }
+
+  try {
+    const profile = await tablesDb.getRow({
+      databaseId: config.databaseId,
+      tableId: config.customerProfilesTableId,
+      rowId: customerProfileId,
+    });
+
+    if (profile.userId !== userId || profile.restaurantId !== restaurantId || profile.isActive === false) {
+      throw new HttpError(403, "Customer profile does not match the authenticated user.");
+    }
+
+    return {
+      customerUserId: userId,
+      customerProfileId: profile.$id,
+    };
+  } catch (caughtError) {
+    if (caughtError instanceof HttpError) {
+      throw caughtError;
+    }
+
+    throw new HttpError(403, "Customer profile could not be verified.");
+  }
+};
+
 const getDeliveryFee = (input) => {
   const deliveryFee = Number(input.deliveryFee);
 
@@ -165,9 +228,26 @@ const getDeliveryFee = (input) => {
     return 0;
   }
 
-  // TODO: Production hardening: load delivery fee from trusted restaurant settings
-  // when it becomes part of the server-side schema instead of trusting the client.
+  // TODO: Production hardening: recalculate this from trusted site_settings
+  // before using the order total for payment or automated fulfillment.
   return Math.min(deliveryFee, 10000);
+};
+
+const getFulfillmentDetails = (input, deliveryFee) => {
+  const fulfillmentType = cleanText(input.fulfillmentType, 50) === "pickup" ? "pickup" : "delivery";
+  const customerAddress = cleanText(input.customerAddress, 500);
+
+  if (fulfillmentType === "delivery" && !customerAddress) {
+    throw new HttpError(400, "عنوان التوصيل مطلوب لإتمام الطلب.");
+  }
+
+  return {
+    customerAddress: fulfillmentType === "delivery" ? customerAddress : null,
+    fulfillmentType,
+    deliveryArea: fulfillmentType === "delivery" ? cleanText(input.deliveryArea, 255) || null : null,
+    deliveryFee: fulfillmentType === "delivery" ? deliveryFee : 0,
+    deliveryNotes: cleanText(input.deliveryNotes, 1000) || null,
+  };
 };
 
 const getTrustedDishItem = async (tablesDb, restaurantId, inputItem, quantity) => {
@@ -260,17 +340,23 @@ const normalizeItems = async (tablesDb, restaurantId, inputItems) => {
   return normalizedItems;
 };
 
-const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFee) => {
-  const totalAmount = items.reduce((total, item) => total + item.subtotal, 0) + deliveryFee;
+const createOrderRows = async (tablesDb, restaurant, customer, items, fulfillment, customerIdentity) => {
+  const totalAmount = items.reduce((total, item) => total + item.subtotal, 0) + fulfillment.deliveryFee;
   const createdAtText = new Date().toISOString();
   const trackingCode = generateTrackingCode();
 
   const baseOrderData = {
     restaurantId: restaurant.$id,
+    ...(customerIdentity.customerUserId ? { customerUserId: customerIdentity.customerUserId } : {}),
+    ...(customerIdentity.customerProfileId ? { customerProfileId: customerIdentity.customerProfileId } : {}),
     trackingCode,
     customerName: customer.customerName,
     customerPhone: customer.customerPhone,
-    customerAddress: customer.customerAddress,
+    customerAddress: fulfillment.customerAddress,
+    fulfillmentType: fulfillment.fulfillmentType,
+    deliveryArea: fulfillment.deliveryArea,
+    deliveryFee: fulfillment.deliveryFee,
+    deliveryNotes: fulfillment.deliveryNotes,
     notes: customer.notes,
     totalAmount,
     status: "new",
@@ -291,15 +377,24 @@ const createOrderRows = async (tablesDb, restaurant, customer, items, deliveryFe
       },
     });
   } catch (error) {
-    if (!isArchiveColumnsMissingError(error)) {
+    if (!isArchiveColumnsMissingError(error) && !isCustomerColumnsMissingError(error) && !isFulfillmentColumnsMissingError(error)) {
       throw error;
     }
 
+    const {
+      customerProfileId: _customerProfileId,
+      customerUserId: _customerUserId,
+      deliveryArea: _deliveryArea,
+      deliveryFee: _deliveryFee,
+      deliveryNotes: _deliveryNotes,
+      fulfillmentType: _fulfillmentType,
+      ...fallbackOrderData
+    } = baseOrderData;
     order = await tablesDb.createRow({
       databaseId: config.databaseId,
       tableId: config.ordersTableId,
       rowId: ID.unique(),
-      data: baseOrderData,
+      data: fallbackOrderData,
     });
   }
 
@@ -374,9 +469,11 @@ export default async ({ req, res, log, error }) => {
     const tablesDb = createTablesDb();
     const restaurant = await getRestaurant(tablesDb, input);
     const customer = validateCustomer(input);
+    const customerIdentity = await getCustomerIdentity(tablesDb, req, restaurant.$id, input);
     const items = await normalizeItems(tablesDb, restaurant.$id, input.items);
     const deliveryFee = getDeliveryFee(input);
-    const orderSummary = await createOrderRows(tablesDb, restaurant, customer, items, deliveryFee);
+    const fulfillment = getFulfillmentDetails(input, deliveryFee);
+    const orderSummary = await createOrderRows(tablesDb, restaurant, customer, items, fulfillment, customerIdentity);
 
     // Notify viaSocket (non-blocking, optional)
     void notifyViaSocket(orderSummary, restaurant);

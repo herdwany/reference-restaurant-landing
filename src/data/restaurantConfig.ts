@@ -192,6 +192,14 @@ export interface RestaurantConfig {
     direction: "rtl" | "ltr";
     orderMode: "whatsapp" | "database" | "both";
     reservationMode: "whatsapp" | "database" | "both";
+    deliveryEnabled?: boolean;
+    pickupEnabled?: boolean;
+    deliveryBaseFee?: number;
+    freeDeliveryThreshold?: number;
+    minimumOrderAmount?: number;
+    estimatedDeliveryMinutes?: string;
+    deliveryAreas?: string;
+    deliveryInstructions?: string;
     themePreset?: "classic_red" | "black_gold" | "coffee" | "fresh" | "minimal";
     fontPreset?: "modern" | "classic" | "elegant" | "friendly";
     cardStyle?: "soft" | "bordered" | "flat" | "premium";
@@ -304,6 +312,14 @@ export const restaurantConfig: RestaurantConfig = {
     direction: "rtl",
     orderMode: "whatsapp",
     reservationMode: "whatsapp",
+    deliveryEnabled: true,
+    pickupEnabled: false,
+    deliveryBaseFee: 15,
+    freeDeliveryThreshold: undefined,
+    minimumOrderAmount: undefined,
+    estimatedDeliveryMinutes: "30-45",
+    deliveryAreas: "",
+    deliveryInstructions: "يرجى إرسال موقعك بعد فتح واتساب لإكمال الطلب.",
     themePreset: "classic_red",
     fontPreset: "modern",
     cardStyle: "soft",

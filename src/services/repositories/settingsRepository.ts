@@ -38,6 +38,14 @@ interface SiteSettingsRow extends Models.Row {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  deliveryEnabled?: boolean | null;
+  pickupEnabled?: boolean | null;
+  deliveryBaseFee?: number | null;
+  freeDeliveryThreshold?: number | null;
+  minimumOrderAmount?: number | null;
+  estimatedDeliveryMinutes?: string | null;
+  deliveryAreas?: string | null;
+  deliveryInstructions?: string | null;
   heroTitle?: string | null;
   heroSubtitle?: string | null;
   primaryCtaText?: string | null;
@@ -95,6 +103,14 @@ export type SiteSettingsMutationInput = {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  deliveryEnabled?: boolean;
+  pickupEnabled?: boolean;
+  deliveryBaseFee?: number;
+  freeDeliveryThreshold?: number;
+  minimumOrderAmount?: number;
+  estimatedDeliveryMinutes?: string;
+  deliveryAreas?: string;
+  deliveryInstructions?: string;
   heroTitle?: string;
   heroSubtitle?: string;
   primaryCtaText?: string;
@@ -162,6 +178,14 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   direction: row.direction,
   orderMode: row.orderMode,
   reservationMode: row.reservationMode,
+  deliveryEnabled: row.deliveryEnabled ?? undefined,
+  pickupEnabled: row.pickupEnabled ?? undefined,
+  deliveryBaseFee: row.deliveryBaseFee ?? undefined,
+  freeDeliveryThreshold: row.freeDeliveryThreshold ?? undefined,
+  minimumOrderAmount: row.minimumOrderAmount ?? undefined,
+  estimatedDeliveryMinutes: row.estimatedDeliveryMinutes ?? undefined,
+  deliveryAreas: row.deliveryAreas ?? undefined,
+  deliveryInstructions: row.deliveryInstructions ?? undefined,
   heroTitle: row.heroTitle ?? undefined,
   heroSubtitle: row.heroSubtitle ?? undefined,
   primaryCtaText: row.primaryCtaText ?? undefined,
@@ -219,6 +243,14 @@ const toSiteSettingsRowData = (input: SiteSettingsMutationInput): SiteSettingsRo
   direction: input.direction,
   orderMode: input.orderMode,
   reservationMode: input.reservationMode,
+  deliveryEnabled: input.deliveryEnabled ?? true,
+  pickupEnabled: Boolean(input.pickupEnabled),
+  deliveryBaseFee: input.deliveryBaseFee,
+  freeDeliveryThreshold: input.freeDeliveryThreshold,
+  minimumOrderAmount: input.minimumOrderAmount,
+  estimatedDeliveryMinutes: input.estimatedDeliveryMinutes?.trim() || undefined,
+  deliveryAreas: input.deliveryAreas?.trim() || undefined,
+  deliveryInstructions: input.deliveryInstructions?.trim() || undefined,
   heroTitle: input.heroTitle?.trim() || undefined,
   heroSubtitle: input.heroSubtitle?.trim() || undefined,
   primaryCtaText: input.primaryCtaText?.trim() || undefined,

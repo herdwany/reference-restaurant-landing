@@ -39,6 +39,7 @@ export type ReservationStatus =
   | "rejected";
 export type DepositStatus = "none" | "required" | "paid" | "waived";
 export type OrderSource = "website" | "whatsapp" | "admin";
+export type FulfillmentType = "delivery" | "pickup";
 export type ColorTheme = "orange" | "red" | "gold";
 export type SiteDirection = "rtl" | "ltr";
 export type OrderMode = "whatsapp" | "database" | "both";
@@ -151,6 +152,18 @@ export interface Profile extends BaseModel {
   isActive: boolean;
 }
 
+export interface CustomerProfile extends BaseModel {
+  restaurantId: string;
+  userId: string;
+  fullName: string;
+  phone: string;
+  email?: string;
+  defaultAddress?: string;
+  city?: string;
+  deliveryNotes?: string;
+  isActive: boolean;
+}
+
 export interface Dish extends BaseModel {
   restaurantId: string;
   name: string;
@@ -224,6 +237,14 @@ export interface SiteSettings extends BaseModel {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  deliveryEnabled?: boolean;
+  pickupEnabled?: boolean;
+  deliveryBaseFee?: number;
+  freeDeliveryThreshold?: number;
+  minimumOrderAmount?: number;
+  estimatedDeliveryMinutes?: string;
+  deliveryAreas?: string;
+  deliveryInstructions?: string;
   heroTitle?: string;
   heroSubtitle?: string;
   primaryCtaText?: string;
@@ -277,10 +298,16 @@ export interface SiteSettings extends BaseModel {
 
 export interface Order extends BaseModel {
   restaurantId: string;
+  customerUserId?: string;
+  customerProfileId?: string;
   trackingCode?: string;
   customerName: string;
   customerPhone: string;
   customerAddress?: string;
+  fulfillmentType?: FulfillmentType;
+  deliveryArea?: string;
+  deliveryFee?: number;
+  deliveryNotes?: string;
   notes?: string;
   totalAmount: number;
   status: OrderStatus;
@@ -302,6 +329,8 @@ export interface OrderItem extends BaseModel {
 
 export interface Reservation extends BaseModel {
   restaurantId: string;
+  customerUserId?: string;
+  customerProfileId?: string;
   trackingCode?: string;
   customerName: string;
   customerPhone: string;

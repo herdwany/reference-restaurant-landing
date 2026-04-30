@@ -1,9 +1,13 @@
 import type { BookingFormData, CartItem } from "../data/restaurantConfig";
+import type { FulfillmentType } from "../types/platform";
 
 export type OrderMessageCustomerDetails = {
   customerAddress?: string;
   customerName?: string;
   customerPhone?: string;
+  deliveryArea?: string;
+  deliveryNotes?: string;
+  fulfillmentType?: FulfillmentType;
   notes?: string;
 };
 
@@ -30,12 +34,16 @@ export const createOrderMessage = (
 ) => {
   const subtotal = getCartSubtotal(items);
   const total = subtotal + deliveryFee;
+  const fulfillmentType = customer?.fulfillmentType ?? "delivery";
   const customerLines = customer
     ? [
         customer.customerName ? `الاسم: ${customer.customerName}` : null,
         customer.customerPhone ? `الهاتف: ${customer.customerPhone}` : null,
-        customer.customerAddress ? `العنوان: ${customer.customerAddress}` : null,
-        customer.notes ? `ملاحظات: ${customer.notes}` : null,
+        `طريقة الاستلام: ${fulfillmentType === "pickup" ? "استلام من المطعم" : "توصيل إلى العنوان"}`,
+        customer.deliveryArea ? `منطقة التوصيل: ${customer.deliveryArea}` : null,
+        fulfillmentType === "delivery" && customer.customerAddress ? `العنوان: ${customer.customerAddress}` : null,
+        customer.deliveryNotes ? `ملاحظات التوصيل: ${customer.deliveryNotes}` : null,
+        customer.notes && customer.notes !== customer.deliveryNotes ? `ملاحظات: ${customer.notes}` : null,
       ].filter((line): line is string => Boolean(line))
     : [];
   const lines = items.map(
@@ -51,9 +59,11 @@ export const createOrderMessage = (
     ...customerLines,
     ...lines,
     `المجموع الفرعي: ${formatPrice(subtotal, currency)}`,
-    `رسوم التوصيل: ${formatPrice(deliveryFee, currency)}`,
+    fulfillmentType === "delivery" ? `رسوم التوصيل: ${formatPrice(deliveryFee, currency)}` : "رسوم التوصيل: 0",
     `الإجمالي: ${formatPrice(total, currency)}`,
-    "سأرسل موقعي الآن لتأكيد التوصيل.",
+    fulfillmentType === "pickup"
+      ? "سأستلم الطلب من المطعم."
+      : "سأرسل موقعي الآن لتأكيد التوصيل.",
   ].join("\n");
 };
 

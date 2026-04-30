@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
 import { AtSign, Camera, Instagram, Mail, MapPin, Music2, Phone, UtensilsCrossed } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { RestaurantConfig } from "../data/restaurantConfig";
+import { useI18n } from "../lib/i18n/I18nContext";
 
 interface FooterProps {
+  accountPath?: string;
   config: RestaurantConfig;
 }
 
@@ -12,7 +15,8 @@ const scrollToTarget = (targetId: string) => {
 
 const isVisibleLink = (value: string | undefined) => Boolean(value?.trim());
 
-export default function Footer({ config }: FooterProps) {
+export default function Footer({ accountPath = "/login", config }: FooterProps) {
+  const { t } = useI18n();
   const quickLinks = config.navigation.filter((link) => ["home", "menu", "offers", "about", "contact"].includes(link.targetId));
   const [logoImageFailed, setLogoImageFailed] = useState(false);
   const logoImageUrl = config.restaurant.logoImage && !logoImageFailed ? config.restaurant.logoImage : "";
@@ -113,6 +117,7 @@ export default function Footer({ config }: FooterProps) {
             {config.ui.footer.copyrightPrefix} {config.restaurant.name} {config.ui.footer.copyrightYear}
           </span>
           <div>
+            <Link to={accountPath}>{t("login")}</Link>
             <a href="#home">{config.ui.footer.privacy}</a>
             <a href="#home">{config.ui.footer.terms}</a>
           </div>

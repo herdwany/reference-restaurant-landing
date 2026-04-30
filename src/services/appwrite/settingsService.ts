@@ -26,6 +26,14 @@ interface SiteSettingsRow extends Models.Row {
   direction: SiteDirection;
   orderMode: OrderMode;
   reservationMode: ReservationMode;
+  deliveryEnabled?: boolean | null;
+  pickupEnabled?: boolean | null;
+  deliveryBaseFee?: number | null;
+  freeDeliveryThreshold?: number | null;
+  minimumOrderAmount?: number | null;
+  estimatedDeliveryMinutes?: string | null;
+  deliveryAreas?: string | null;
+  deliveryInstructions?: string | null;
   heroTitle?: string | null;
   heroSubtitle?: string | null;
   primaryCtaText?: string | null;
@@ -69,6 +77,14 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   direction: row.direction,
   orderMode: row.orderMode,
   reservationMode: row.reservationMode,
+  deliveryEnabled: row.deliveryEnabled ?? undefined,
+  pickupEnabled: row.pickupEnabled ?? undefined,
+  deliveryBaseFee: row.deliveryBaseFee ?? undefined,
+  freeDeliveryThreshold: row.freeDeliveryThreshold ?? undefined,
+  minimumOrderAmount: row.minimumOrderAmount ?? undefined,
+  estimatedDeliveryMinutes: row.estimatedDeliveryMinutes ?? undefined,
+  deliveryAreas: row.deliveryAreas ?? undefined,
+  deliveryInstructions: row.deliveryInstructions ?? undefined,
   heroTitle: row.heroTitle ?? undefined,
   heroSubtitle: row.heroSubtitle ?? undefined,
   primaryCtaText: row.primaryCtaText ?? undefined,

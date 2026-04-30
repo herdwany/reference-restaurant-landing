@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { CalendarCheck, MessageCircle } from "lucide-react";
 import type { BookingFormData, RestaurantConfig } from "../data/restaurantConfig";
 import {
@@ -18,9 +18,23 @@ import Modal from "./Modal";
 
 interface BookingFormProps {
   config: RestaurantConfig;
+  initialCustomerDetails?: Partial<CustomerRequestDetails>;
+  onCustomerDetailsCaptured?: (details: CustomerRequestDetails) => Promise<CustomerRequestIdentity> | CustomerRequestIdentity;
   restaurantSlug: string;
   onToast: (message: string, type?: "success" | "error" | "info") => void;
 }
+
+type CustomerRequestDetails = {
+  customerAddress?: string;
+  customerName: string;
+  customerPhone: string;
+  notes?: string;
+};
+
+type CustomerRequestIdentity = {
+  customerProfileId?: string;
+  customerUserId?: string;
+} | null;
 
 const initialBooking: BookingFormData = {
   fullName: "",
@@ -38,7 +52,13 @@ const saveBooking = (booking: BookingFormData) => {
   window.localStorage.setItem("restaurant-bookings", JSON.stringify([...bookings, booking]));
 };
 
-export default function BookingForm({ config, restaurantSlug, onToast }: BookingFormProps) {
+export default function BookingForm({
+  config,
+  initialCustomerDetails,
+  onCustomerDetailsCaptured,
+  restaurantSlug,
+  onToast,
+}: BookingFormProps) {
   const { t } = useI18n();
   const [values, setValues] = useState(initialBooking);
   const [errors, setErrors] = useState<BookingErrors>({});
@@ -50,6 +70,25 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     setValues((current) => ({ ...current, [field]: value }));
     setErrors((current) => ({ ...current, [field]: undefined }));
   };
+
+  useEffect(() => {
+    if (!initialCustomerDetails) {
+      return;
+    }
+
+    setValues((current) => {
+      const nextValues = {
+        ...current,
+        fullName: current.fullName || initialCustomerDetails.customerName || "",
+        phone: current.phone || initialCustomerDetails.customerPhone || "",
+        notes: current.notes || initialCustomerDetails.notes || "",
+      };
+
+      return nextValues.fullName === current.fullName && nextValues.phone === current.phone && nextValues.notes === current.notes
+        ? current
+        : nextValues;
+    });
+  }, [initialCustomerDetails]);
 
   const validate = () => {
     const validationErrors = validateBookingForm(values, {
@@ -89,9 +128,31 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
 
   const getReservationErrorMessage = (error: unknown) => mapKnownErrorToFriendlyMessage(error, t);
 
-  const toReservationInput = (booking: BookingFormData): CreateReservationInput => ({
+  const captureCustomerDetails = async (booking: BookingFormData) => {
+    if (!onCustomerDetailsCaptured) {
+      return null;
+    }
+
+    try {
+      return await onCustomerDetailsCaptured({
+        customerName: booking.fullName,
+        customerPhone: booking.phone,
+        notes: booking.notes,
+      });
+    } catch (error) {
+      if (import.meta.env.DEV) {
+        console.warn(error);
+      }
+
+      return null;
+    }
+  };
+
+  const toReservationInput = (booking: BookingFormData, customerIdentity?: CustomerRequestIdentity): CreateReservationInput => ({
     restaurantId: config.restaurant.id ?? "",
     restaurantSlug,
+    ...(customerIdentity?.customerUserId ? { customerUserId: customerIdentity.customerUserId } : {}),
+    ...(customerIdentity?.customerProfileId ? { customerProfileId: customerIdentity.customerProfileId } : {}),
     customerName: booking.fullName,
     customerPhone: booking.phone,
     reservationDate: booking.date,
@@ -114,6 +175,7 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     const reservationMode = config.settings.reservationMode ?? "both";
 
     if (reservationMode === "whatsapp") {
+      void captureCustomerDetails(booking);
       persistSuccessfulBooking(booking);
       openWhatsappBooking(booking);
       return;
@@ -154,7 +216,8 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     setIsSubmitting(true);
 
     try {
-      const reservationInput = toReservationInput(booking);
+      const customerIdentity = await captureCustomerDetails(booking);
+      const reservationInput = toReservationInput(booking, customerIdentity);
 
       let createdTrackingCode = "";
 
@@ -206,6 +269,7 @@ export default function BookingForm({ config, restaurantSlug, onToast }: Booking
     }
 
     const booking = { ...values };
+    void captureCustomerDetails(booking);
     saveBooking(booking);
     setLastBooking(booking);
     onToast(config.ui.toasts.bookingSuccess, "success");

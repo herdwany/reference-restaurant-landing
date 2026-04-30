@@ -9,7 +9,7 @@ import {
   logout as logoutFromAuthService,
   type AuthUser,
 } from "../services/authService";
-import { getProfileByUserId, ProfileRepositoryError } from "../services/repositories/profileRepository";
+import { getProfileByUserId, isKnownUserRole, ProfileRepositoryError } from "../services/repositories/profileRepository";
 import { getRestaurantById } from "../services/repositories/restaurantRepository";
 
 type AdminAccessIssue = "missing_profile" | "inactive_profile" | "unknown_role" | "missing_restaurant";
@@ -29,7 +29,7 @@ type AuthContextValue = {
   hasAdminAccess: boolean;
   adminAccessIssue: AdminAccessIssue | null;
   errorMessage: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<Profile | null>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<AuthUser | null>;
   refreshProfile: () => Promise<Profile | null>;
@@ -186,7 +186,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const user = await loginWithEmail(email, password);
       setCurrentUser(user);
       setErrorMessage(null);
-      await loadProfileForUser(user);
+      return await loadProfileForUser(user);
     },
     [loadProfileForUser],
   );
@@ -201,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [resetTenantScope]);
 
-  const role = profile?.role ?? null;
+  const role = profile && isKnownUserRole(profile.role) ? profile.role : null;
   const restaurantId = profile?.restaurantId ?? null;
   const isAgencyAdmin = role === "agency_admin";
   const isOwner = role === "owner";
@@ -223,12 +223,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return "inactive_profile";
     }
 
-    if ((profile.role === "owner" || profile.role === "staff") && !profile.restaurantId) {
+    if ((role === "owner" || role === "staff") && !profile.restaurantId) {
       return "missing_restaurant";
     }
 
     return null;
-  }, [currentUser, profile, profileIssue]);
+  }, [currentUser, profile, profileIssue, role]);
   const hasAdminAccess = Boolean(currentUser && !adminAccessIssue && (isAgencyAdmin || isOwner || isStaff));
 
   const value = useMemo<AuthContextValue>(

@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { Menu, ShoppingCart, UtensilsCrossed, X } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { NavLink, RestaurantConfig } from "../data/restaurantConfig";
 import { useI18n } from "../lib/i18n/I18nContext";
 import LanguageSwitcher from "./LanguageSwitcher";
 
 interface HeaderProps {
+  accountPath?: string;
   config: RestaurantConfig;
   cartCount: number;
   onCartOpen: () => void;
@@ -14,7 +16,7 @@ const scrollToTarget = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
-export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
+export default function Header({ accountPath = "/login", config, cartCount, onCartOpen }: HeaderProps) {
   const { t } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const [activeTarget, setActiveTarget] = useState(config.navigation[0]?.targetId ?? "home");
@@ -113,6 +115,9 @@ export default function Header({ config, cartCount, onCartOpen }: HeaderProps) {
         </nav>
 
         <div className="site-header__actions">
+          <Link className="site-login-link" to={accountPath} onClick={() => setMenuOpen(false)}>
+            {t("login")}
+          </Link>
           <LanguageSwitcher className="language-switcher--public" />
           <button className="cart-trigger" type="button" onClick={onCartOpen} aria-label={config.ui.cartButtonLabel}>
             <ShoppingCart size={19} />

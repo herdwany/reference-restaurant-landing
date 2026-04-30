@@ -8,7 +8,7 @@ import {
   hasAppwriteDataConfig,
   hasCreateOrderFunctionConfig,
 } from "../../lib/appwriteIds";
-import type { Order, OrderItem, OrderSource, OrderStatus } from "../../types/platform";
+import type { FulfillmentType, Order, OrderItem, OrderSource, OrderStatus } from "../../types/platform";
 
 type OrdersRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED" | "WRITE_FAILED" | "DELETE_FAILED";
 
@@ -25,10 +25,16 @@ export class OrdersRepositoryError extends Error {
 
 interface OrderRow extends Models.Row {
   restaurantId: string;
+  customerUserId?: string | null;
+  customerProfileId?: string | null;
   trackingCode?: string | null;
   customerName: string;
   customerPhone: string;
   customerAddress?: string | null;
+  fulfillmentType?: FulfillmentType | null;
+  deliveryArea?: string | null;
+  deliveryFee?: number | null;
+  deliveryNotes?: string | null;
   notes?: string | null;
   totalAmount: number;
   status: OrderStatus;
@@ -59,9 +65,14 @@ export type CreateOrderItemInput = {
 export type CreateOrderInput = {
   restaurantId: string;
   restaurantSlug?: string;
+  customerUserId?: string;
+  customerProfileId?: string;
   customerName: string;
   customerPhone: string;
   customerAddress?: string;
+  fulfillmentType?: FulfillmentType;
+  deliveryArea?: string;
+  deliveryNotes?: string;
   notes?: string;
   deliveryFee?: number;
   source?: OrderSource;
@@ -84,10 +95,16 @@ export type CreateOrderFunctionResult = {
 
 type OrderRowData = {
   restaurantId: string;
+  customerUserId?: string;
+  customerProfileId?: string;
   trackingCode: string;
   customerName: string;
   customerPhone: string;
   customerAddress: string | null;
+  fulfillmentType?: FulfillmentType;
+  deliveryArea?: string | null;
+  deliveryFee?: number;
+  deliveryNotes?: string | null;
   notes: string | null;
   totalAmount: number;
   status: OrderStatus;
@@ -116,6 +133,7 @@ const orderStatuses = [
   "rejected",
 ] as const satisfies readonly OrderStatus[];
 const orderSources = ["website", "whatsapp", "admin"] as const satisfies readonly OrderSource[];
+const fulfillmentTypes = ["delivery", "pickup"] as const satisfies readonly FulfillmentType[];
 
 const normalizeOrderStatus = (value: string): OrderStatus => {
   if (value === "delivered") {
@@ -126,18 +144,26 @@ const normalizeOrderStatus = (value: string): OrderStatus => {
 };
 
 const isKnownOrderSource = (value: string): value is OrderSource => orderSources.includes(value as OrderSource);
+const normalizeFulfillmentType = (value: string | null | undefined): FulfillmentType =>
+  fulfillmentTypes.includes(value as FulfillmentType) ? (value as FulfillmentType) : "delivery";
 
 const generateTrackingCode = () => `PO-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
 
 const mapOrder = (row: OrderRow): Order => ({
   id: row.$id,
   restaurantId: row.restaurantId,
+  customerUserId: row.customerUserId ?? undefined,
+  customerProfileId: row.customerProfileId ?? undefined,
   trackingCode: row.trackingCode ?? undefined,
   createdAt: row.$createdAt,
   updatedAt: row.$updatedAt,
   customerName: row.customerName,
   customerPhone: row.customerPhone,
   customerAddress: row.customerAddress ?? undefined,
+  fulfillmentType: normalizeFulfillmentType(row.fulfillmentType),
+  deliveryArea: row.deliveryArea ?? undefined,
+  deliveryFee: row.deliveryFee ?? undefined,
+  deliveryNotes: row.deliveryNotes ?? undefined,
   notes: row.notes ?? undefined,
   totalAmount: row.totalAmount,
   status: normalizeOrderStatus(row.status),
@@ -170,6 +196,29 @@ const isArchiveColumnsMissingError = (error: unknown) => {
 
   const message = error.message.toLowerCase();
   return message.includes("isarchived") || message.includes("archivedat") || message.includes("archivereason");
+};
+
+const isCustomerColumnsMissingError = (error: unknown) => {
+  if (!(error instanceof AppwriteException) || error.code !== 400) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("customeruserid") || message.includes("customerprofileid");
+};
+
+const isFulfillmentColumnsMissingError = (error: unknown) => {
+  if (!(error instanceof AppwriteException) || error.code !== 400) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("fulfillmenttype") ||
+    message.includes("deliveryarea") ||
+    message.includes("deliveryfee") ||
+    message.includes("deliverynotes")
+  );
 };
 
 const assertAppwriteDataReady = () => {
@@ -303,10 +352,16 @@ const getTotalAmount = (items: readonly (CreateOrderItemInput & { subtotal: numb
 
 const toOrderRowData = (input: CreateOrderInput, totalAmount: number): OrderRowData => ({
   restaurantId: input.restaurantId,
+  ...(input.customerUserId?.trim() ? { customerUserId: input.customerUserId.trim() } : {}),
+  ...(input.customerProfileId?.trim() ? { customerProfileId: input.customerProfileId.trim() } : {}),
   trackingCode: generateTrackingCode(),
   customerName: input.customerName.trim(),
   customerPhone: input.customerPhone.trim(),
   customerAddress: optionalText(input.customerAddress),
+  fulfillmentType: input.fulfillmentType ?? "delivery",
+  deliveryArea: optionalText(input.deliveryArea),
+  deliveryFee: typeof input.deliveryFee === "number" && Number.isFinite(input.deliveryFee) ? Math.max(0, input.deliveryFee) : 0,
+  deliveryNotes: optionalText(input.deliveryNotes),
   notes: optionalText(input.notes),
   totalAmount,
   status: "new",
@@ -409,8 +464,13 @@ export async function createOrderViaFunction(input: CreateOrderInput): Promise<C
     customerName: input.customerName.trim(),
     customerPhone: input.customerPhone.trim(),
     customerAddress: input.customerAddress?.trim() || undefined,
+    fulfillmentType: input.fulfillmentType ?? "delivery",
+    deliveryArea: input.deliveryArea?.trim() || undefined,
+    deliveryNotes: input.deliveryNotes?.trim() || undefined,
     notes: input.notes?.trim() || undefined,
     deliveryFee: input.deliveryFee,
+    customerUserId: input.customerUserId?.trim() || undefined,
+    customerProfileId: input.customerProfileId?.trim() || undefined,
     source: "website",
     items: input.items.map((item) => ({
       dishId: item.dishId?.trim() || undefined,
@@ -460,20 +520,30 @@ export async function createOrder(input: CreateOrderInput): Promise<OrderWithIte
 
   try {
     let orderRow: OrderRow;
+    const orderData = toOrderRowData(input, totalAmount);
 
     try {
       orderRow = await databases.createRow<OrderRow>({
         databaseId: DATABASE_ID,
         tableId: TABLES.orders,
         rowId: ID.unique(),
-        data: toOrderRowData(input, totalAmount),
+        data: orderData,
       });
     } catch (error) {
-      if (!isArchiveColumnsMissingError(error)) {
+      if (!isArchiveColumnsMissingError(error) && !isCustomerColumnsMissingError(error) && !isFulfillmentColumnsMissingError(error)) {
         throw error;
       }
 
-      const { isArchived: _isArchived, ...fallbackOrderData } = toOrderRowData(input, totalAmount);
+      const {
+        customerProfileId: _customerProfileId,
+        customerUserId: _customerUserId,
+        deliveryArea: _deliveryArea,
+        deliveryFee: _deliveryFee,
+        deliveryNotes: _deliveryNotes,
+        fulfillmentType: _fulfillmentType,
+        isArchived: _isArchived,
+        ...fallbackOrderData
+      } = orderData;
       orderRow = await databases.createRow<OrderRow>({
         databaseId: DATABASE_ID,
         tableId: TABLES.orders,
@@ -523,6 +593,35 @@ export async function getOrdersByRestaurant(restaurantId: string): Promise<Order
       });
 
       return response.rows.map(mapOrder).filter((order) => !order.isArchived);
+    }
+
+    throw new OrdersRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
+  }
+}
+
+export async function getOrdersByCustomer(restaurantId: string, customerUserId: string): Promise<Order[]> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  if (!customerUserId.trim()) {
+    throw new OrdersRepositoryError("تعذر تحديد حساب العميل الحالي.", "INVALID_INPUT");
+  }
+
+  try {
+    const response = await databases.listRows<OrderRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.orders,
+      queries: [
+        Query.equal("restaurantId", restaurantId),
+        Query.equal("customerUserId", customerUserId),
+        Query.orderDesc("$createdAt"),
+      ],
+    });
+
+    return response.rows.map(mapOrder).filter((order) => !order.isArchived);
+  } catch (error) {
+    if (isCustomerColumnsMissingError(error)) {
+      return [];
     }
 
     throw new OrdersRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);

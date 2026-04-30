@@ -100,6 +100,9 @@ const formatDate = (value: string | undefined, language: string, fallback: strin
 
 const getItemsQuantity = (items: readonly OrderItem[]) => items.reduce((total, item) => total + item.quantity, 0);
 
+const getFulfillmentLabel = (order: Order, t: ReturnType<typeof useI18n>["t"]) =>
+  order.fulfillmentType === "pickup" ? t("fulfillmentPickup") : t("fulfillmentDelivery");
+
 export default function AdminOrders() {
   const { currentLanguage, t } = useI18n();
   const {
@@ -411,6 +414,10 @@ export default function AdminOrders() {
           <strong>{formatPrice(order.totalAmount, adminCurrency)}</strong>
         </div>
         <div>
+          <span>{t("fulfillmentType")}</span>
+          <strong>{getFulfillmentLabel(order, t)}</strong>
+        </div>
+        <div>
           <span>{t("products")}</span>
           <strong>{itemCounts[order.id] ?? 0}</strong>
         </div>
@@ -629,6 +636,18 @@ export default function AdminOrders() {
                 <strong>{orderDetails.order.customerAddress || t("notAvailable")}</strong>
               </div>
               <div>
+                <span>{t("fulfillmentType")}</span>
+                <strong>{getFulfillmentLabel(orderDetails.order, t)}</strong>
+              </div>
+              <div>
+                <span>{t("deliveryArea")}</span>
+                <strong>{orderDetails.order.deliveryArea || t("notAvailable")}</strong>
+              </div>
+              <div>
+                <span>{t("deliveryFee")}</span>
+                <strong>{formatPrice(orderDetails.order.deliveryFee ?? 0, adminCurrency)}</strong>
+              </div>
+              <div>
                 <span>{t("status")}</span>
                 <AdminStatusBadge tone={statusTones[orderDetails.order.status]}>
                   {t(statusLabelKeys[orderDetails.order.status])}
@@ -640,6 +659,13 @@ export default function AdminOrders() {
               <div className="admin-order-details__notes">
                 <span>{t("notes")}</span>
                 <p>{orderDetails.order.notes}</p>
+              </div>
+            ) : null}
+
+            {orderDetails.order.deliveryNotes && orderDetails.order.deliveryNotes !== orderDetails.order.notes ? (
+              <div className="admin-order-details__notes">
+                <span>{t("deliveryNotes")}</span>
+                <p>{orderDetails.order.deliveryNotes}</p>
               </div>
             ) : null}
 

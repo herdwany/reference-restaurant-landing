@@ -12,6 +12,7 @@ const config = {
   apiKey: env("APPWRITE_API_KEY"),
   databaseId: env("APPWRITE_DATABASE_ID"),
   restaurantsTableId: env("APPWRITE_RESTAURANTS_TABLE_ID", "restaurants"),
+  customerProfilesTableId: env("APPWRITE_CUSTOMER_PROFILES_TABLE_ID", "customer_profiles"),
   reservationsTableId: env("APPWRITE_RESERVATIONS_TABLE_ID", "reservations"),
   siteSettingsTableId: env("APPWRITE_SITE_SETTINGS_TABLE_ID", "site_settings"),
   viasocketReservationWebhookUrl: env("VIASOCKET_RESERVATION_WEBHOOK_URL", ""),
@@ -65,6 +66,15 @@ const cleanText = (value, maxLength = MAX_TEXT_LENGTH) => {
   return value.trim().slice(0, maxLength);
 };
 
+const getHeader = (req, key) => {
+  const lowerKey = key.toLowerCase();
+  const headers = req.headers ?? {};
+
+  return headers[key] ?? headers[lowerKey] ?? "";
+};
+
+const getAuthenticatedUserId = (req) => cleanText(getHeader(req, "x-appwrite-user-id"), 255);
+
 const createTablesDb = () => {
   const client = new Client().setEndpoint(config.endpoint).setProject(config.projectId).setKey(config.apiKey);
   return new TablesDB(client);
@@ -78,6 +88,11 @@ const isArchiveColumnsMissingError = (error) => {
     error?.code === 400 &&
     (message.includes("isArchived") || message.includes("archivedAt") || message.includes("archiveReason"))
   );
+};
+
+const isCustomerColumnsMissingError = (error) => {
+  const message = String(error?.message ?? "").toLowerCase();
+  return error?.code === 400 && (message.includes("customeruserid") || message.includes("customerprofileid"));
 };
 
 const getRestaurant = async (tablesDb, input) => {
@@ -192,6 +207,43 @@ const validateReservation = (input) => {
   };
 };
 
+const getCustomerIdentity = async (tablesDb, req, restaurantId, input) => {
+  const userId = getAuthenticatedUserId(req);
+
+  if (!userId) {
+    return {};
+  }
+
+  const customerProfileId = cleanText(input.customerProfileId, 255);
+
+  if (!customerProfileId) {
+    return { customerUserId: userId };
+  }
+
+  try {
+    const profile = await tablesDb.getRow({
+      databaseId: config.databaseId,
+      tableId: config.customerProfilesTableId,
+      rowId: customerProfileId,
+    });
+
+    if (profile.userId !== userId || profile.restaurantId !== restaurantId || profile.isActive === false) {
+      throw new HttpError(403, "Customer profile does not match the authenticated user.");
+    }
+
+    return {
+      customerUserId: userId,
+      customerProfileId: profile.$id,
+    };
+  } catch (caughtError) {
+    if (caughtError instanceof HttpError) {
+      throw caughtError;
+    }
+
+    throw new HttpError(403, "Customer profile could not be verified.");
+  }
+};
+
 const getReservationSettings = async (tablesDb, restaurantId) => {
   try {
     const response = await tablesDb.listRows({
@@ -240,13 +292,15 @@ const getReservationWorkflow = (settings, reservation) => {
   };
 };
 
-const createReservationRow = async (tablesDb, restaurant, reservation, settings) => {
+const createReservationRow = async (tablesDb, restaurant, reservation, settings, customerIdentity) => {
   const createdAtText = new Date().toISOString();
   const trackingCode = generateTrackingCode();
   const workflow = getReservationWorkflow(settings, reservation);
 
   const baseReservationData = {
     restaurantId: restaurant.$id,
+    ...(customerIdentity.customerUserId ? { customerUserId: customerIdentity.customerUserId } : {}),
+    ...(customerIdentity.customerProfileId ? { customerProfileId: customerIdentity.customerProfileId } : {}),
     trackingCode,
     customerName: reservation.customerName,
     customerPhone: reservation.customerPhone,
@@ -276,15 +330,20 @@ const createReservationRow = async (tablesDb, restaurant, reservation, settings)
       },
     });
   } catch (error) {
-    if (!isArchiveColumnsMissingError(error)) {
+    if (!isArchiveColumnsMissingError(error) && !isCustomerColumnsMissingError(error)) {
       throw error;
     }
 
+    const {
+      customerProfileId: _customerProfileId,
+      customerUserId: _customerUserId,
+      ...fallbackReservationData
+    } = baseReservationData;
     row = await tablesDb.createRow({
       databaseId: config.databaseId,
       tableId: config.reservationsTableId,
       rowId: ID.unique(),
-      data: baseReservationData,
+      data: fallbackReservationData,
     });
   }
 
@@ -345,8 +404,9 @@ export default async ({ req, res, log, error }) => {
     const tablesDb = createTablesDb();
     const restaurant = await getRestaurant(tablesDb, input);
     const reservation = validateReservation(input);
+    const customerIdentity = await getCustomerIdentity(tablesDb, req, restaurant.$id, input);
     const settings = await getReservationSettings(tablesDb, restaurant.$id);
-    const reservationSummary = await createReservationRow(tablesDb, restaurant, reservation, settings);
+    const reservationSummary = await createReservationRow(tablesDb, restaurant, reservation, settings, customerIdentity);
 
     // Notify viaSocket (non-blocking, optional)
     void notifyViaSocket(reservationSummary, restaurant);

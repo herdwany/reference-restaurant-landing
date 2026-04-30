@@ -202,7 +202,7 @@ function AgencyStatusMessage({ action, body, isLoading = false, title }: AgencyS
         <p>{body}</p>
         {!isLoading && action ? action : null}
         {!isLoading && !action ? (
-          <Link className="admin-primary-link" to="/admin/login">
+          <Link className="admin-primary-link" to="/login">
             {t("login")}
           </Link>
         ) : null}
@@ -489,7 +489,7 @@ export default function AgencyDashboard() {
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/admin/login" replace state={{ from: location }} />;
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
   if (!isAgencyAdmin) {

@@ -30,6 +30,8 @@ export class ReservationsRepositoryError extends Error {
 
 interface ReservationRow extends Models.Row {
   restaurantId: string;
+  customerUserId?: string | null;
+  customerProfileId?: string | null;
   trackingCode?: string | null;
   customerName: string;
   customerPhone: string;
@@ -51,6 +53,8 @@ interface ReservationRow extends Models.Row {
 export type CreateReservationInput = {
   restaurantId: string;
   restaurantSlug?: string;
+  customerUserId?: string;
+  customerProfileId?: string;
   customerName: string;
   customerPhone: string;
   reservationDate: string;
@@ -75,6 +79,8 @@ export type CreateReservationFunctionResult = {
 
 type ReservationRowData = {
   restaurantId: string;
+  customerUserId?: string;
+  customerProfileId?: string;
   trackingCode: string;
   customerName: string;
   customerPhone: string;
@@ -116,6 +122,8 @@ const generateTrackingCode = () => `RS-${Math.random().toString(36).slice(2, 7).
 const mapReservation = (row: ReservationRow): Reservation => ({
   id: row.$id,
   restaurantId: row.restaurantId,
+  customerUserId: row.customerUserId ?? undefined,
+  customerProfileId: row.customerProfileId ?? undefined,
   trackingCode: row.trackingCode ?? undefined,
   customerName: row.customerName,
   customerPhone: row.customerPhone,
@@ -148,6 +156,15 @@ const isArchiveColumnsMissingError = (error: unknown) => {
 
   const message = error.message.toLowerCase();
   return message.includes("isarchived") || message.includes("archivedat") || message.includes("archivereason");
+};
+
+const isCustomerColumnsMissingError = (error: unknown) => {
+  if (!(error instanceof AppwriteException) || error.code !== 400) {
+    return false;
+  }
+
+  const message = error.message.toLowerCase();
+  return message.includes("customeruserid") || message.includes("customerprofileid");
 };
 
 const assertAppwriteDataReady = () => {
@@ -230,6 +247,8 @@ const assertCreateReservationFunctionInput = (input: CreateReservationInput) => 
 
 const toReservationRowData = (input: CreateReservationInput): ReservationRowData => ({
   restaurantId: input.restaurantId,
+  ...(input.customerUserId?.trim() ? { customerUserId: input.customerUserId.trim() } : {}),
+  ...(input.customerProfileId?.trim() ? { customerProfileId: input.customerProfileId.trim() } : {}),
   trackingCode: generateTrackingCode(),
   customerName: input.customerName.trim(),
   customerPhone: input.customerPhone.trim(),
@@ -344,6 +363,8 @@ export async function createReservationViaFunction(input: CreateReservationInput
     peopleCount: Math.trunc(input.peopleCount),
     notes: input.notes?.trim() || undefined,
     policyAccepted: Boolean(input.policyAccepted),
+    customerUserId: input.customerUserId?.trim() || undefined,
+    customerProfileId: input.customerProfileId?.trim() || undefined,
     source: "website",
   };
 
@@ -384,20 +405,26 @@ export async function createReservation(input: CreateReservationInput): Promise<
 
   try {
     let row: ReservationRow;
+    const reservationData = toReservationRowData(input);
 
     try {
       row = await databases.createRow<ReservationRow>({
         databaseId: DATABASE_ID,
         tableId: TABLES.reservations,
         rowId: ID.unique(),
-        data: toReservationRowData(input),
+        data: reservationData,
       });
     } catch (error) {
-      if (!isArchiveColumnsMissingError(error)) {
+      if (!isArchiveColumnsMissingError(error) && !isCustomerColumnsMissingError(error)) {
         throw error;
       }
 
-      const { isArchived: _isArchived, ...fallbackReservationData } = toReservationRowData(input);
+      const {
+        customerProfileId: _customerProfileId,
+        customerUserId: _customerUserId,
+        isArchived: _isArchived,
+        ...fallbackReservationData
+      } = reservationData;
       row = await databases.createRow<ReservationRow>({
         databaseId: DATABASE_ID,
         tableId: TABLES.reservations,
@@ -433,6 +460,35 @@ export async function getReservationsByRestaurant(restaurantId: string): Promise
       });
 
       return response.rows.map(mapReservation).filter((reservation) => !reservation.isArchived);
+    }
+
+    throw new ReservationsRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
+  }
+}
+
+export async function getReservationsByCustomer(restaurantId: string, customerUserId: string): Promise<Reservation[]> {
+  assertAppwriteDataReady();
+  assertRestaurantId(restaurantId);
+
+  if (!customerUserId.trim()) {
+    throw new ReservationsRepositoryError("تعذر تحديد حساب العميل الحالي.", "INVALID_INPUT");
+  }
+
+  try {
+    const response = await databases.listRows<ReservationRow>({
+      databaseId: DATABASE_ID,
+      tableId: TABLES.reservations,
+      queries: [
+        Query.equal("restaurantId", restaurantId),
+        Query.equal("customerUserId", customerUserId),
+        Query.orderDesc("$createdAt"),
+      ],
+    });
+
+    return response.rows.map(mapReservation).filter((reservation) => !reservation.isArchived);
+  } catch (error) {
+    if (isCustomerColumnsMissingError(error)) {
+      return [];
     }
 
     throw new ReservationsRepositoryError(getReadErrorMessage(error), "READ_FAILED", error);
