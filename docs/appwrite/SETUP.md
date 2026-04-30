@@ -144,6 +144,19 @@ http://localhost:5173/oauth/callback
 
 For restaurant-specific auth screens, the app sends the restaurant slug as `restaurantSlug` in the verification, recovery, and OAuth callback query string. Public registration only creates rows in `customer_profiles`; owner, staff, and agency access must continue to be created through Appwrite/Auth onboarding plus the `profiles` table or the onboarding Function.
 
+Customer account Function setup:
+
+- The `customerAccount` Function execute access must include `Users`, otherwise logged-in customers will receive `401 Unauthorized` from `functions.createExecution`.
+- `VITE_APPWRITE_CUSTOMER_ACCOUNT_FUNCTION_ID` in `.env.local` must exactly match the Appwrite Function ID, not the function name.
+- The Function still validates the logged-in user from Appwrite execution context; do not make customer order/reservation tables public to work around Function permission issues.
+
+Customer profile table permissions for the current MVP direct browser write path:
+
+- `customer_profiles` table create access: `Users`.
+- Read/update/delete access: `Users`, or row-level user permissions where supported by your Appwrite table settings.
+- New customer rows are created with row-level read/update/delete permissions for the Appwrite user. If these table permissions are missing, the app shows a customer profile permission error instead of silently ignoring the failure.
+- A dedicated customer profile Function is the safer long-term architecture. This repo does not currently include one, so keep these table permissions aligned until that Function exists.
+
 ## Storage Bucket
 
 Bucket name suggestion:

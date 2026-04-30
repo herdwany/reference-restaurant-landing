@@ -12,6 +12,7 @@ type EmailVerificationGateProps = {
   loginPath?: string;
   logoUrl?: string;
   onLogout?: () => Promise<void>;
+  onSwitchAccount?: () => Promise<void>;
   pageClassName?: string;
   restaurantSlug?: string;
   style?: CSSProperties;
@@ -24,6 +25,7 @@ export default function EmailVerificationGate({
   loginPath = "/login",
   logoUrl,
   onLogout,
+  onSwitchAccount,
   pageClassName = "admin-login-page",
   restaurantSlug,
   style,
@@ -63,6 +65,20 @@ export default function EmailVerificationGate({
     }
   };
 
+  const switchAccount = async () => {
+    if (!onSwitchAccount) {
+      return;
+    }
+
+    setIsLoggingOut(true);
+
+    try {
+      await onSwitchAccount();
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
+
   return (
     <main className={`${pageClassName} dir-${direction}`} dir={direction} style={style}>
       <section className={cardClassName} aria-busy={isResending || isLoggingOut}>
@@ -97,6 +113,11 @@ export default function EmailVerificationGate({
               {t("login")}
             </Link>
           )}
+          {onSwitchAccount ? (
+            <button className="admin-icon-link" type="button" onClick={() => void switchAccount()} disabled={isLoggingOut}>
+              {t("switchAccount")}
+            </button>
+          ) : null}
           <Link className="admin-back-link" to={backPath}>
             {t("backToPublicSite")}
           </Link>

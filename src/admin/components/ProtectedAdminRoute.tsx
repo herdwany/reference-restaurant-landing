@@ -92,6 +92,10 @@ export default function ProtectedAdminRoute() {
           await logout();
           navigate("/login", { replace: true });
         }}
+        onSwitchAccount={async () => {
+          await logout();
+          navigate("/login", { replace: true });
+        }}
       />
     );
   }

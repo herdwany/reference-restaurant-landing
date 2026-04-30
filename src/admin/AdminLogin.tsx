@@ -244,6 +244,7 @@ export default function AdminLogin({
   const authLogoUrl = authSiteData?.config.restaurant.logoImage;
   const forgotPasswordPath = customerForgotPasswordPath || "/forgot-password";
   const resetPasswordPath = restaurantSlug ? `/r/${restaurantSlug}/account/reset-password` : "/reset-password";
+  const switchAccountPath = customerLoginPath || "/login";
   const oauthFailurePath = restaurantSlug ? `${customerLoginPath || `/r/${restaurantSlug}/account/login`}?oauth=failed` : "/login?oauth=failed";
   const requiresEmailVerification = Boolean(!isLoading && currentUser && !currentUser.emailVerification);
 
@@ -256,6 +257,10 @@ export default function AdminLogin({
         onLogout={async () => {
           await logout();
           navigate(publicBackPath, { replace: true });
+        }}
+        onSwitchAccount={async () => {
+          await logout();
+          navigate(switchAccountPath, { replace: true });
         }}
         pageClassName={authPageClassName}
         restaurantSlug={restaurantSlug}
@@ -616,7 +621,7 @@ export default function AdminLogin({
             <button
               className="admin-icon-link"
               type="button"
-              onClick={() => void handleLogout("/login")}
+              onClick={() => void handleLogout(switchAccountPath)}
               disabled={isLoggingOut}
             >
               {t("switchAccount")}

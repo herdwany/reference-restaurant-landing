@@ -23,6 +23,10 @@ export const mapKnownErrorToFriendlyMessage = (error: unknown, t: Translate) => 
     return t("loginFailed");
   }
 
+  if (code === "SWITCH_ACCOUNT_FAILED") {
+    return t("switchAccountFailed");
+  }
+
   if (code === "EMAIL_ALREADY_USED") {
     return t("emailAlreadyUsed");
   }
@@ -33,6 +37,14 @@ export const mapKnownErrorToFriendlyMessage = (error: unknown, t: Translate) => 
 
   if (code === "PASSWORD_RECOVERY_INVALID") {
     return t("linkExpiredOrInvalid");
+  }
+
+  if (code === "FUNCTION_PERMISSION_DENIED") {
+    return t("customerAccountFunctionPermissionIssue");
+  }
+
+  if (code === "PERMISSION_DENIED") {
+    return t("customerProfilePermissionIssue");
   }
 
   if (code === "APPWRITE_NOT_CONFIGURED" || message.includes("not configured") || message.includes("function id")) {

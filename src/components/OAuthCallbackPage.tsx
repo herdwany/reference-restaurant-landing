@@ -164,6 +164,10 @@ export default function OAuthCallbackPage() {
           await logout();
           navigate(backPath, { replace: true });
         }}
+        onSwitchAccount={async () => {
+          await logout();
+          navigate(restaurantSlug ? `/r/${restaurantSlug}/account/login` : "/login", { replace: true });
+        }}
         pageClassName={authClassName}
         restaurantSlug={restaurantSlug || undefined}
         style={style}

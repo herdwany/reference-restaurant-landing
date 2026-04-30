@@ -19,6 +19,7 @@ type AuthServiceErrorCode =
   | "LOGIN_FAILED"
   | "LOGOUT_FAILED"
   | "REGISTER_FAILED"
+  | "SWITCH_ACCOUNT_FAILED"
   | "EMAIL_ALREADY_USED";
 
 export class AuthServiceError extends Error {
@@ -50,6 +51,47 @@ const isMissingSessionError = (error: unknown) => {
   }
 
   return false;
+};
+
+const isActiveSessionCreationError = (error: unknown) => {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  return error.message.toLowerCase().includes("session is active");
+};
+
+const deleteCurrentSessionIfPresent = async () => {
+  try {
+    await account.deleteSession({ sessionId: "current" });
+  } catch (error) {
+    if (isMissingSessionError(error)) {
+      return;
+    }
+
+    throw error;
+  }
+};
+
+const createEmailPasswordSessionWithRetry = async (email: string, password: string) => {
+  try {
+    await account.createEmailPasswordSession({ email, password });
+  } catch (error) {
+    if (!isActiveSessionCreationError(error)) {
+      throw error;
+    }
+
+    try {
+      await deleteCurrentSessionIfPresent();
+      await account.createEmailPasswordSession({ email, password });
+    } catch (retryError) {
+      throw new AuthServiceError(
+        "تعذر تبديل الحساب. سجّل الخروج ثم حاول مرة أخرى.",
+        "SWITCH_ACCOUNT_FAILED",
+        retryError,
+      );
+    }
+  }
 };
 
 const oauthProviders: Record<OAuthLoginProvider, OAuthProvider> = {
@@ -88,7 +130,7 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
   requireAppwriteAuth();
 
   try {
-    await account.createEmailPasswordSession({ email, password });
+    await createEmailPasswordSessionWithRetry(email, password);
     const user = await getCurrentUser();
 
     if (!user) {

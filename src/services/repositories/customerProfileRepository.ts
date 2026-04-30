@@ -3,7 +3,12 @@ import { COLLECTIONS, DATABASE_ID, hasAppwriteDataConfig } from "../../lib/appwr
 import { databases } from "../../lib/appwriteClient";
 import type { CustomerProfile } from "../../types/platform";
 
-type CustomerProfileRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED" | "WRITE_FAILED";
+type CustomerProfileRepositoryErrorCode =
+  | "APPWRITE_NOT_CONFIGURED"
+  | "INVALID_INPUT"
+  | "PERMISSION_DENIED"
+  | "READ_FAILED"
+  | "WRITE_FAILED";
 
 export class CustomerProfileRepositoryError extends Error {
   code: CustomerProfileRepositoryErrorCode;
@@ -43,6 +48,12 @@ const optionalText = (value: string | undefined) => {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
 };
+
+const CUSTOMER_PROFILE_PERMISSION_MESSAGE =
+  "لا يمكن حفظ بيانات حسابك حاليًا. تأكد من تسجيل الدخول أو صلاحيات جدول customer_profiles.";
+
+const isPermissionError = (error: unknown) =>
+  error instanceof AppwriteException && (error.code === 401 || error.code === 403);
 
 const assertAppwriteDataReady = () => {
   if (!hasAppwriteDataConfig) {
@@ -108,6 +119,10 @@ export async function getCustomerProfileByUser(
     const row = response.rows[0];
     return row ? mapCustomerProfile(row) : null;
   } catch (error) {
+    if (isPermissionError(error)) {
+      throw new CustomerProfileRepositoryError(CUSTOMER_PROFILE_PERMISSION_MESSAGE, "PERMISSION_DENIED", error);
+    }
+
     throw new CustomerProfileRepositoryError(getReadMessage(error), "READ_FAILED", error);
   }
 }
@@ -159,6 +174,10 @@ export async function upsertCustomerProfile(input: CustomerProfileInput): Promis
 
     return mapCustomerProfile(row);
   } catch (error) {
+    if (isPermissionError(error)) {
+      throw new CustomerProfileRepositoryError(CUSTOMER_PROFILE_PERMISSION_MESSAGE, "PERMISSION_DENIED", error);
+    }
+
     throw new CustomerProfileRepositoryError(getWriteMessage(error), "WRITE_FAILED", error);
   }
 }

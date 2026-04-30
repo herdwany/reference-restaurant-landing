@@ -1,4 +1,4 @@
-import { ExecutionMethod } from "appwrite";
+import { AppwriteException, ExecutionMethod } from "appwrite";
 import { functions } from "../../lib/appwriteClient";
 import {
   CUSTOMER_ACCOUNT_FUNCTION_ID,
@@ -9,7 +9,11 @@ import type { Order, OrderItem, Reservation } from "../../types/platform";
 import { getOrderItems, getOrdersByCustomer } from "./ordersRepository";
 import { getReservationsByCustomer } from "./reservationsRepository";
 
-type CustomerAccountRepositoryErrorCode = "APPWRITE_NOT_CONFIGURED" | "INVALID_INPUT" | "READ_FAILED";
+type CustomerAccountRepositoryErrorCode =
+  | "APPWRITE_NOT_CONFIGURED"
+  | "FUNCTION_PERMISSION_DENIED"
+  | "INVALID_INPUT"
+  | "READ_FAILED";
 
 export class CustomerAccountRepositoryError extends Error {
   code: CustomerAccountRepositoryErrorCode;
@@ -32,6 +36,9 @@ type CustomerAccountScope = {
   restaurantSlug: string;
   userId: string;
 };
+
+const CUSTOMER_ACCOUNT_FUNCTION_PERMISSION_MESSAGE =
+  "لا يمكن تحميل حسابك حاليًا. تأكد من تسجيل الدخول أو صلاحيات دالة حساب العميل.";
 
 const assertScope = ({ restaurantId, restaurantSlug, userId }: CustomerAccountScope) => {
   if (!restaurantId.trim() || !restaurantSlug.trim() || !userId.trim()) {
@@ -73,6 +80,13 @@ const callCustomerAccountFunction = async <Result>(payload: Record<string, unkno
       },
     });
 
+    if (execution.responseStatusCode === 401 || execution.responseStatusCode === 403) {
+      throw new CustomerAccountRepositoryError(
+        CUSTOMER_ACCOUNT_FUNCTION_PERMISSION_MESSAGE,
+        "FUNCTION_PERMISSION_DENIED",
+      );
+    }
+
     if (execution.status !== "completed" || execution.responseStatusCode < 200 || execution.responseStatusCode >= 300) {
       throw new CustomerAccountRepositoryError(getFunctionErrorMessage(execution.responseBody), "READ_FAILED");
     }
@@ -87,6 +101,14 @@ const callCustomerAccountFunction = async <Result>(payload: Record<string, unkno
   } catch (error) {
     if (error instanceof CustomerAccountRepositoryError) {
       throw error;
+    }
+
+    if (error instanceof AppwriteException && (error.code === 401 || error.code === 403)) {
+      throw new CustomerAccountRepositoryError(
+        CUSTOMER_ACCOUNT_FUNCTION_PERMISSION_MESSAGE,
+        "FUNCTION_PERMISSION_DENIED",
+        error,
+      );
     }
 
     throw new CustomerAccountRepositoryError("تعذر تحميل بيانات الحساب حاليا.", "READ_FAILED", error);

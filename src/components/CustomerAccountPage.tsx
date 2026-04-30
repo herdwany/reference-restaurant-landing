@@ -368,6 +368,10 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
           await logout();
           navigate(publicPath, { replace: true });
         }}
+        onSwitchAccount={async () => {
+          await logout();
+          navigate(accountLoginPath, { replace: true });
+        }}
         pageClassName={accountPageClassName}
         restaurantSlug={restaurantSlug}
         style={accountPageStyle}
@@ -382,6 +386,9 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
           <AlertTriangle aria-hidden="true" />
           <h1>{isAdminSession ? t("customerAccountOnly") : t("currentSessionHasIssue")}</h1>
           <p>{isAdminSession ? t("useCustomerAccount") : t("currentSessionHasIssue")}</p>
+          <button className="admin-primary-link" type="button" onClick={() => void handleLogout()}>
+            {t("logout")}
+          </button>
           <button className="admin-primary-link" type="button" onClick={() => void handleSwitchAccount()}>
             {t("switchAccount")}
           </button>

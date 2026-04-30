@@ -183,13 +183,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (email: string, password: string) => {
-      const user = await loginWithEmail(email, password);
-      setCurrentUser(user);
-      setErrorMessage(null);
-      const loadedProfile = await loadProfileForUser(user);
-      return { profile: loadedProfile, user };
+      try {
+        const user = await loginWithEmail(email, password);
+        setCurrentUser(user);
+        setErrorMessage(null);
+        const loadedProfile = await loadProfileForUser(user);
+        return { profile: loadedProfile, user };
+      } catch (error) {
+        if (error instanceof AuthServiceError && error.code === "SWITCH_ACCOUNT_FAILED") {
+          setCurrentUser(null);
+          resetTenantScope();
+        }
+
+        throw error;
+      }
     },
-    [loadProfileForUser],
+    [loadProfileForUser, resetTenantScope],
   );
 
   const logout = useCallback(async () => {
