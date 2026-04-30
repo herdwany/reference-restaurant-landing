@@ -1,4 +1,4 @@
-import { AppwriteException, type Models } from "appwrite";
+import { AppwriteException, ID, type Models } from "appwrite";
 import { account, isAppwriteConfigured } from "../lib/appwriteClient";
 
 export type AuthUser = Models.User<Models.Preferences>;
@@ -11,7 +11,9 @@ type AuthServiceErrorCode =
   | "SESSION_MISSING"
   | "GET_CURRENT_USER_FAILED"
   | "LOGIN_FAILED"
-  | "LOGOUT_FAILED";
+  | "LOGOUT_FAILED"
+  | "REGISTER_FAILED"
+  | "EMAIL_ALREADY_USED";
 
 export class AuthServiceError extends Error {
   code: AuthServiceErrorCode;
@@ -76,6 +78,46 @@ export const loginWithEmail = async (email: string, password: string): Promise<A
     }
 
     throw new AuthServiceError("تعذر تسجيل الدخول. تحقق من البريد وكلمة المرور.", "LOGIN_FAILED", error);
+  }
+};
+
+const isEmailConflictError = (error: unknown) => {
+  if (error instanceof AppwriteException) {
+    return error.code === 409;
+  }
+
+  if (error instanceof Error) {
+    const message = error.message.toLowerCase();
+    return message.includes("already") && (message.includes("email") || message.includes("user"));
+  }
+
+  return false;
+};
+
+export const registerWithEmail = async (email: string, password: string, name: string): Promise<AuthUser> => {
+  requireAppwriteAuth();
+
+  try {
+    const user = await account.create({
+      userId: ID.unique(),
+      email,
+      password,
+      name,
+    });
+
+    await account.createEmailPasswordSession({ email, password });
+
+    return user;
+  } catch (error) {
+    if (error instanceof AuthServiceError) {
+      throw error;
+    }
+
+    if (isEmailConflictError(error)) {
+      throw new AuthServiceError("البريد الإلكتروني مستخدم بالفعل.", "EMAIL_ALREADY_USED", error);
+    }
+
+    throw new AuthServiceError("تعذر إنشاء الحساب. حاول مرة أخرى.", "REGISTER_FAILED", error);
   }
 };
 

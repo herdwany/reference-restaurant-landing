@@ -466,11 +466,11 @@ function LandingPage({ slug }: LandingPageProps) {
   const publicAccountPath = currentRestaurantSlug ? `/r/${currentRestaurantSlug}/account` : "/login";
   const customerInitialDetails = customerProfile
     ? {
-        customerAddress: customerProfile.defaultAddress,
-        customerName: customerProfile.fullName,
-        customerPhone: customerProfile.phone,
-        notes: customerProfile.deliveryNotes,
-      }
+      customerAddress: customerProfile.defaultAddress,
+      customerName: customerProfile.fullName,
+      customerPhone: customerProfile.phone,
+      notes: customerProfile.deliveryNotes,
+    }
     : undefined;
 
   const ensureCustomerProfileForRequest = async (details: {
@@ -806,7 +806,42 @@ function CustomerAccountRoute() {
 function CustomerLoginRoute() {
   const { slug } = useParams();
   const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
-  return <AdminLogin customerRedirectPath={`/r/${normalizedSlug}/account`} publicBackPath={`/r/${normalizedSlug}`} />;
+  const publicBackPath = `/r/${normalizedSlug}`;
+  const customerRedirectPath = `${publicBackPath}/account`;
+  const customerLoginPath = `${publicBackPath}/account/login`;
+  const customerRegisterPath = `${publicBackPath}/account/register`;
+
+  return (
+    <AdminLogin
+      allowCustomerRegistration
+      customerLoginPath={customerLoginPath}
+      customerRegisterPath={customerRegisterPath}
+      customerRedirectPath={customerRedirectPath}
+      publicBackPath={publicBackPath}
+      restaurantSlug={normalizedSlug}
+    />
+  );
+}
+
+function CustomerRegisterRoute() {
+  const { slug } = useParams();
+  const normalizedSlug = slug?.trim().toLowerCase() || "demo-restaurant";
+  const publicBackPath = `/r/${normalizedSlug}`;
+  const customerRedirectPath = `${publicBackPath}/account`;
+  const customerLoginPath = `${publicBackPath}/account/login`;
+  const customerRegisterPath = `${publicBackPath}/account/register`;
+
+  return (
+    <AdminLogin
+      allowCustomerRegistration
+      authMode="register"
+      customerLoginPath={customerLoginPath}
+      customerRegisterPath={customerRegisterPath}
+      customerRedirectPath={customerRedirectPath}
+      publicBackPath={publicBackPath}
+      restaurantSlug={normalizedSlug}
+    />
+  );
 }
 
 export default function App() {
@@ -816,6 +851,7 @@ export default function App() {
         <Route path="/" element={<PublicAuthRoute><LandingPage /></PublicAuthRoute>} />
         <Route path="/r/:slug/track" element={<PublicAuthRoute><PublicTrackingRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug/account/login" element={<PublicAuthRoute><CustomerLoginRoute /></PublicAuthRoute>} />
+        <Route path="/r/:slug/account/register" element={<PublicAuthRoute><CustomerRegisterRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug/account" element={<PublicAuthRoute><CustomerAccountRoute /></PublicAuthRoute>} />
         <Route path="/r/:slug" element={<PublicAuthRoute><PublicRestaurantRoute /></PublicAuthRoute>} />
         <Route path="/login" element={<AdminLoginRoute />} />

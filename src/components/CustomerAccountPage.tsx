@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, LogOut, RotateCcw, UserRound } from "lucide-react";
-import { Link, Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import AdminErrorState from "../admin/components/AdminErrorState";
 import { useAuth } from "../context/AuthContext";
 import { restaurantConfig } from "../data/restaurantConfig";
@@ -110,6 +110,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
     logout,
   } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const cart = useCart();
   const [siteData, setSiteData] = useState<SiteDataResult | null>(null);
   const [siteError, setSiteError] = useState<string | null>(null);
@@ -126,6 +127,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const publicPath = `/r/${restaurantSlug}`;
   const accountLoginPath = `${publicPath}/account/login`;
+  const accountRegisterPath = `${publicPath}/account/register`;
   const restaurantId = siteData?.config.restaurant.id ?? "";
   const restaurantName = siteData?.config.restaurant.name ?? restaurantSlug;
   const isAdminSession = isAgencyAdmin || isOwner || isStaff;
@@ -161,6 +163,17 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
       isMounted = false;
     };
   }, [restaurantSlug, t]);
+
+  useEffect(() => {
+    const state = location.state as { accountNotice?: string } | null;
+
+    if (!state?.accountNotice) {
+      return;
+    }
+
+    setNotice(state.accountNotice);
+    navigate(location.pathname, { replace: true, state: null });
+  }, [location.pathname, location.state, navigate]);
 
   const loadAccountData = useCallback(async () => {
     if (!currentUser || !restaurantId || isAdminSession || hasBlockingProfileIssue) {
@@ -320,6 +333,9 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
           <p>{t("signInToViewAccount")}</p>
           <Link className="admin-primary-link" to={accountLoginPath}>
             {t("login")}
+          </Link>
+          <Link className="admin-icon-link" to={accountRegisterPath}>
+            {t("createAccount")}
           </Link>
           <Link className="admin-back-link" to={publicPath}>
             {t("backToPublicSite")}
