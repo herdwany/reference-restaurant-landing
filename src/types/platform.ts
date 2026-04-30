@@ -46,6 +46,13 @@ export type ReservationMode = "whatsapp" | "database" | "both";
 export type HeroMediaType = "image" | "video_url";
 export type HeroLayoutPreset = "split" | "background" | "centered";
 export type ThemePreset = "classic_red" | "black_gold" | "coffee" | "fresh" | "minimal";
+export type FontPreset = "modern" | "classic" | "elegant" | "friendly";
+export type CardStyle = "soft" | "bordered" | "flat" | "premium";
+export type ButtonStyle = "rounded" | "soft" | "sharp" | "premium";
+export type HeaderStyle = "clean" | "centered" | "glass" | "solid";
+export type FooterStyle = "dark" | "light" | "brand" | "minimal";
+export type SectionSpacing = "compact" | "normal" | "wide";
+export type BackgroundStyle = "warm" | "clean" | "pattern" | "solid" | "premium";
 export type AuditEntityType =
   | "dish"
   | "offer"
@@ -109,6 +116,7 @@ export interface Restaurant extends BaseModel {
   tagline: string;
   description: string;
   logoFileId?: string;
+  faviconFileId?: string;
   heroImageFileId?: string;
   heroImageUrl?: string;
   primaryColor: string;
@@ -225,6 +233,13 @@ export interface SiteSettings extends BaseModel {
   heroVideoUrl?: string;
   heroLayout?: HeroLayoutPreset;
   themePreset?: ThemePreset;
+  fontPreset?: FontPreset;
+  cardStyle?: CardStyle;
+  buttonStyle?: ButtonStyle;
+  headerStyle?: HeaderStyle;
+  footerStyle?: FooterStyle;
+  sectionSpacing?: SectionSpacing;
+  backgroundStyle?: BackgroundStyle;
   featuredSectionTitle?: string;
   offersSectionTitle?: string;
   gallerySectionTitle?: string;

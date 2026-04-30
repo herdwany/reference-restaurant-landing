@@ -124,6 +124,7 @@ restaurant-assets
 الاستخدام:
 
 - logos
+- browser tab icons
 - hero images
 - dish images
 - offer images

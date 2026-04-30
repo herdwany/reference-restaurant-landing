@@ -4409,6 +4409,14 @@ a {
   font-weight: 950;
 }
 
+.admin-field-help {
+  margin: -2px 0 8px;
+  color: var(--admin-muted);
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.7;
+}
+
 .admin-form-grid input,
 .admin-form-grid select,
 .admin-form-grid textarea {
@@ -4571,6 +4579,34 @@ a {
   display: grid;
   min-width: 0;
   gap: 16px;
+}
+
+.admin-settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  background: var(--admin-surface);
+  padding: 10px;
+}
+
+.admin-settings-tabs button {
+  min-width: 0;
+  min-height: 42px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #fffdf9;
+  color: #374151;
+  padding: 0 13px;
+  font-weight: 950;
+}
+
+.admin-settings-tabs button.is-active {
+  border-color: rgba(229, 27, 43, 0.24);
+  background: rgba(229, 27, 43, 0.08);
+  color: var(--admin-primary);
 }
 
 .admin-settings-section {
@@ -5599,6 +5635,11 @@ a {
     display: grid;
     grid-template-columns: 1fr;
   }
+
+  .admin-settings-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
 }
 
 .sr-only {
@@ -5817,6 +5858,170 @@ html.dir-ltr body {
 .app--theme-minimal .offer-card--red,
 .app--theme-minimal .offer-card--gold {
   background: linear-gradient(135deg, #111827 0%, #4b5563 100%);
+}
+
+.app--font-modern {
+  font-family: "Tajawal", "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.app--font-classic {
+  font-family: "Amiri", Georgia, "Times New Roman", serif;
+}
+
+.app--font-elegant {
+  font-family: "Playfair Display", "Cairo", Georgia, serif;
+}
+
+.app--font-friendly {
+  font-family: "Cairo", "Segoe UI", Tahoma, Arial, sans-serif;
+}
+
+.app--spacing-compact .section {
+  padding-block: 58px;
+}
+
+.app--spacing-wide .section {
+  padding-block: 108px;
+}
+
+.app--background-clean {
+  background: #fff;
+}
+
+.app--background-solid {
+  background: var(--color-light);
+}
+
+.app--background-pattern {
+  background:
+    linear-gradient(90deg, rgba(31, 41, 55, 0.035) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(31, 41, 55, 0.035) 1px, transparent 1px),
+    var(--color-light);
+  background-size: 36px 36px;
+}
+
+.app--background-premium {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(250, 247, 239, 0.9)),
+    var(--color-light);
+}
+
+.app--cards-bordered .dish-card,
+.app--cards-bordered .testimonial-card,
+.app--cards-bordered .info-card,
+.app--cards-bordered .faq-item {
+  border: 2px solid var(--color-border);
+  box-shadow: none;
+}
+
+.app--cards-flat .dish-card,
+.app--cards-flat .testimonial-card,
+.app--cards-flat .info-card,
+.app--cards-flat .faq-item {
+  border-color: rgba(229, 231, 235, 0.7);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.app--cards-premium .dish-card,
+.app--cards-premium .testimonial-card,
+.app--cards-premium .info-card,
+.app--cards-premium .faq-item {
+  border-color: rgba(184, 138, 45, 0.28);
+  background: linear-gradient(180deg, #fff, rgba(255, 250, 241, 0.9));
+  box-shadow: 0 22px 54px rgba(31, 41, 55, 0.12);
+}
+
+.app--buttons-soft .primary-button,
+.app--buttons-soft .pill-button,
+.app--buttons-soft .whatsapp-button,
+.app--buttons-soft .outline-order-button,
+.app--buttons-soft .secondary-whatsapp-button,
+.app--buttons-soft .map-button {
+  border-radius: 16px;
+}
+
+.app--buttons-sharp .primary-button,
+.app--buttons-sharp .pill-button,
+.app--buttons-sharp .whatsapp-button,
+.app--buttons-sharp .outline-order-button,
+.app--buttons-sharp .secondary-whatsapp-button,
+.app--buttons-sharp .map-button {
+  border-radius: 8px;
+}
+
+.app--buttons-premium .primary-button,
+.app--buttons-premium .pill-button--red {
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  box-shadow: 0 18px 36px rgba(31, 41, 55, 0.18);
+}
+
+.app--header-centered .site-header__inner {
+  justify-content: center;
+}
+
+.app--header-centered .brand {
+  flex: 1 1 0;
+}
+
+.app--header-centered .main-nav {
+  flex: 0 1 auto;
+}
+
+.app--header-glass .site-header {
+  border-bottom-color: rgba(255, 255, 255, 0.48);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.app--header-solid .site-header {
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(31, 41, 55, 0.08);
+  backdrop-filter: none;
+}
+
+.app--footer-light .site-footer {
+  background: #fff;
+  color: var(--color-dark);
+}
+
+.app--footer-light .footer-brand small,
+.app--footer-light .site-footer p,
+.app--footer-light .footer-list a,
+.app--footer-light .footer-list li,
+.app--footer-light .footer-links button {
+  color: #4b5563;
+}
+
+.app--footer-light .social-links a,
+.app--footer-light .payments span {
+  border-color: var(--color-border);
+  background: #fffdf9;
+  color: var(--color-dark);
+}
+
+.app--footer-brand .site-footer {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--color-primary) 92%, #111827), var(--color-secondary));
+  color: #fff;
+}
+
+.app--footer-minimal .site-footer {
+  border-top: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-dark);
+}
+
+.app--footer-minimal .site-footer__grid {
+  padding-block: 38px 28px;
+}
+
+.app--footer-minimal .site-footer__bottom {
+  background: #fff;
+  border-top: 1px solid var(--color-border);
+}
+
+.app--footer-minimal .site-footer__bottom .container {
+  color: #4b5563;
 }
 
 .booking-policy,

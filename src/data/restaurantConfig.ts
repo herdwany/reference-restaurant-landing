@@ -17,6 +17,7 @@ export interface RestaurantInfo {
   slogan: string;
   logoText: string;
   logoImage?: string;
+  faviconImage?: string;
   phone: string;
   whatsappNumber: string;
   email: string;
@@ -192,6 +193,13 @@ export interface RestaurantConfig {
     orderMode: "whatsapp" | "database" | "both";
     reservationMode: "whatsapp" | "database" | "both";
     themePreset?: "classic_red" | "black_gold" | "coffee" | "fresh" | "minimal";
+    fontPreset?: "modern" | "classic" | "elegant" | "friendly";
+    cardStyle?: "soft" | "bordered" | "flat" | "premium";
+    buttonStyle?: "rounded" | "soft" | "sharp" | "premium";
+    headerStyle?: "clean" | "centered" | "glass" | "solid";
+    footerStyle?: "dark" | "light" | "brand" | "minimal";
+    sectionSpacing?: "compact" | "normal" | "wide";
+    backgroundStyle?: "warm" | "clean" | "pattern" | "solid" | "premium";
     requireManualReservationConfirmation?: boolean;
     requireDepositForLargeGroups?: boolean;
     depositThresholdPeople?: number;
@@ -297,6 +305,13 @@ export const restaurantConfig: RestaurantConfig = {
     orderMode: "whatsapp",
     reservationMode: "whatsapp",
     themePreset: "classic_red",
+    fontPreset: "modern",
+    cardStyle: "soft",
+    buttonStyle: "rounded",
+    headerStyle: "clean",
+    footerStyle: "dark",
+    sectionSpacing: "normal",
+    backgroundStyle: "warm",
     requireManualReservationConfirmation: true,
     requireDepositForLargeGroups: true,
     depositThresholdPeople: 8,

@@ -2,10 +2,17 @@ import { AppwriteException, ID, Query, type Models } from "appwrite";
 import { databases } from "../../lib/appwriteClient";
 import { DATABASE_ID, TABLES, hasAppwriteDataConfig } from "../../lib/appwriteIds";
 import type {
+  BackgroundStyle,
+  ButtonStyle,
+  CardStyle,
+  FontPreset,
+  FooterStyle,
+  HeaderStyle,
   HeroLayoutPreset,
   HeroMediaType,
   OrderMode,
   ReservationMode,
+  SectionSpacing,
   SiteDirection,
   SiteSettings,
   ThemePreset,
@@ -40,6 +47,13 @@ interface SiteSettingsRow extends Models.Row {
   heroVideoUrl?: string | null;
   heroLayout?: HeroLayoutPreset | null;
   themePreset?: ThemePreset | null;
+  fontPreset?: FontPreset | null;
+  cardStyle?: CardStyle | null;
+  buttonStyle?: ButtonStyle | null;
+  headerStyle?: HeaderStyle | null;
+  footerStyle?: FooterStyle | null;
+  sectionSpacing?: SectionSpacing | null;
+  backgroundStyle?: BackgroundStyle | null;
   featuredSectionTitle?: string | null;
   offersSectionTitle?: string | null;
   gallerySectionTitle?: string | null;
@@ -90,6 +104,13 @@ export type SiteSettingsMutationInput = {
   heroVideoUrl?: string;
   heroLayout?: HeroLayoutPreset;
   themePreset?: ThemePreset;
+  fontPreset?: FontPreset;
+  cardStyle?: CardStyle;
+  buttonStyle?: ButtonStyle;
+  headerStyle?: HeaderStyle;
+  footerStyle?: FooterStyle;
+  sectionSpacing?: SectionSpacing;
+  backgroundStyle?: BackgroundStyle;
   featuredSectionTitle?: string;
   offersSectionTitle?: string;
   gallerySectionTitle?: string;
@@ -150,6 +171,13 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   heroVideoUrl: row.heroVideoUrl ?? undefined,
   heroLayout: row.heroLayout ?? undefined,
   themePreset: row.themePreset ?? undefined,
+  fontPreset: row.fontPreset ?? undefined,
+  cardStyle: row.cardStyle ?? undefined,
+  buttonStyle: row.buttonStyle ?? undefined,
+  headerStyle: row.headerStyle ?? undefined,
+  footerStyle: row.footerStyle ?? undefined,
+  sectionSpacing: row.sectionSpacing ?? undefined,
+  backgroundStyle: row.backgroundStyle ?? undefined,
   featuredSectionTitle: row.featuredSectionTitle ?? undefined,
   offersSectionTitle: row.offersSectionTitle ?? undefined,
   gallerySectionTitle: row.gallerySectionTitle ?? undefined,
@@ -200,6 +228,13 @@ const toSiteSettingsRowData = (input: SiteSettingsMutationInput): SiteSettingsRo
   heroVideoUrl: input.heroVideoUrl?.trim() || undefined,
   heroLayout: input.heroLayout || "split",
   themePreset: input.themePreset || "classic_red",
+  fontPreset: input.fontPreset || "modern",
+  cardStyle: input.cardStyle || "soft",
+  buttonStyle: input.buttonStyle || "rounded",
+  headerStyle: input.headerStyle || "clean",
+  footerStyle: input.footerStyle || "dark",
+  sectionSpacing: input.sectionSpacing || "normal",
+  backgroundStyle: input.backgroundStyle || "warm",
   featuredSectionTitle: input.featuredSectionTitle?.trim() || undefined,
   offersSectionTitle: input.offersSectionTitle?.trim() || undefined,
   gallerySectionTitle: input.gallerySectionTitle?.trim() || undefined,

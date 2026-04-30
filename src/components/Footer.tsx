@@ -10,10 +10,19 @@ const scrollToTarget = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
 
+const isVisibleLink = (value: string | undefined) => Boolean(value?.trim());
+
 export default function Footer({ config }: FooterProps) {
   const quickLinks = config.navigation.filter((link) => ["home", "menu", "offers", "about", "contact"].includes(link.targetId));
   const [logoImageFailed, setLogoImageFailed] = useState(false);
   const logoImageUrl = config.restaurant.logoImage && !logoImageFailed ? config.restaurant.logoImage : "";
+  const socialLinks = [
+    { href: config.socialLinks.instagram, label: "Instagram", icon: <Instagram size={20} /> },
+    { href: config.socialLinks.tiktok, label: "TikTok", icon: <Music2 size={20} /> },
+    { href: config.socialLinks.snapchat, label: "Snapchat", icon: <Camera size={20} /> },
+    { href: config.socialLinks.x, label: "X", icon: <AtSign size={20} /> },
+  ].filter((item) => isVisibleLink(item.href));
+  const paymentMethods = config.paymentMethods.filter((method) => method.label.trim());
 
   useEffect(() => {
     setLogoImageFailed(false);
@@ -80,25 +89,22 @@ export default function Footer({ config }: FooterProps) {
 
         <div>
           <h3>{config.ui.footer.socialTitle}</h3>
-          <div className="social-links">
-            <a href={config.socialLinks.instagram} target="_blank" rel="noreferrer" aria-label="Instagram">
-              <Instagram size={20} />
-            </a>
-            <a href={config.socialLinks.tiktok} target="_blank" rel="noreferrer" aria-label="TikTok">
-              <Music2 size={20} />
-            </a>
-            <a href={config.socialLinks.snapchat} target="_blank" rel="noreferrer" aria-label="Snapchat">
-              <Camera size={20} />
-            </a>
-            <a href={config.socialLinks.x} target="_blank" rel="noreferrer" aria-label="X">
-              <AtSign size={20} />
-            </a>
-          </div>
-          <div className="payments">
-            {config.paymentMethods.map((method) => (
+          {socialLinks.length > 0 ? (
+            <div className="social-links">
+              {socialLinks.map((item) => (
+                <a href={item.href} target="_blank" rel="noreferrer" aria-label={item.label} key={item.label}>
+                  {item.icon}
+                </a>
+              ))}
+            </div>
+          ) : null}
+          {paymentMethods.length > 0 ? (
+            <div className="payments">
+              {paymentMethods.map((method) => (
               <span key={method.id}>{method.label}</span>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
       <div className="site-footer__bottom">

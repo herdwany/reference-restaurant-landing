@@ -2,10 +2,17 @@ import { Query } from "appwrite";
 import type { Models } from "appwrite";
 import { TABLES } from "../../lib/appwriteIds";
 import type {
+  BackgroundStyle,
+  ButtonStyle,
+  CardStyle,
+  FontPreset,
+  FooterStyle,
+  HeaderStyle,
   HeroLayoutPreset,
   HeroMediaType,
   OrderMode,
   ReservationMode,
+  SectionSpacing,
   SiteDirection,
   SiteSettings,
   ThemePreset,
@@ -28,6 +35,13 @@ interface SiteSettingsRow extends Models.Row {
   heroVideoUrl?: string | null;
   heroLayout?: HeroLayoutPreset | null;
   themePreset?: ThemePreset | null;
+  fontPreset?: FontPreset | null;
+  cardStyle?: CardStyle | null;
+  buttonStyle?: ButtonStyle | null;
+  headerStyle?: HeaderStyle | null;
+  footerStyle?: FooterStyle | null;
+  sectionSpacing?: SectionSpacing | null;
+  backgroundStyle?: BackgroundStyle | null;
   featuredSectionTitle?: string | null;
   offersSectionTitle?: string | null;
   gallerySectionTitle?: string | null;
@@ -64,6 +78,13 @@ const mapSiteSettings = (row: SiteSettingsRow): SiteSettings => ({
   heroVideoUrl: row.heroVideoUrl ?? undefined,
   heroLayout: row.heroLayout ?? undefined,
   themePreset: row.themePreset ?? undefined,
+  fontPreset: row.fontPreset ?? undefined,
+  cardStyle: row.cardStyle ?? undefined,
+  buttonStyle: row.buttonStyle ?? undefined,
+  headerStyle: row.headerStyle ?? undefined,
+  footerStyle: row.footerStyle ?? undefined,
+  sectionSpacing: row.sectionSpacing ?? undefined,
+  backgroundStyle: row.backgroundStyle ?? undefined,
   featuredSectionTitle: row.featuredSectionTitle ?? undefined,
   offersSectionTitle: row.offersSectionTitle ?? undefined,
   gallerySectionTitle: row.gallerySectionTitle ?? undefined,

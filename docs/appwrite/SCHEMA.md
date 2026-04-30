@@ -27,6 +27,7 @@
 - `tagline`: string
 - `description`: text
 - `logoFileId`: string optional
+- `faviconFileId`: string optional, Appwrite Storage file used for the browser tab icon
 - `heroImageFileId`: string optional
 - `heroImageUrl`: url optional
 - `primaryColor`: string
@@ -154,6 +155,13 @@ Phase 9F adds domain metadata only. `/r/:slug` remains the active public routing
 - `heroVideoUrl`: string optional
 - `heroLayout`: enum `split | background | centered`, optional default `split`
 - `themePreset`: enum `classic_red | black_gold | coffee | fresh | minimal`, optional default `classic_red`
+- `fontPreset`: enum `modern | classic | elegant | friendly`, optional default `modern`
+- `cardStyle`: enum `soft | bordered | flat | premium`, optional default `soft`
+- `buttonStyle`: enum `rounded | soft | sharp | premium`, optional default `rounded`
+- `headerStyle`: enum `clean | centered | glass | solid`, optional default `clean`
+- `footerStyle`: enum `dark | light | brand | minimal`, optional default `dark`
+- `sectionSpacing`: enum `compact | normal | wide`, optional default `normal`
+- `backgroundStyle`: enum `warm | clean | pattern | solid | premium`, optional default `warm`
 - `featuredSectionTitle`: string optional
 - `offersSectionTitle`: string optional
 - `gallerySectionTitle`: string optional

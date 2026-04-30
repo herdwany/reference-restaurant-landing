@@ -2,7 +2,7 @@ import { AppwriteException, ID, Permission, Role, type Models } from "appwrite";
 import { account, storage } from "../../lib/appwriteClient";
 import { BUCKET_ID, hasAppwriteStorageConfig } from "../../lib/appwriteIds";
 
-export type RestaurantAssetType = "dish" | "offer" | "logo" | "hero" | "gallery";
+export type RestaurantAssetType = "dish" | "offer" | "logo" | "favicon" | "hero" | "gallery";
 
 export type UploadRestaurantAssetOptions = {
   restaurantId: string;
@@ -25,7 +25,9 @@ type StorageServiceErrorCode =
   | "DELETE_FAILED";
 
 const MAX_FILE_SIZE_BYTES = 3 * 1024 * 1024;
+const MAX_FAVICON_FILE_SIZE_BYTES = 1 * 1024 * 1024;
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp"] as const;
+const allowedFaviconMimeTypes = ["image/png", "image/webp"] as const;
 
 export class StorageServiceError extends Error {
   code: StorageServiceErrorCode;
@@ -58,6 +60,9 @@ const assertFileId = (fileId: string) => {
 
 const isAllowedMimeType = (value: string): value is (typeof allowedMimeTypes)[number] =>
   allowedMimeTypes.includes(value as (typeof allowedMimeTypes)[number]);
+
+const isAllowedFaviconMimeType = (value: string): value is (typeof allowedFaviconMimeTypes)[number] =>
+  allowedFaviconMimeTypes.includes(value as (typeof allowedFaviconMimeTypes)[number]);
 
 const getFileExtension = (mimeType: string) => {
   switch (mimeType) {
@@ -122,12 +127,23 @@ const getDeleteErrorMessage = (error: unknown) => {
   return "تعذر حذف الصورة. تحقق من الاتصال أو صلاحيات التخزين.";
 };
 
-export const validateRestaurantAssetFile = (file: File) => {
-  if (!isAllowedMimeType(file.type)) {
+export const validateRestaurantAssetFile = (file: File, type: RestaurantAssetType = "gallery") => {
+  const isFavicon = type === "favicon";
+  const maxFileSize = isFavicon ? MAX_FAVICON_FILE_SIZE_BYTES : MAX_FILE_SIZE_BYTES;
+
+  if (isFavicon && !isAllowedFaviconMimeType(file.type)) {
+    throw new StorageServiceError("صيغة أيقونة تبويب المتصفح غير مدعومة. استخدم PNG أو WebP.", "INVALID_INPUT");
+  }
+
+  if (!isFavicon && !isAllowedMimeType(file.type)) {
     throw new StorageServiceError("صيغة الصورة غير مدعومة. استخدم JPG أو PNG أو WebP.", "INVALID_INPUT");
   }
 
-  if (file.size > MAX_FILE_SIZE_BYTES) {
+  if (isFavicon && file.size > maxFileSize) {
+    throw new StorageServiceError("Favicon image is too large. Maximum size is 1MB.", "INVALID_INPUT");
+  }
+
+  if (file.size > maxFileSize) {
     throw new StorageServiceError("حجم الصورة كبير جدًا. الحد الأقصى 3MB.", "INVALID_INPUT");
   }
 };
@@ -161,7 +177,7 @@ export async function uploadRestaurantAsset(
 ): Promise<UploadedRestaurantAsset> {
   assertStorageReady();
   assertRestaurantId(options.restaurantId);
-  validateRestaurantAssetFile(file);
+  validateRestaurantAssetFile(file, options.type);
 
   let currentUser: Models.User<Models.Preferences> | null = null;
 

@@ -93,6 +93,37 @@ const themePresetColors = {
   },
 } as const;
 
+const defaultDocumentTitle = typeof document !== "undefined" ? document.title : "Pixel One Visuals Restaurant";
+const defaultFaviconHref = "/favicon.svg";
+
+const getIconType = (href: string) => {
+  if (href.toLowerCase().includes(".webp")) {
+    return "image/webp";
+  }
+
+  if (href.toLowerCase().includes(".png")) {
+    return "image/png";
+  }
+
+  return "image/svg+xml";
+};
+
+const updateIconLink = (rel: "icon" | "apple-touch-icon", href: string) => {
+  let link = document.querySelector<HTMLLinkElement>(`link[rel="${rel}"]`);
+
+  if (!link) {
+    link = document.createElement("link");
+    link.rel = rel;
+    document.head.appendChild(link);
+  }
+
+  link.href = href;
+
+  if (rel === "icon") {
+    link.type = getIconType(href);
+  }
+};
+
 const scrollToSection = (targetId: string) => {
   document.getElementById(targetId)?.scrollIntoView({ behavior: "smooth", block: "start" });
 };
@@ -331,6 +362,13 @@ function LandingPage({ slug }: LandingPageProps) {
   const visibleNavigation = config.navigation.filter((link) => sections[sectionByTargetId[link.targetId] ?? "hero"]);
   const navigationConfig = { ...localizedConfig, navigation: visibleNavigation };
   const themePreset = config.settings.themePreset || "classic_red";
+  const fontPreset = config.settings.fontPreset || "modern";
+  const cardStyle = config.settings.cardStyle || "soft";
+  const buttonStyle = config.settings.buttonStyle || "rounded";
+  const headerStyle = config.settings.headerStyle || "clean";
+  const footerStyle = config.settings.footerStyle || "dark";
+  const sectionSpacing = config.settings.sectionSpacing || "normal";
+  const backgroundStyle = config.settings.backgroundStyle || "warm";
   const presetColors = themePresetColors[themePreset];
   const activeBrand = presetColors ? { ...config.brand, ...presetColors } : config.brand;
 
@@ -344,6 +382,31 @@ function LandingPage({ slug }: LandingPageProps) {
     "--color-border": activeBrand.borderColor,
     "--radius-card": activeBrand.borderRadius,
   };
+
+  useEffect(() => {
+    if (isLoadingSite) {
+      return undefined;
+    }
+
+    const restaurantName = localizedConfig.restaurant.name?.trim();
+    const restaurantSlogan = localizedConfig.restaurant.slogan?.trim();
+    const nextTitle = restaurantName
+      ? restaurantSlogan
+        ? `${restaurantName} | ${restaurantSlogan}`
+        : restaurantName
+      : defaultDocumentTitle;
+    const iconHref = localizedConfig.restaurant.faviconImage || defaultFaviconHref;
+
+    document.title = nextTitle;
+    updateIconLink("icon", iconHref);
+    updateIconLink("apple-touch-icon", iconHref);
+
+    return () => {
+      document.title = defaultDocumentTitle;
+      updateIconLink("icon", defaultFaviconHref);
+      updateIconLink("apple-touch-icon", defaultFaviconHref);
+    };
+  }, [isLoadingSite, localizedConfig.restaurant.faviconImage, localizedConfig.restaurant.name, localizedConfig.restaurant.slogan]);
 
   if (isLoadingSite) {
     return <PublicSiteMessagePage title={t("loadingSite")} style={themeStyle} isLoading />;
@@ -528,8 +591,20 @@ function LandingPage({ slug }: LandingPageProps) {
     );
   };
 
+  const appClassName = [
+    "app",
+    `app--theme-${themePreset}`,
+    `app--font-${fontPreset}`,
+    `app--cards-${cardStyle}`,
+    `app--buttons-${buttonStyle}`,
+    `app--header-${headerStyle}`,
+    `app--footer-${footerStyle}`,
+    `app--spacing-${sectionSpacing}`,
+    `app--background-${backgroundStyle}`,
+  ].join(" ");
+
   return (
-    <div className={`app app--theme-${themePreset}`} style={themeStyle}>
+    <div className={appClassName} style={themeStyle}>
       <Header
         config={navigationConfig}
         cartCount={getCartQuantity(cart.items)}

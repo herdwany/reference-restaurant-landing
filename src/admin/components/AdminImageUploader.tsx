@@ -26,7 +26,10 @@ type AdminImageUploaderProps = {
 
 type Translate = ReturnType<typeof useI18n>["t"];
 
-const getUploadErrorMessage = (error: unknown, t: Translate) => {
+const getAcceptedImageTypes = (type: RestaurantAssetType) =>
+  type === "favicon" ? "image/png,image/webp" : "image/jpeg,image/png,image/webp";
+
+const getUploadErrorMessage = (error: unknown, t: Translate, type: RestaurantAssetType) => {
   if (error instanceof StorageServiceError) {
     const normalizedMessage = error.message.toLowerCase();
 
@@ -37,6 +40,10 @@ const getUploadErrorMessage = (error: unknown, t: Translate) => {
       normalizedMessage.includes("صيغة")
     ) {
       return t("invalidImageType");
+    }
+
+    if (type === "favicon" && normalizedMessage.includes("1mb")) {
+      return t("faviconTooLarge");
     }
 
     if (normalizedMessage.includes("3mb") || normalizedMessage.includes("mb") || normalizedMessage.includes("حجم")) {
@@ -104,11 +111,11 @@ export default function AdminImageUploader({
     }
 
     try {
-      validateRestaurantAssetFile(file);
+      validateRestaurantAssetFile(file, type);
       setSelectedFile(file);
     } catch (error) {
       setSelectedFile(null);
-      setErrorMessage(getUploadErrorMessage(error, t));
+      setErrorMessage(getUploadErrorMessage(error, t, type));
     }
   };
 
@@ -136,7 +143,7 @@ export default function AdminImageUploader({
       setSelectedFile(null);
       setSuccessMessage(t("imageUploaded"));
     } catch (error) {
-      setErrorMessage(getUploadErrorMessage(error, t));
+      setErrorMessage(getUploadErrorMessage(error, t, type));
     } finally {
       setIsUploading(false);
     }
@@ -170,7 +177,7 @@ export default function AdminImageUploader({
           <span>{t("chooseImage")}</span>
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={getAcceptedImageTypes(type)}
             disabled={disabled || isUploading}
             onChange={(event) => handleFileSelection(event.target.files?.[0] ?? null)}
           />

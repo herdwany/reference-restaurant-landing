@@ -102,12 +102,40 @@ const parseTranslationsObject = (value: string | undefined) => {
 
 const heroLayouts = new Set(["split", "background", "centered"]);
 const themePresets = new Set(["classic_red", "black_gold", "coffee", "fresh", "minimal"]);
+const fontPresets = new Set(["modern", "classic", "elegant", "friendly"]);
+const cardStyles = new Set(["soft", "bordered", "flat", "premium"]);
+const buttonStyles = new Set(["rounded", "soft", "sharp", "premium"]);
+const headerStyles = new Set(["clean", "centered", "glass", "solid"]);
+const footerStyles = new Set(["dark", "light", "brand", "minimal"]);
+const sectionSpacings = new Set(["compact", "normal", "wide"]);
+const backgroundStyles = new Set(["warm", "clean", "pattern", "solid", "premium"]);
 
 const getHeroLayout = (value: string | undefined) =>
   heroLayouts.has(value || "") ? (value as RestaurantConfig["hero"]["layout"]) : "split";
 
 const getThemePreset = (value: string | undefined) =>
   themePresets.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["themePreset"]>) : "classic_red";
+
+const getFontPreset = (value: string | undefined) =>
+  fontPresets.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["fontPreset"]>) : "modern";
+
+const getCardStyle = (value: string | undefined) =>
+  cardStyles.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["cardStyle"]>) : "soft";
+
+const getButtonStyle = (value: string | undefined) =>
+  buttonStyles.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["buttonStyle"]>) : "rounded";
+
+const getHeaderStyle = (value: string | undefined) =>
+  headerStyles.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["headerStyle"]>) : "clean";
+
+const getFooterStyle = (value: string | undefined) =>
+  footerStyles.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["footerStyle"]>) : "dark";
+
+const getSectionSpacing = (value: string | undefined) =>
+  sectionSpacings.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["sectionSpacing"]>) : "normal";
+
+const getBackgroundStyle = (value: string | undefined) =>
+  backgroundStyles.has(value || "") ? (value as NonNullable<RestaurantConfig["settings"]["backgroundStyle"]>) : "warm";
 
 const mapDishes = (dishes: AppwriteDish[], base: RestaurantConfig): ConfigDish[] =>
   dishes.map((dish, index) => {
@@ -178,6 +206,7 @@ const mapGalleryImages = (items: AppwriteGalleryItem[], base: RestaurantConfig):
 const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): RestaurantConfig["restaurant"] => {
   const displayName = restaurant.nameAr || restaurant.name || base.restaurant.name;
   const logoImage = resolveImageUrl(getStoredAssetUrl(restaurant.logoFileId));
+  const faviconImage = resolveImageUrl(getStoredAssetUrl(restaurant.faviconFileId));
 
   return {
     ...base.restaurant,
@@ -187,6 +216,7 @@ const mergeRestaurant = (restaurant: Restaurant, base: RestaurantConfig): Restau
     slogan: restaurant.tagline || base.restaurant.slogan,
     logoText: displayName,
     logoImage,
+    faviconImage,
     phone: restaurant.phone || base.restaurant.phone,
     whatsappNumber: restaurant.whatsappNumber || base.restaurant.whatsappNumber,
     email: restaurant.email || base.restaurant.email,
@@ -215,6 +245,13 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
       orderMode: "both",
       reservationMode: "both",
       themePreset: base.settings.themePreset ?? "classic_red",
+      fontPreset: base.settings.fontPreset ?? "modern",
+      cardStyle: base.settings.cardStyle ?? "soft",
+      buttonStyle: base.settings.buttonStyle ?? "rounded",
+      headerStyle: base.settings.headerStyle ?? "clean",
+      footerStyle: base.settings.footerStyle ?? "dark",
+      sectionSpacing: base.settings.sectionSpacing ?? "normal",
+      backgroundStyle: base.settings.backgroundStyle ?? "warm",
     };
   }
 
@@ -226,6 +263,13 @@ const mergeSettings = (settings: SiteSettings | null, base: RestaurantConfig): R
     orderMode: settings.orderMode || base.settings.orderMode,
     reservationMode: settings.reservationMode || base.settings.reservationMode,
     themePreset: getThemePreset(settings.themePreset),
+    fontPreset: getFontPreset(settings.fontPreset),
+    cardStyle: getCardStyle(settings.cardStyle),
+    buttonStyle: getButtonStyle(settings.buttonStyle),
+    headerStyle: getHeaderStyle(settings.headerStyle),
+    footerStyle: getFooterStyle(settings.footerStyle),
+    sectionSpacing: getSectionSpacing(settings.sectionSpacing),
+    backgroundStyle: getBackgroundStyle(settings.backgroundStyle),
     requireManualReservationConfirmation: Boolean(settings.requireManualReservationConfirmation),
     requireDepositForLargeGroups: Boolean(settings.requireDepositForLargeGroups),
     depositThresholdPeople: settings.depositThresholdPeople ?? base.settings.depositThresholdPeople,

@@ -55,6 +55,7 @@ interface RestaurantRow extends Models.Row {
   tagline: string;
   description: string;
   logoFileId?: string | null;
+  faviconFileId?: string | null;
   heroImageFileId?: string | null;
   heroImageUrl?: string | null;
   primaryColor: string;
@@ -84,6 +85,7 @@ export type RestaurantContactInput = {
   tagline: string;
   description: string;
   logoFileId?: string;
+  faviconFileId?: string;
   heroImageFileId?: string;
   heroImageUrl?: string;
   phone: string;
@@ -131,6 +133,7 @@ type RestaurantContactRowData = {
   tagline: string;
   description: string;
   logoFileId: string | null;
+  faviconFileId: string | null;
   heroImageFileId: string | null;
   heroImageUrl: string | null;
   phone: string;
@@ -233,6 +236,7 @@ const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   tagline: row.tagline,
   description: row.description,
   logoFileId: row.logoFileId ?? undefined,
+  faviconFileId: row.faviconFileId ?? undefined,
   heroImageFileId: row.heroImageFileId ?? undefined,
   heroImageUrl: row.heroImageUrl ?? undefined,
   primaryColor: row.primaryColor,
@@ -270,6 +274,7 @@ const toRestaurantContactRowData = (input: RestaurantContactInput): RestaurantCo
     tagline: input.tagline.trim(),
     description: input.description.trim(),
     logoFileId: optionalText(input.logoFileId),
+    faviconFileId: optionalText(input.faviconFileId),
     heroImageFileId: optionalText(input.heroImageFileId),
     heroImageUrl: optionalText(input.heroImageUrl),
     phone: input.phone.trim(),

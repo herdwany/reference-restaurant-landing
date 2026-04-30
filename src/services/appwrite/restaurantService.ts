@@ -29,6 +29,7 @@ interface RestaurantRow extends Models.Row {
   tagline: string;
   description: string;
   logoFileId?: string | null;
+  faviconFileId?: string | null;
   heroImageFileId?: string | null;
   heroImageUrl?: string | null;
   primaryColor: string;
@@ -71,6 +72,7 @@ const mapRestaurant = (row: RestaurantRow): Restaurant => ({
   tagline: row.tagline,
   description: row.description,
   logoFileId: row.logoFileId ?? undefined,
+  faviconFileId: row.faviconFileId ?? undefined,
   heroImageFileId: row.heroImageFileId ?? undefined,
   heroImageUrl: row.heroImageUrl ?? undefined,
   primaryColor: row.primaryColor,
