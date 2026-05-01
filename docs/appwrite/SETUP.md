@@ -150,6 +150,8 @@ Customer account Function setup:
 - `VITE_APPWRITE_CUSTOMER_ACCOUNT_FUNCTION_ID` in `.env.local` must exactly match the Appwrite Function ID, not the function name.
 - The Function still validates the logged-in user from Appwrite execution context; do not make customer order/reservation tables public to work around Function permission issues.
 
+Important: The `orders` and `reservations` tables must include the `customerUserId` and `customerProfileId` columns for logged-in customers to see their history. The `scripts/setupAppwrite.mjs` creates these columns, and you must redeploy the `createOrder` and `createReservation` Functions after running the setup script so the Functions can persist these identity fields. In development the app will show a clear setup error if those columns are missing.
+
 Customer profile table permissions for the current MVP direct browser write path:
 
 - `customer_profiles` table create access: `Users`.

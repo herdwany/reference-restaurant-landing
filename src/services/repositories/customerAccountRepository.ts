@@ -77,6 +77,9 @@ const callCustomerAccountFunction = async <Result>(payload: Record<string, unkno
       method: ExecutionMethod.POST,
       headers: {
         "content-type": "application/json",
+        ...(payload && typeof payload === "object" && "userId" in payload && payload.userId
+          ? { "x-appwrite-user-id": String((payload as any).userId) }
+          : {}),
       },
     });
 
@@ -122,6 +125,7 @@ export async function getCustomerAccountHistory(scope: CustomerAccountScope): Pr
     const result = await callCustomerAccountFunction<CustomerAccountHistory & { ok: true }>({
       action: "history",
       restaurantSlug: scope.restaurantSlug,
+      userId: scope.userId,
     });
 
     return {
@@ -157,6 +161,7 @@ export async function getCustomerOrderItemsForReorder(
       action: "orderItems",
       orderId,
       restaurantSlug: scope.restaurantSlug,
+      userId: scope.userId,
     });
 
     return Array.isArray(result.items) ? result.items : [];

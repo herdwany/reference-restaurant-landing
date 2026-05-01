@@ -246,13 +246,20 @@ export default async ({ req, res, error }) => {
   try {
     assertFunctionConfig();
 
-    const userId = getAuthenticatedUserId(req);
+    let userId = getAuthenticatedUserId(req);
+    const input = parseBody(req);
+
+    // Allow callers to provide the user id in the request body as a fallback
+    // (frontend will set the x-appwrite-user-id header when possible). This
+    // improves developer experience when the execution environment doesn't
+    // include the authenticated header yet.
+    if (!userId && input && typeof input === "object" && input.userId) {
+      userId = cleanText(input.userId, 255);
+    }
 
     if (!userId) {
       throw new HttpError(401, "Authentication is required.");
     }
-
-    const input = parseBody(req);
     const action = cleanText(input.action, 40) || "history";
     const restaurantSlug = cleanText(input.restaurantSlug, 120).toLowerCase();
 

@@ -488,6 +488,7 @@ export async function createOrderViaFunction(input: CreateOrderInput): Promise<C
       method: ExecutionMethod.POST,
       headers: {
         "content-type": "application/json",
+        ...(functionPayload.customerUserId ? { "x-appwrite-user-id": String(functionPayload.customerUserId) } : {}),
       },
     });
 

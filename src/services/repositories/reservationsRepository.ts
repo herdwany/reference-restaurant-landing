@@ -376,6 +376,7 @@ export async function createReservationViaFunction(input: CreateReservationInput
       method: ExecutionMethod.POST,
       headers: {
         "content-type": "application/json",
+        ...(functionPayload.customerUserId ? { "x-appwrite-user-id": String(functionPayload.customerUserId) } : {}),
       },
     });
 
