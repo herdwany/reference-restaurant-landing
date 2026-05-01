@@ -1,16 +1,18 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
 import { getPublicThemeClassNames, getPublicThemeStyle } from "../lib/publicTheme";
+import type { AuthUser } from "../services/authService";
 import { upsertCustomerProfile } from "../services/repositories/customerProfileRepository";
+import { getProfileByUserId } from "../services/repositories/profileRepository";
 import { getSiteDataBySlug, type SiteDataResult } from "../services/siteDataService";
 import type { Profile } from "../types/platform";
 import EmailVerificationGate from "./EmailVerificationGate";
 
-type CallbackState = "account_not_ready" | "error" | "loading";
+type CallbackState = "account_not_ready" | "email_verification_required" | "error" | "loading";
 
 const normalizeSlug = (value: string | null) => value?.trim().toLowerCase() || "";
 
@@ -31,7 +33,7 @@ const getProfileDashboardPath = (profile: Profile | null) => {
 };
 
 export default function OAuthCallbackPage() {
-  const { currentUser, isLoading, logout, profile, refreshProfile, refreshUser } = useAuth();
+  const { currentUser, isLoading, logout, profile, refreshUser } = useAuth();
   const { direction, t } = useI18n();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -39,6 +41,16 @@ export default function OAuthCallbackPage() {
   const [siteData, setSiteData] = useState<SiteDataResult | null>(null);
   const [state, setState] = useState<CallbackState>("loading");
   const [message, setMessage] = useState(t("loading"));
+  const [verificationUser, setVerificationUser] = useState<AuthUser | null>(null);
+  const hasStartedRoutingRef = useRef(false);
+  const isMountedRef = useRef(true);
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false;
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!restaurantSlug) {
@@ -70,11 +82,28 @@ export default function OAuthCallbackPage() {
   }, [restaurantSlug]);
 
   useEffect(() => {
-    if (isLoading) {
+    if (state !== "loading") {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      setState("error");
+      setMessage(t("oauthCallbackTimedOut"));
+    }, 15000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [state, t]);
+
+  useEffect(() => {
+    if (isLoading || hasStartedRoutingRef.current) {
       return;
     }
 
-    let isMounted = true;
+    hasStartedRoutingRef.current = true;
 
     const completeOAuthRouting = async () => {
       setState("loading");
@@ -83,17 +112,24 @@ export default function OAuthCallbackPage() {
       try {
         const user = currentUser ?? await refreshUser();
 
+        if (!isMountedRef.current) {
+          return;
+        }
+
         if (!user) {
           setState("error");
-          setMessage(t("loginFailed"));
+          setMessage(t("oauthSessionMissing"));
           return;
         }
 
         if (!user.emailVerification) {
+          setVerificationUser(user);
+          setState("email_verification_required");
+          setMessage(t("emailVerificationRequired"));
           return;
         }
 
-        const loadedProfile = profile ?? await refreshProfile();
+        const loadedProfile = profile?.userId === user.$id ? profile : await getProfileByUserId(user.$id);
         const dashboardPath = getProfileDashboardPath(loadedProfile);
 
         if (dashboardPath) {
@@ -115,19 +151,25 @@ export default function OAuthCallbackPage() {
           return;
         }
 
-        await upsertCustomerProfile({
-          restaurantId: result.config.restaurant.id,
-          userId: user.$id,
-          fullName: user.name?.trim() || user.email,
-          phone: "",
-          email: user.email,
-        });
+        try {
+          await upsertCustomerProfile({
+            restaurantId: result.config.restaurant.id,
+            userId: user.$id,
+            fullName: user.name?.trim() || user.email,
+            phone: "",
+            email: user.email,
+          });
+        } catch (error) {
+          if (import.meta.env.DEV) {
+            console.warn(error);
+          }
+        }
 
-        if (isMounted) {
+        if (isMountedRef.current) {
           navigate(`/r/${result.resolvedSlug || restaurantSlug}/account`, { replace: true });
         }
       } catch (error) {
-        if (isMounted) {
+        if (isMountedRef.current) {
           setState("error");
           setMessage(mapKnownErrorToFriendlyMessage(error, t));
         }
@@ -135,11 +177,7 @@ export default function OAuthCallbackPage() {
     };
 
     void completeOAuthRouting();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [currentUser, isLoading, navigate, profile, refreshProfile, refreshUser, restaurantSlug, t]);
+  }, [currentUser, isLoading, navigate, profile, refreshUser, restaurantSlug, t]);
 
   const authClassName = useMemo(() => {
     if (!siteData) {
@@ -154,7 +192,13 @@ export default function OAuthCallbackPage() {
   const style = siteData ? getPublicThemeStyle(siteData.config) : undefined;
   const backPath = restaurantSlug ? `/r/${restaurantSlug}` : "/";
 
-  if (!isLoading && currentUser && !currentUser.emailVerification) {
+  const emailVerificationUser = verificationUser ?? currentUser;
+
+  if (
+    emailVerificationUser &&
+    !emailVerificationUser.emailVerification &&
+    (state === "email_verification_required" || !isLoading)
+  ) {
     return (
       <EmailVerificationGate
         backPath={backPath}
@@ -177,16 +221,24 @@ export default function OAuthCallbackPage() {
 
   return (
     <main className={`${authClassName} dir-${direction}`} dir={direction} style={style}>
-      <section className="admin-login-card" aria-busy={state === "loading" || isLoading}>
+      <section className="admin-login-card" aria-busy={state === "loading"}>
         <div className="admin-login-card__icon">
-          {state === "loading" || isLoading ? (
+          {state === "loading" ? (
             <Loader2 className="admin-spin" size={30} aria-hidden="true" />
           ) : (
             <AlertTriangle size={30} aria-hidden="true" />
           )}
         </div>
         <div className="admin-login-card__copy">
-          <h1>{state === "account_not_ready" ? t("accountNotReady") : state === "error" ? t("operationFailed") : t("loading")}</h1>
+          <h1>
+            {state === "account_not_ready"
+              ? t("accountNotReady")
+              : state === "email_verification_required"
+                ? t("verifyEmail")
+                : state === "error"
+                  ? t("loginFailed")
+                  : t("loading")}
+          </h1>
           <p>{message}</p>
         </div>
         {state !== "loading" ? (

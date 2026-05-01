@@ -302,9 +302,11 @@ export default function CartDrawer({
               ) : null}
               <form className="cart-checkout-form" onSubmit={handleSubmit} noValidate>
                 {formErrors.form ? <div className="cart-form-error">{formErrors.form}</div> : null}
-                <label>
+                <label htmlFor="checkout-customer-name">
                   <span>{t("customerName")}</span>
                   <input
+                    id="checkout-customer-name"
+                    name="customerName"
                     value={formValues.customerName}
                     onChange={(event) => updateFormValue("customerName", event.target.value)}
                     aria-invalid={Boolean(formErrors.customerName)}
@@ -312,9 +314,11 @@ export default function CartDrawer({
                   />
                   {formErrors.customerName ? <small>{formErrors.customerName}</small> : null}
                 </label>
-                <label>
+                <label htmlFor="checkout-customer-phone">
                   <span>{t("customerPhone")}</span>
                   <input
+                    id="checkout-customer-phone"
+                    name="customerPhone"
                     value={formValues.customerPhone}
                     onChange={(event) => updateFormValue("customerPhone", event.target.value)}
                     aria-invalid={Boolean(formErrors.customerPhone)}
@@ -323,11 +327,13 @@ export default function CartDrawer({
                   />
                   {formErrors.customerPhone ? <small>{formErrors.customerPhone}</small> : null}
                 </label>
-                <label>
+                <label htmlFor={isDelivery ? "checkout-customer-address" : "checkout-pickup-address"}>
                   <span>{isDelivery ? t("customerAddress") : t("pickupAddress")}</span>
                   {isDelivery ? (
                     <>
                       <input
+                        id="checkout-customer-address"
+                        name="customerAddress"
                         value={formValues.customerAddress}
                         onChange={(event) => updateFormValue("customerAddress", event.target.value)}
                         aria-invalid={Boolean(formErrors.customerAddress)}
@@ -336,13 +342,15 @@ export default function CartDrawer({
                       {formErrors.customerAddress ? <small>{formErrors.customerAddress}</small> : null}
                     </>
                   ) : (
-                    <input value={config.restaurant.address || t("notAvailable")} disabled />
+                    <input id="checkout-pickup-address" name="pickupAddress" value={config.restaurant.address || t("notAvailable")} disabled />
                   )}
                 </label>
                 {isDelivery && deliveryAreas.length > 0 ? (
-                  <label>
+                  <label htmlFor="checkout-delivery-area">
                     <span>{t("deliveryArea")}</span>
                     <select
+                      id="checkout-delivery-area"
+                      name="deliveryArea"
                       value={formValues.deliveryArea}
                       onChange={(event) => updateFormValue("deliveryArea", event.target.value)}
                       aria-invalid={Boolean(formErrors.deliveryArea)}
@@ -358,9 +366,15 @@ export default function CartDrawer({
                     {formErrors.deliveryArea ? <small>{formErrors.deliveryArea}</small> : null}
                   </label>
                 ) : null}
-                <label>
+                <label htmlFor="checkout-notes">
                   <span>{t("notes")}</span>
-                  <textarea value={formValues.notes} onChange={(event) => updateFormValue("notes", event.target.value)} rows={2} />
+                  <textarea
+                    id="checkout-notes"
+                    name="notes"
+                    value={formValues.notes}
+                    onChange={(event) => updateFormValue("notes", event.target.value)}
+                    rows={2}
+                  />
                 </label>
                 <button className="primary-button primary-button--wide" type="submit" disabled={isCheckingOut}>
                   {isCheckingOut ? t("orderSubmitting") : checkoutLabel}

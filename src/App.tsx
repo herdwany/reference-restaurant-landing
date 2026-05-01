@@ -399,6 +399,20 @@ function LandingPage({ slug }: LandingPageProps) {
   const visibleNavigation = config.navigation.filter((link) => sections[sectionByTargetId[link.targetId] ?? "hero"]);
   const navigationConfig = { ...localizedConfig, navigation: visibleNavigation };
   const themeStyle: ThemeStyle = getPublicThemeStyle(config);
+  const currentRestaurantSlug = restaurantSlug || config.restaurant.slug || "";
+  const publicAccountPath = currentRestaurantSlug ? `/r/${currentRestaurantSlug}/account` : "/login";
+  const customerInitialDetails = useMemo(
+    () =>
+      canUseCustomerAccount && currentUser
+        ? {
+          customerAddress: customerProfile?.defaultAddress,
+          customerName: customerProfile?.fullName || currentUser.name?.trim() || currentUser.email,
+          customerPhone: customerProfile?.phone || "",
+          notes: customerProfile?.deliveryNotes,
+        }
+        : undefined,
+    [canUseCustomerAccount, currentUser, customerProfile],
+  );
 
   useEffect(() => {
     if (isLoadingSite) {
@@ -436,17 +450,6 @@ function LandingPage({ slug }: LandingPageProps) {
   if (publicStatus !== "active") {
     return <PublicSiteAvailabilityPage restaurantName={config.restaurant.name} status={publicStatus} style={themeStyle} />;
   }
-
-  const currentRestaurantSlug = restaurantSlug || config.restaurant.slug || "";
-  const publicAccountPath = currentRestaurantSlug ? `/r/${currentRestaurantSlug}/account` : "/login";
-  const customerInitialDetails = customerProfile
-    ? {
-      customerAddress: customerProfile.defaultAddress,
-      customerName: customerProfile.fullName,
-      customerPhone: customerProfile.phone,
-      notes: customerProfile.deliveryNotes,
-    }
-    : undefined;
 
   const ensureCustomerProfileForRequest = async (details: {
     customerAddress?: string;

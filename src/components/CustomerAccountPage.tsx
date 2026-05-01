@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, Loader2, LogOut, RotateCcw, UserRound } from "lucide-react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import AdminErrorState from "../admin/components/AdminErrorState";
@@ -9,11 +9,13 @@ import { mapKnownErrorToFriendlyMessage } from "../lib/friendlyErrors";
 import { useI18n } from "../lib/i18n/I18nContext";
 import { getPublicThemeClassNames, getPublicThemeStyle } from "../lib/publicTheme";
 import {
+  CustomerProfileRepositoryError,
   getCustomerProfileByUser,
   upsertCustomerProfile,
   type CustomerProfileInput,
 } from "../services/repositories/customerProfileRepository";
 import {
+  CustomerAccountRepositoryError,
   getCustomerAccountHistory,
   getCustomerOrderItemsForReorder,
 } from "../services/repositories/customerAccountRepository";
@@ -35,6 +37,11 @@ type ProfileFormValues = {
   email: string;
   fullName: string;
   phone: string;
+};
+
+type AccountPageError = {
+  message: string;
+  title: string;
 };
 
 const emptyProfileFormValues: ProfileFormValues = {
@@ -122,11 +129,15 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
   const [activeTab, setActiveTab] = useState<CustomerAccountTab>("details");
   const [orders, setOrders] = useState<Order[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [isLoadingAccount, setIsLoadingAccount] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isReordering, setIsReordering] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [orderActionError, setOrderActionError] = useState<string | null>(null);
+  const [orderHistoryError, setOrderHistoryError] = useState<string | null>(null);
+  const [profileError, setProfileError] = useState<AccountPageError | null>(null);
+  const [reservationHistoryError, setReservationHistoryError] = useState<string | null>(null);
   const publicPath = `/r/${restaurantSlug}`;
   const accountLoginPath = `${publicPath}/account/login`;
   const accountRegisterPath = `${publicPath}/account/register`;
@@ -188,43 +199,167 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
     navigate(location.pathname, { replace: true, state: null });
   }, [location.pathname, location.state, navigate]);
 
-  const loadAccountData = useCallback(async () => {
-    if (!currentUser?.emailVerification || !restaurantId || isAdminSession || hasBlockingProfileIssue) {
-      return;
+  const getSpecificErrorMessage = (error: unknown, fallback: string) => {
+    const friendlyMessage = mapKnownErrorToFriendlyMessage(error, t);
+    return friendlyMessage === t("operationFailed") ? fallback : friendlyMessage;
+  };
+
+  const getProfileLoadErrorMessage = (error: unknown) => {
+    if (error instanceof CustomerProfileRepositoryError && error.code === "PERMISSION_DENIED") {
+      return t("customerProfilePermissionIssue");
     }
 
-    setIsLoadingAccount(true);
-    setErrorMessage(null);
+    return getSpecificErrorMessage(error, t("customerProfileLoadFailed"));
+  };
 
-    try {
-      const [profile, history] = await Promise.all([
-        getCustomerProfileByUser(restaurantId, currentUser.$id).catch(() => null),
-        getCustomerAccountHistory({
+  const getProfileCreateErrorMessage = (error: unknown) => {
+    if (error instanceof CustomerProfileRepositoryError && error.code === "PERMISSION_DENIED") {
+      return t("customerProfileCreatePermissionIssue");
+    }
+
+    return getSpecificErrorMessage(error, t("customerProfileCreateFailed"));
+  };
+
+  const getProfileSaveErrorMessage = (error: unknown) => {
+    if (error instanceof CustomerProfileRepositoryError && error.code === "PERMISSION_DENIED") {
+      return t("customerProfilePermissionIssue");
+    }
+
+    return getSpecificErrorMessage(error, t("customerProfileSaveFailed"));
+  };
+
+  const getHistoryErrorMessage = (error: unknown) => {
+    if (error instanceof CustomerAccountRepositoryError) {
+      if (error.code === "FUNCTION_PERMISSION_DENIED") {
+        return t("customerAccountFunctionPermissionIssue");
+      }
+
+      if (error.code === "APPWRITE_NOT_CONFIGURED") {
+        return t("appwriteSetupRequired");
+      }
+    }
+
+    return getSpecificErrorMessage(error, t("customerAccountHistoryLoadFailed"));
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    if (!currentUser?.emailVerification || !restaurantId || isAdminSession || hasBlockingProfileIssue) {
+      setCustomerProfile(null);
+      setFormValues(emptyProfileFormValues);
+      setOrders([]);
+      setReservations([]);
+      setProfileError(null);
+      setOrderHistoryError(null);
+      setReservationHistoryError(null);
+      setIsLoadingProfile(false);
+      setIsLoadingHistory(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    const userFallback = {
+      email: currentUser.email,
+      name: currentUser.name?.trim() || currentUser.email,
+    };
+    const fallbackValues = toFormValues(null, userFallback);
+
+    const loadAccountData = async () => {
+      setCustomerProfile(null);
+      setFormValues(fallbackValues);
+      setProfileError(null);
+      setOrderHistoryError(null);
+      setReservationHistoryError(null);
+      setOrderActionError(null);
+      setIsLoadingProfile(true);
+      setIsLoadingHistory(false);
+
+      try {
+        let profile = await getCustomerProfileByUser(restaurantId, currentUser.$id);
+
+        if (!profile) {
+          try {
+            profile = await upsertCustomerProfile({
+              restaurantId,
+              userId: currentUser.$id,
+              fullName: userFallback.name,
+              email: currentUser.email,
+              phone: "",
+            });
+          } catch (error) {
+            if (isMounted) {
+              setProfileError({
+                title: t("customerProfileCreateFailed"),
+                message: getProfileCreateErrorMessage(error),
+              });
+            }
+          }
+        }
+
+        if (isMounted) {
+          setCustomerProfile(profile);
+          setFormValues(toFormValues(profile, userFallback));
+        }
+      } catch (error) {
+        if (isMounted) {
+          setCustomerProfile(null);
+          setFormValues(fallbackValues);
+          setProfileError({
+            title: t("customerProfileLoadFailed"),
+            message: getProfileLoadErrorMessage(error),
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingProfile(false);
+        }
+      }
+
+      if (!isMounted) {
+        return;
+      }
+
+      setIsLoadingHistory(true);
+
+      try {
+        const history = await getCustomerAccountHistory({
           restaurantId,
           restaurantSlug,
           userId: currentUser.$id,
-        }),
-      ]);
+        });
 
-      setCustomerProfile(profile);
-      setFormValues(toFormValues(profile, { email: currentUser.email, name: currentUser.name }));
-      setOrders(history.orders);
-      setReservations(history.reservations);
-    } catch (error) {
-      setErrorMessage(mapKnownErrorToFriendlyMessage(error, t));
-    } finally {
-      setIsLoadingAccount(false);
-    }
-  }, [currentUser, hasBlockingProfileIssue, isAdminSession, restaurantId, restaurantSlug, t]);
+        if (isMounted) {
+          setOrders(history.orders);
+          setReservations(history.reservations);
+        }
+      } catch (error) {
+        if (isMounted) {
+          const historyErrorMessage = getHistoryErrorMessage(error);
+          setOrders([]);
+          setReservations([]);
+          setOrderHistoryError(historyErrorMessage);
+          setReservationHistoryError(historyErrorMessage);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingHistory(false);
+        }
+      }
+    };
 
-  useEffect(() => {
     void loadAccountData();
-  }, [loadAccountData]);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser, hasBlockingProfileIssue, isAdminSession, restaurantId, restaurantSlug, t]);
 
   const updateFormValue = <Key extends keyof ProfileFormValues>(key: Key, value: ProfileFormValues[Key]) => {
     setFormValues((current) => ({ ...current, [key]: value }));
     setNotice(null);
-    setErrorMessage(null);
+    setProfileError(null);
   };
 
   const saveProfile = async (event: FormEvent<HTMLFormElement>) => {
@@ -235,7 +370,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
     }
 
     setIsSavingProfile(true);
-    setErrorMessage(null);
+    setProfileError(null);
     setNotice(null);
 
     try {
@@ -251,10 +386,13 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
       };
       const savedProfile = await upsertCustomerProfile(input);
       setCustomerProfile(savedProfile);
-      setFormValues(toFormValues(savedProfile, { email: currentUser.email, name: currentUser.name }));
+      setFormValues(toFormValues(savedProfile, { email: currentUser.email, name: currentUser.name?.trim() || currentUser.email }));
       setNotice(t("accountProfileSaved"));
     } catch (error) {
-      setErrorMessage(mapKnownErrorToFriendlyMessage(error, t));
+      setProfileError({
+        title: t("customerProfileSaveFailed"),
+        message: getProfileSaveErrorMessage(error),
+      });
     } finally {
       setIsSavingProfile(false);
     }
@@ -272,7 +410,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
 
   const reorder = async (order: Order) => {
     setIsReordering(order.id);
-    setErrorMessage(null);
+    setOrderActionError(null);
     setNotice(null);
 
     try {
@@ -306,7 +444,7 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
       setNotice(t("previousOrderAddedToCart"));
       navigate(publicPath);
     } catch (error) {
-      setErrorMessage(mapKnownErrorToFriendlyMessage(error, t));
+      setOrderActionError(getSpecificErrorMessage(error, t("orderHistoryLoadFailed")));
     } finally {
       setIsReordering(null);
     }
@@ -433,58 +571,69 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
         </nav>
 
         {notice ? <div className="admin-form-note">{notice}</div> : null}
-        {errorMessage ? <AdminErrorState title={t("operationFailed")} message={errorMessage} /> : null}
 
-        {isLoadingAccount ? (
-          <section className="customer-account-card customer-account-card--centered" role="status" aria-busy="true">
-            <Loader2 className="admin-spin" aria-hidden="true" />
-            <p>{t("loading")}</p>
-          </section>
-        ) : activeTab === "details" ? (
+        {activeTab === "details" ? (
           <section className="customer-account-card">
-            <form className="customer-profile-form" onSubmit={saveProfile}>
-              <label>
+            {isLoadingProfile ? <div className="admin-form-note" role="status">{t("loading")}</div> : null}
+            {profileError ? <AdminErrorState title={profileError.title} message={profileError.message} /> : null}
+            <form className="customer-profile-form" onSubmit={saveProfile} noValidate>
+              <label htmlFor="customer-account-full-name">
                 <span>{t("customerName")}</span>
                 <input
+                  id="customer-account-full-name"
+                  name="fullName"
                   value={formValues.fullName}
                   onChange={(event) => updateFormValue("fullName", event.target.value)}
                   autoComplete="name"
                   required
                 />
               </label>
-              <label>
+              <label htmlFor="customer-account-phone">
                 <span>{t("customerPhone")}</span>
                 <input
+                  id="customer-account-phone"
+                  name="phone"
                   value={formValues.phone}
                   onChange={(event) => updateFormValue("phone", event.target.value)}
                   autoComplete="tel"
                   inputMode="tel"
                 />
               </label>
-              <label>
+              <label htmlFor="customer-account-email">
                 <span>{t("email")}</span>
                 <input
+                  id="customer-account-email"
+                  name="email"
                   value={formValues.email}
                   onChange={(event) => updateFormValue("email", event.target.value)}
                   autoComplete="email"
                   type="email"
                 />
               </label>
-              <label>
+              <label htmlFor="customer-account-city">
                 <span>{t("city")}</span>
-                <input value={formValues.city} onChange={(event) => updateFormValue("city", event.target.value)} />
+                <input
+                  id="customer-account-city"
+                  name="city"
+                  value={formValues.city}
+                  onChange={(event) => updateFormValue("city", event.target.value)}
+                />
               </label>
-              <label className="customer-profile-form__wide">
+              <label className="customer-profile-form__wide" htmlFor="customer-account-default-address">
                 <span>{t("defaultAddress")}</span>
                 <input
+                  id="customer-account-default-address"
+                  name="defaultAddress"
                   value={formValues.defaultAddress}
                   onChange={(event) => updateFormValue("defaultAddress", event.target.value)}
                   autoComplete="street-address"
                 />
               </label>
-              <label className="customer-profile-form__wide">
+              <label className="customer-profile-form__wide" htmlFor="customer-account-delivery-notes">
                 <span>{t("deliveryNotes")}</span>
                 <textarea
+                  id="customer-account-delivery-notes"
+                  name="deliveryNotes"
                   value={formValues.deliveryNotes}
                   onChange={(event) => updateFormValue("deliveryNotes", event.target.value)}
                   rows={3}
@@ -497,35 +646,52 @@ export default function CustomerAccountPage({ restaurantSlug }: CustomerAccountP
           </section>
         ) : activeTab === "orders" ? (
           <section className="customer-account-list">
-            {orders.length === 0 ? (
+            {isLoadingHistory ? (
+              <div className="customer-account-card customer-account-card--centered" role="status" aria-busy="true">
+                <Loader2 className="admin-spin" aria-hidden="true" />
+                <p>{t("loading")}</p>
+              </div>
+            ) : orderHistoryError ? (
+              <AdminErrorState title={t("orderHistoryLoadFailed")} message={orderHistoryError} />
+            ) : orders.length === 0 ? (
               <div className="customer-account-card customer-account-card--centered">
                 <p>{t("noCustomerOrders")}</p>
               </div>
             ) : (
-              orders.map((order) => (
-                <article className="customer-history-card" key={order.id}>
-                  <div>
-                    <span>{order.trackingCode || order.id}</span>
-                    <h2>{formatPrice(order.totalAmount, siteData?.config.restaurant.currency ?? "MAD")}</h2>
-                    <p>{formatDate(order.createdAt, currentLanguage)}</p>
-                  </div>
-                  <strong>{orderStatusKeys[order.status] ? t(orderStatusKeys[order.status]) : order.status}</strong>
-                  <button
-                    className="admin-primary-link"
-                    type="button"
-                    onClick={() => void reorder(order)}
-                    disabled={isReordering === order.id}
-                  >
-                    <RotateCcw size={17} aria-hidden="true" />
-                    {isReordering === order.id ? t("loading") : t("reorder")}
-                  </button>
-                </article>
-              ))
+              <>
+                {orderActionError ? <AdminErrorState title={t("orderHistoryLoadFailed")} message={orderActionError} /> : null}
+                {orders.map((order) => (
+                  <article className="customer-history-card" key={order.id}>
+                    <div>
+                      <span>{order.trackingCode || order.id}</span>
+                      <h2>{formatPrice(order.totalAmount, siteData?.config.restaurant.currency ?? "MAD")}</h2>
+                      <p>{formatDate(order.createdAt, currentLanguage)}</p>
+                    </div>
+                    <strong>{orderStatusKeys[order.status] ? t(orderStatusKeys[order.status]) : order.status}</strong>
+                    <button
+                      className="admin-primary-link"
+                      type="button"
+                      onClick={() => void reorder(order)}
+                      disabled={isReordering === order.id}
+                    >
+                      <RotateCcw size={17} aria-hidden="true" />
+                      {isReordering === order.id ? t("loading") : t("reorder")}
+                    </button>
+                  </article>
+                ))}
+              </>
             )}
           </section>
         ) : (
           <section className="customer-account-list">
-            {reservations.length === 0 ? (
+            {isLoadingHistory ? (
+              <div className="customer-account-card customer-account-card--centered" role="status" aria-busy="true">
+                <Loader2 className="admin-spin" aria-hidden="true" />
+                <p>{t("loading")}</p>
+              </div>
+            ) : reservationHistoryError ? (
+              <AdminErrorState title={t("reservationHistoryLoadFailed")} message={reservationHistoryError} />
+            ) : reservations.length === 0 ? (
               <div className="customer-account-card customer-account-card--centered">
                 <p>{t("noCustomerReservations")}</p>
               </div>

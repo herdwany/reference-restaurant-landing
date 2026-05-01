@@ -296,31 +296,39 @@ export default function BookingForm({
         }}
         noValidate
       >
-        <label>
+        <label htmlFor="booking-full-name">
           <span>{config.ui.booking.fullName}</span>
           <input
+            id="booking-full-name"
+            name="fullName"
             value={values.fullName}
             onChange={(event) => updateField("fullName", event.target.value)}
             placeholder={config.ui.booking.fullName}
+            autoComplete="name"
             aria-invalid={Boolean(errors.fullName)}
           />
           {errors.fullName ? <small>{errors.fullName}</small> : null}
         </label>
-        <label>
+        <label htmlFor="booking-phone">
           <span>{config.ui.booking.phone}</span>
           <input
+            id="booking-phone"
+            name="phone"
             value={values.phone}
             onChange={(event) => updateField("phone", event.target.value)}
             placeholder="05xxxxxxxx"
+            autoComplete="tel"
             inputMode="tel"
             aria-invalid={Boolean(errors.phone)}
           />
           {errors.phone ? <small>{errors.phone}</small> : null}
         </label>
         <div className="form-row">
-          <label>
+          <label htmlFor="booking-date">
             <span>{config.ui.booking.date}</span>
             <input
+              id="booking-date"
+              name="date"
               value={values.date}
               onChange={(event) => updateField("date", event.target.value)}
               type="date"
@@ -329,9 +337,11 @@ export default function BookingForm({
             />
             {errors.date ? <small>{errors.date}</small> : null}
           </label>
-          <label>
+          <label htmlFor="booking-time">
             <span>{config.ui.booking.time}</span>
             <input
+              id="booking-time"
+              name="time"
               value={values.time}
               onChange={(event) => updateField("time", event.target.value)}
               type="time"
@@ -340,9 +350,11 @@ export default function BookingForm({
             {errors.time ? <small>{errors.time}</small> : null}
           </label>
         </div>
-        <label>
+        <label htmlFor="booking-guests">
           <span>{config.ui.booking.guests}</span>
           <input
+            id="booking-guests"
+            name="guests"
             value={values.guests}
             onChange={(event) => updateField("guests", event.target.value)}
             type="number"
@@ -353,9 +365,11 @@ export default function BookingForm({
           />
           {errors.guests ? <small>{errors.guests}</small> : null}
         </label>
-        <label>
+        <label htmlFor="booking-notes">
           <span>{config.ui.booking.notes}</span>
           <textarea
+            id="booking-notes"
+            name="notes"
             value={values.notes ?? ""}
             onChange={(event) => updateField("notes", event.target.value)}
             placeholder={config.ui.booking.notes}
@@ -367,8 +381,10 @@ export default function BookingForm({
           <div className="booking-policy">
             {config.settings.depositPolicyText ? <p>{config.settings.depositPolicyText}</p> : null}
             {config.settings.cancellationPolicyText ? <p>{config.settings.cancellationPolicyText}</p> : null}
-            <label className="booking-policy__check">
+            <label className="booking-policy__check" htmlFor="booking-policy-accepted">
               <input
+                id="booking-policy-accepted"
+                name="policyAccepted"
                 type="checkbox"
                 checked={Boolean(values.policyAccepted)}
                 onChange={(event) => updateField("policyAccepted", event.target.checked)}
