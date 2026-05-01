@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, Chrome, Facebook, Loader2, LogIn, LogOut, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Chrome, Loader2, LogIn, LogOut, ShieldCheck } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import EmailVerificationGate from "../components/EmailVerificationGate";
@@ -667,10 +667,6 @@ export default function AdminLogin({
             <button className="admin-oauth-button" type="button" onClick={() => handleOAuthLogin("google")} disabled={isSubmitting || isLoading}>
               <Chrome size={18} aria-hidden="true" />
               <span>{t("continueWithGoogle")}</span>
-            </button>
-            <button className="admin-oauth-button" type="button" onClick={() => handleOAuthLogin("facebook")} disabled={isSubmitting || isLoading}>
-              <Facebook size={18} aria-hidden="true" />
-              <span>{t("continueWithFacebook")}</span>
             </button>
             <div className="admin-auth-divider">
               <span>{t("orContinueWithEmail")}</span>

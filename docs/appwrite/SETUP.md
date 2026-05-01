@@ -119,8 +119,8 @@ In Appwrite Console, open `Auth` and confirm:
 
 - Email/password authentication is enabled.
 - Email verification is enabled and SMTP/email delivery is configured for the project.
-- Google OAuth2 is enabled with the client ID/secret from Google Cloud.
-- Facebook OAuth2 is enabled with the app ID/secret from Meta for Developers.
+- Google OAuth2 is supported and should be enabled with the client ID/secret from Google Cloud.
+- Facebook OAuth2 is intentionally disabled/postponed and should not be enabled for this auth flow yet.
 - The public web hostnames are added in `Overview > Platforms` as Web platforms. Redirect URLs only work for hostnames that exist in Appwrite Platforms.
 
 Use these frontend URLs when configuring auth flows:

@@ -2,7 +2,7 @@ import { AppwriteException, ID, OAuthProvider, type Models } from "appwrite";
 import { account, isAppwriteConfigured } from "../lib/appwriteClient";
 
 export type AuthUser = Models.User<Models.Preferences>;
-export type OAuthLoginProvider = "facebook" | "google";
+export type OAuthLoginProvider = "google";
 
 export const APPWRITE_AUTH_NOT_CONFIGURED_MESSAGE = "لم يتم إعداد Appwrite بعد. أضف متغيرات البيئة أولًا.";
 export const ADMIN_APPWRITE_REQUIRED_MESSAGE = "لوحة التحكم تحتاج إعداد Appwrite أولًا.";
@@ -95,7 +95,6 @@ const createEmailPasswordSessionWithRetry = async (email: string, password: stri
 };
 
 const oauthProviders: Record<OAuthLoginProvider, OAuthProvider> = {
-  facebook: OAuthProvider.Facebook,
   google: OAuthProvider.Google,
 };
 
